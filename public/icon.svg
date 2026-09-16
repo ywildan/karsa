@@ -1,0 +1,21 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="512" height="512" role="img" aria-label="Karsa">
+  <!--
+    Karsa: ikon/favicon sementara (PRD bagian 19, D7: placeholder SVG dulu).
+    Warna latar = token aksen (primary) di globals.css.
+    Digambar sebagai path, bukan teks, supaya render konsisten
+    walau font sistem tidak tersedia.
+  -->
+  <rect width="512" height="512" rx="112" fill="#CF6A12" />
+
+  <g fill="none" stroke="#FDFBF7" stroke-linecap="round" stroke-linejoin="round">
+    <!-- Batang huruf K -->
+    <path d="M196 128 V384" stroke-width="60" />
+    <!-- Lengan atas -->
+    <path d="M196 256 L344 128" stroke-width="56" />
+    <!-- Lengan bawah -->
+    <path d="M196 256 L344 384" stroke-width="56" />
+  </g>
+
+  <!-- Titik aksen: "satu poin" -->
+  <circle cx="360" cy="392" r="20" fill="#FDFBF7" />
+</svg>

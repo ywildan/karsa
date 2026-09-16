@@ -111,10 +111,6 @@ export function isAllowedEmail(email?: string | null): boolean {
   return allowed.includes(domain);
 }
 
-/** Ambil path inisial channel dari cookie override (PRD §4.2) — untuk dipakai nanti. */
-export const CHANNEL_COOKIE = "karsa_channel";
-export type Channel = "mobile" | "desktop";
-
 /** Rentang poin yang sah (PRD §8 — fixed 1–4). */
 export const POIN_MIN = 1;
 export const POIN_MAX = 4;

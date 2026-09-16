@@ -11,6 +11,8 @@
  *   · komponen UI (label peran)
  */
 
+import { DESKTOP_HOME, MOBILE_HOME, type Channel } from "@/lib/channel";
+
 export type Role = "admin" | "pj" | "mahasiswa" | "tanpa_kelas";
 
 /** Klaim minimum untuk menentukan peran & home channel. */
@@ -21,26 +23,41 @@ export interface RoleClaims {
   kelas_id?: string | null;
 }
 
-/** Home channel admin (PRD §7.1). */
+/** Home channel admin desktop (PRD §7.1). */
 export const HOME_ADMIN = "/admin/dashboard";
 
 /**
- * Home channel default: mahasiswa, PJ, dan user tanpa kelas (PRD §7.2–§7.4).
- * PJ akan dipindah ke `/catat-poin` pada Fase 1.5/3A — route-nya belum ada,
- * jadi untuk sekarang semua non-admin mendarat di `/dashboard`.
+ * Home channel default untuk mahasiswa, user tanpa kelas, dan admin di
+ * channel mobile (keputusan Fase 1.5: admin + mobile → `/dashboard`).
  */
-export const HOME_DEFAULT = "/dashboard";
+export const HOME_DEFAULT = DESKTOP_HOME;
 
 /** Halaman login — dipakai middleware & halaman publik. */
 export const LOGIN_PATH = "/login";
 
 /**
- * Home channel berdasarkan klaim session.
- * Selalu panggil di server (claim-nya sudah di-refresh dari DB — lihat
- * `callbacks.jwt` di `auth.ts`).
+ * Home channel berdasarkan klaim session + channel efektif.
+ *
+ *   admin + desktop → `/admin/dashboard`
+ *   admin + mobile  → `/dashboard`
+ *   PJ              → `/catat-poin` (locked, channel diabaikan)
+ *   lainnya         → `/dashboard`
+ *
+ * `channel` wajib diisi dari `resolveChannel(cookie, UA)` di middleware,
+ * halaman `/login`, dan `setChannelAction` — satu fungsi, tiga pemakai.
+ * Kalau `channel` dihilangkan, admin dianggap desktop (aman sebagai fallback).
  */
-export function homePathForUser(claims: RoleClaims | null | undefined): string {
-  return claims?.is_admin ? HOME_ADMIN : HOME_DEFAULT;
+export function homePathForUser(
+  claims: RoleClaims | null | undefined,
+  channel?: Channel,
+): string {
+  if (claims?.is_admin) {
+    return channel === "mobile" ? DESKTOP_HOME : HOME_ADMIN;
+  }
+  if (claims?.is_pj) {
+    return MOBILE_HOME;
+  }
+  return HOME_DEFAULT;
 }
 
 /**
