@@ -451,7 +451,7 @@ INSERT INTO "Matkul" ("id", "name", "code", "created_at", "updated_at")
 VALUES
     ('matkul_algo', 'Algoritma dan Pemrograman', 'TIF1101', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP),
     ('matkul_pweb', 'Pemrograman Web',           'TIF1102', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
-ON CONFLICT ("name") DO NOTHING;
+ON CONFLICT ("code") DO NOTHING;
 
 -- --- Kelas TI-01 (terikat Prodi TI + semester aktif) ------------------------
 -- `kelas_id` diresolusi lewat nama supaya tetap benar walau semester di-seed
