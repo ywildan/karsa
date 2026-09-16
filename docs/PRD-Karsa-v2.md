@@ -408,12 +408,14 @@ actions/rekap.ts       ❌ ← Fase 5
 
 | Fitur | Status | Catatan |
 |---|---|---|
-| Auth NextAuth v5 + filter domain | `BUTUH VERIFIKASI` | Belum diverifikasi ulang pasca-fix |
-| JWT refresh `is_admin` / `kelas_id` | `BUTUH VERIFIKASI` | Sama |
-| Middleware guard route | `SELESAI` | Akan **diperluas** untuk device detection |
-| CRUD Semester / Prodi / Matkul / Kelas | `SELESAI` | — |
-| Detail Kelas — Mahasiswa + Matkul & PJ | `SELESAI` | — |
-| **Rebranding SiPoin → Karsa** | `BELUM` | Baru di v2.0 |
+| Auth NextAuth v5 + filter domain | `SEBAGIAN` | Fase 1: Google OAuth + filter domain lewat `callbacks.signIn` (`auth.config.ts`). Alur Google **belum diuji end-to-end** (butuh kredensial OAuth asli) — sisanya teruji. |
+| Dev Quick Login (4 tombol, guard produksi) | `SELESAI` | Fase 1: provider Credentials `dev-login` + Server Action. 3 lapis guard `NODE_ENV`: UI, pendaftaran provider, `authorize()`/action. Teruji 17 assertion lewat HTTP. |
+| JWT refresh `is_admin` / `kelas_id` | `SELESAI` | Fase 1: `callbacks.jwt` me-refresh dari DB tiap pembacaan session (id, `nim`, `is_admin`, `kelas_id`, `is_pj`). Teruji per role. |
+| Middleware guard route | `SELESAI` | Fase 1: `/admin/*` (is_admin), `/dashboard/*` (login), `/login` (redirect home channel). Akan **diperluas** untuk device detection di Fase 1.5. |
+| Halaman `/login` + `/dashboard` placeholder | `SELESAI` | Fase 1: logo + tagline, tombol Google, blok dev (dev-only), pesan error role/domain; `/dashboard` menampilkan nama + role + `kelas_id` + logout + empty state §7.4. Rapor penuh = Fase 4A. |
+| CRUD Semester / Prodi / Matkul / Kelas | `BELUM` | **Koreksi §12 lama:** folder `actions/` belum punya modul CRUD (hanya `actions/auth.ts` dari Fase 1). Perlu dikerjakan sebelum Fase 3A/5 atau dicatat sebagai hutang teknis. |
+| Detail Kelas — Mahasiswa + Matkul & PJ | `BELUM` | **Koreksi §12 lama:** belum ada halaman `admin/kelas/[id]` di repo. |
+| **Rebranding SiPoin → Karsa** | `SELESAI` | Terverifikasi di repo Fase 1: tidak ada lagi teks "SiPoin" di kode/UI (hanya tersisa di dokumen ini sebagai catatan nama lama). |
 | **Dual channel routing** | `BELUM` | Baru di v2.0 |
 | **PWA manifest** | `BELUM` | Baru di v2.0 |
 | **Fase 3A — Input poin PJ (mobile)** | `BELUM` | Prioritas #1 |
@@ -422,10 +424,19 @@ actions/rekap.ts       ❌ ← Fase 5
 | **Fase 4A — Rapor mahasiswa (desktop)** | `BELUM` | — |
 | **Fase 4C — Leaderboard (masked)** | `BELUM` | — |
 | **Fase 5 — Rekap & export admin** | `BELUM` | — |
-| Schema push ke Neon | `BUTUH VERIFIKASI` | Belum dikonfirmasi |
-| Seed di Neon | `BUTUH VERIFIKASI` | Hanya teruji Docker lokal |
+| Schema push ke Supabase/Postgres | `SELESAI` | Dikonfirmasi user: Supabase live, 11 tabel. Skema yang sama (`prisma/init.sql`) direplikasi di Postgres lokal saat verifikasi Fase 1. |
+| Seed di Supabase/Postgres | `SELESAI` | Dikonfirmasi user: 5 test user + data uji lengkap. Idempoten, teruji ulang Fase 1. |
 
 **Label:** `SELESAI` · `SEBAGIAN` · `BELUM` · `BUTUH VERIFIKASI`.
+
+> **Catatan verifikasi Fase 1 (Auth + Dev Quick Login).** Repo diverifikasi ulang,
+> dan ada dua klaim §12 lama yang tidak sesuai kondisi kode saat itu: tidak ada
+> `auth.ts`/`middleware.ts` sama sekali, dan tidak ada modul CRUD di `actions/`
+> (lihat baris "Koreksi §12 lama"). Yang sudah teruji di Fase 1: 51 assertion
+> HTTP (matriks guard role × route, klaim session per role, jalur tombol Dev
+> Quick Login, penolakan dev login saat `NODE_ENV=production`). Yang **belum**
+> teruji: alur Google OAuth asli (butuh kredensial OAuth kampus) dan perilaku
+> multi-device (Fase 1.5).
 
 ---
 
