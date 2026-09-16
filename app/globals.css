@@ -1,0 +1,119 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* ===========================================================================
+   Karsa — app/globals.css
+   ---------------------------------------------------------------------------
+   Design token (gaya shadcn/ui) dalam format HSL tanpa pembungkus hsl(),
+   supaya bisa dipakai Tailwind sebagai `hsl(var(--token))`.
+
+   Palet sengaja dipilih netral + satu warna aksen hangat (sesuai suara brand:
+   hangat, tidak kaku). Warna aksen final masih terbuka di PRD §19 (D6),
+   jadi default ini boleh diganti tanpa mengubah komponen.
+   =========================================================================== */
+
+@layer base {
+  :root {
+    --background: 40 33% 99%;
+    --foreground: 240 10% 12%;
+
+    --card: 0 0% 100%;
+    --card-foreground: 240 10% 12%;
+
+    --popover: 0 0% 100%;
+    --popover-foreground: 240 10% 12%;
+
+    /* Aksen Karsa — amber tua yang hangat */
+    --primary: 28 84% 44%;
+    --primary-foreground: 40 33% 99%;
+
+    --secondary: 40 20% 96%;
+    --secondary-foreground: 240 10% 12%;
+
+    --muted: 40 16% 96%;
+    --muted-foreground: 240 4% 46%;
+
+    --accent: 36 60% 95%;
+    --accent-foreground: 28 84% 32%;
+
+    --destructive: 0 72% 51%;
+    --destructive-foreground: 0 0% 100%;
+
+    --border: 40 12% 90%;
+    --input: 40 12% 88%;
+    --ring: 28 84% 44%;
+
+    --radius: 16px;
+  }
+
+  .dark {
+    --background: 240 10% 8%;
+    --foreground: 40 20% 96%;
+
+    --card: 240 8% 11%;
+    --card-foreground: 40 20% 96%;
+
+    --popover: 240 8% 11%;
+    --popover-foreground: 40 20% 96%;
+
+    --primary: 32 88% 56%;
+    --primary-foreground: 240 10% 8%;
+
+    --secondary: 240 6% 16%;
+    --secondary-foreground: 40 20% 96%;
+
+    --muted: 240 6% 16%;
+    --muted-foreground: 240 5% 65%;
+
+    --accent: 240 6% 18%;
+    --accent-foreground: 32 88% 62%;
+
+    --destructive: 0 62% 46%;
+    --destructive-foreground: 0 0% 100%;
+
+    --border: 240 6% 20%;
+    --input: 240 6% 22%;
+    --ring: 32 88% 56%;
+  }
+
+  * {
+    @apply border-border;
+  }
+
+  html {
+    -webkit-tap-highlight-color: transparent;
+    scroll-behavior: smooth;
+  }
+
+  body {
+    @apply bg-background text-foreground antialiased;
+    font-feature-settings: "rlig" 1, "calt" 1;
+    text-rendering: optimizeLegibility;
+  }
+
+  /* Hormati preferensi pengguna yang mematikan animasi. */
+  @media (prefers-reduced-motion: reduce) {
+    *,
+    *::before,
+    *::after {
+      animation-duration: 0.01ms !important;
+      animation-iteration-count: 1 !important;
+      transition-duration: 0.01ms !important;
+      scroll-behavior: auto !important;
+    }
+  }
+}
+
+@layer utilities {
+  /* Region aman untuk bottom nav channel mobile (iPhone home indicator). */
+  .pb-safe {
+    padding-bottom: env(safe-area-inset-bottom);
+  }
+
+  /* Angka besar di hero rapor (PRD §10.2) pakai tabular agar tidak goyang
+     saat animasi count-up. */
+  .tabular-nums {
+    font-variant-numeric: tabular-nums;
+  }
+}

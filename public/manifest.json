@@ -1,0 +1,21 @@
+{
+  "name": "Karsa — Sistem Poin UNTIDAR",
+  "short_name": "Karsa",
+  "description": "Setiap karsa, satu poin. Pencatatan poin keaktifan mahasiswa Universitas Tidar.",
+  "lang": "id",
+  "dir": "ltr",
+  "start_url": "/",
+  "scope": "/",
+  "display": "standalone",
+  "background_color": "#FDFBF7",
+  "theme_color": "#CF6A12",
+  "categories": ["education", "productivity"],
+  "icons": [
+    {
+      "src": "/icon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any"
+    }
+  ]
+}

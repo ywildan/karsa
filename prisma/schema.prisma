@@ -1,0 +1,219 @@
+// ============================================================================
+// Karsa — prisma/schema.prisma
+// Sistem Pencatatan Poin Keaktifan Mahasiswa UNTIDAR
+// ----------------------------------------------------------------------------
+// CATATAN PENTING (Fase 0)
+//
+//  * Schema ini = sumber kebenaran struktur data (PRD §5).
+//  * Untuk membuat tabel di Supabase TANPA `prisma db push`
+//    (mis. dari sandbox yang tidak bisa unduh engine Prisma), jalankan
+//    `prisma/init.sql` di Supabase SQL Editor. Isi init.sql adalah cermin
+//    dari schema ini — kalau schema berubah, update keduanya.
+//  * DATABASE_URL = koneksi pooled (Supavisor, port 6543) untuk runtime app.
+//    DIRECT_URL   = koneksi langsung (port 5432) untuk db push / seed / studio.
+//  * Konvensi: model PascalCase (= nama tabel), field snake_case (= nama kolom).
+//    Auth.js (NextAuth v5) memakai nama camelCase khusus: emailVerified,
+//    userId, providerAccountId, sessionToken — jangan diubah.
+// ============================================================================
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider  = "postgresql"
+  url       = env("DATABASE_URL")
+  directUrl = env("DIRECT_URL")
+}
+
+// ---------------------------------------------------------------------------
+// Identitas & Auth
+// ---------------------------------------------------------------------------
+
+/// User — diisi otomatis saat login Google (NextAuth v5 + @auth/prisma-adapter).
+/// `kelas_id = null` berarti "user tanpa kelas" (PRD §7.4).
+/// `is_admin` satu-satunya penanda hak akses admin (PRD §6).
+model User {
+  id            String    @id @default(cuid())
+  name          String?
+  /// NIM — hanya untuk mahasiswa. Admin boleh NULL.
+  /// Wajib ada karena header rapor menampilkan NIM (PRD §7.3).
+  nim           String?   @unique
+  email         String    @unique
+  emailVerified DateTime?
+  image         String?
+  is_admin      Boolean   @default(false)
+  kelas_id      String?
+  created_at    DateTime  @default(now())
+  updated_at    DateTime  @default(now()) @updatedAt
+
+  kelas               Kelas?        @relation(fields: [kelas_id], references: [id], onDelete: SetNull, onUpdate: Cascade)
+  accounts            Account[]
+  sessions            Session[]
+  kelasMatkulAsPj     KelasMatkul[] @relation("KelasMatkulPj")
+  poinLogsAsMahasiswa PoinLog[]     @relation("PoinLogMahasiswa")
+  poinLogsAsPj        PoinLog[]     @relation("PoinLogPj")
+
+  @@index([kelas_id])
+}
+
+/// Account — menyimpan tautan akun OAuth (Google). Wajib untuk Auth.js adapter.
+model Account {
+  id                String  @id @default(cuid())
+  userId            String
+  type              String
+  provider          String
+  providerAccountId String
+  refresh_token     String? @db.Text
+  access_token      String? @db.Text
+  expires_at        Int?
+  token_type        String?
+  scope             String?
+  id_token          String? @db.Text
+  session_state     String?
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade, onUpdate: Cascade)
+
+  @@unique([provider, providerAccountId])
+  @@index([userId])
+}
+
+/// Session — tidak dipakai selama strategy JWT, disediakan untuk kompatibilitas.
+model Session {
+  id           String   @id @default(cuid())
+  sessionToken String   @unique
+  userId       String
+  expires      DateTime
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade, onUpdate: Cascade)
+
+  @@index([userId])
+}
+
+/// VerificationToken — standar Auth.js (magic link / email verification).
+model VerificationToken {
+  identifier String
+  token      String   @unique
+  expires    DateTime
+
+  @@unique([identifier, token])
+}
+
+// ---------------------------------------------------------------------------
+// Master akademik
+// ---------------------------------------------------------------------------
+
+/// Semester — hanya satu yang boleh `is_active = true` (PRD §9).
+model Semester {
+  id         String   @id @default(cuid())
+  name       String   @unique // contoh: "Ganjil 2026/2027"
+  start_date DateTime
+  end_date   DateTime
+  is_active  Boolean  @default(false)
+  created_at DateTime @default(now())
+  updated_at DateTime @default(now()) @updatedAt
+
+  kelas Kelas[]
+}
+
+/// Prodi — program studi.
+model Prodi {
+  id         String   @id @default(cuid())
+  name       String   @unique
+  created_at DateTime @default(now())
+  updated_at DateTime @default(now()) @updatedAt
+
+  kelas Kelas[]
+}
+
+/// Matkul — master mata kuliah, dipakai lintas kelas.
+model Matkul {
+  id         String   @id @default(cuid())
+  name       String
+  code       String?  @unique // kode matkul opsional, mis. "TIF1101"
+  created_at DateTime @default(now())
+  updated_at DateTime @default(now()) @updatedAt
+
+  kelasMatkul KelasMatkul[]
+}
+
+/// Kelas — rombongan belajar pada satu prodi & satu semester.
+/// Unique (name, prodi_id, semester_id) sesuai PRD §3.
+model Kelas {
+  id          String   @id @default(cuid())
+  name        String
+  prodi_id    String
+  semester_id String
+  created_at  DateTime @default(now())
+  updated_at  DateTime @default(now()) @updatedAt
+
+  prodi       Prodi        @relation(fields: [prodi_id], references: [id], onDelete: Restrict, onUpdate: Cascade)
+  semester    Semester     @relation(fields: [semester_id], references: [id], onDelete: Restrict, onUpdate: Cascade)
+  users       User[]
+  kelasMatkul KelasMatkul[]
+
+  @@unique([name, prodi_id, semester_id])
+  @@index([prodi_id])
+  @@index([semester_id])
+}
+
+// ---------------------------------------------------------------------------
+// Pencatatan poin
+// ---------------------------------------------------------------------------
+
+/// KelasMatkul — satu matkul yang diajarkan di satu kelas, dipegang 1 PJ.
+/// Unique (kelas_id, matkul_id) sesuai PRD §3.
+model KelasMatkul {
+  id         String   @id @default(cuid())
+  kelas_id   String
+  matkul_id  String
+  pj_id      String
+  created_at DateTime @default(now())
+  updated_at DateTime @default(now()) @updatedAt
+
+  kelas    Kelas    @relation(fields: [kelas_id], references: [id], onDelete: Cascade, onUpdate: Cascade)
+  matkul   Matkul   @relation(fields: [matkul_id], references: [id], onDelete: Restrict, onUpdate: Cascade)
+  pj       User     @relation("KelasMatkulPj", fields: [pj_id], references: [id], onDelete: Restrict, onUpdate: Cascade)
+  poinLogs PoinLog[]
+
+  @@unique([kelas_id, matkul_id])
+  @@index([kelas_id])
+  @@index([matkul_id])
+  @@index([pj_id])
+}
+
+/// KategoriPoin — Bertanya · Menjawab · Presentasi · Lainnya (di-seed).
+model KategoriPoin {
+  id         String   @id @default(cuid())
+  name       String   @unique
+  created_at DateTime @default(now())
+  updated_at DateTime @default(now()) @updatedAt
+
+  poinLogs PoinLog[]
+}
+
+/// PoinLog — satu baris pencatatan = satu "karsa".
+/// Tidak ada poin lepas: setiap baris wajib terikat `kelas_matkul_id` (PRD §3).
+/// `poin` 1–4 divalidasi di server (Zod) + dijaga CHECK constraint di DB.
+model PoinLog {
+  id              String   @id @default(cuid())
+  kelas_matkul_id String
+  mahasiswa_id    String
+  pj_id           String
+  kategori_id     String
+  poin            Int
+  catatan         String?
+  created_at      DateTime @default(now())
+
+  kelasMatkul KelasMatkul  @relation(fields: [kelas_matkul_id], references: [id], onDelete: Cascade, onUpdate: Cascade)
+  mahasiswa   User         @relation("PoinLogMahasiswa", fields: [mahasiswa_id], references: [id], onDelete: Restrict, onUpdate: Cascade)
+  pj          User         @relation("PoinLogPj", fields: [pj_id], references: [id], onDelete: Restrict, onUpdate: Cascade)
+  kategori    KategoriPoin @relation(fields: [kategori_id], references: [id], onDelete: Restrict, onUpdate: Cascade)
+
+  @@index([kelas_matkul_id])
+  @@index([mahasiswa_id])
+  @@index([pj_id])
+  @@index([kategori_id])
+  @@index([created_at])
+  @@index([kelas_matkul_id, mahasiswa_id])
+}
