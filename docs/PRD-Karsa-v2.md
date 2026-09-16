@@ -766,4 +766,4 @@ Setelah Fase 0 lapor bersih:
 
 ---
 
-*Versi 2.0 · Brand: Karsa · Update terakhir: [isi tanggal] · Maintainer: [isi nama]*
+*Versi 2.0 · Brand: Karsa · Update terakhir: [isi tanggal] · Maintainer: Yusuf Wildan Affandi*
