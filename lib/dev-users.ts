@@ -69,8 +69,7 @@ export const DEV_USERS: readonly DevUser[] = [
     label: "Masuk sebagai PJ",
     description: "usr_pj_budi",
     email: "pj.budi@students.untidar.ac.id",
-    // PJ belum punya /catat-poin (Fase 3A) → sementara /dashboard.
-    home: "/dashboard",
+    home: "/catat-poin",
   },
   {
     key: "mahasiswa",

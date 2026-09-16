@@ -371,20 +371,23 @@ tidak menimbulkan drift — kalau nanti pindah ke `migrate`, hapus ketiganya.
 
 ## 11. PETA ROUTE
 
-### Sudah ada (Fase 1 & 2)
+### Sudah ada (Fase 1, 1.5, & 2)
 ```
 /login
 /dashboard                 (placeholder → diisi Fase 4A)
 /admin/*
+/catat-poin                (placeholder shell → diisi Fase 3A)
+/riwayat-poin              (placeholder shell → diisi Fase 3B)
+/poin-saya                 (placeholder shell → diisi Fase 3C)
 ```
 
 ### Akan dibangun
 ```
 MOBILE (route group (mobile)):
-  /catat-poin                        ← Fase 3A
+  /catat-poin                        ← isi Fase 3A (shell sudah ada)
   /catat-poin/[kelas_matkul_id]      ← Fase 3A
-  /riwayat-poin                      ← Fase 3B
-  /poin-saya                         ← Fase 3C
+  /riwayat-poin                      ← isi Fase 3B (shell sudah ada)
+  /poin-saya                         ← isi Fase 3C (shell sudah ada)
 
 DESKTOP (route group (desktop)):
   /dashboard                         ← Fase 4A
@@ -411,13 +414,13 @@ actions/rekap.ts       ❌ ← Fase 5
 | Auth NextAuth v5 + filter domain | `SEBAGIAN` | Fase 1: Google OAuth + filter domain lewat `callbacks.signIn` (`auth.config.ts`). Alur Google **belum diuji end-to-end** (butuh kredensial OAuth asli) — sisanya teruji. |
 | Dev Quick Login (4 tombol, guard produksi) | `SELESAI` | Fase 1: provider Credentials `dev-login` + Server Action. 3 lapis guard `NODE_ENV`: UI, pendaftaran provider, `authorize()`/action. Teruji 17 assertion lewat HTTP. |
 | JWT refresh `is_admin` / `kelas_id` | `SELESAI` | Fase 1: `callbacks.jwt` me-refresh dari DB tiap pembacaan session (id, `nim`, `is_admin`, `kelas_id`, `is_pj`). Teruji per role. |
-| Middleware guard route | `SELESAI` | Fase 1: `/admin/*` (is_admin), `/dashboard/*` (login), `/login` (redirect home channel). Akan **diperluas** untuk device detection di Fase 1.5. |
+| Middleware guard route | `SELESAI` | Fase 1.5: `/admin/*` (is_admin), `/dashboard/*` (login; PJ → `/catat-poin`), path mobile (wajib PJ), `/login` + `/` (redirect home channel). Cookie `karsa_channel` menang atas UA. |
 | Halaman `/login` + `/dashboard` placeholder | `SELESAI` | Fase 1: logo + tagline, tombol Google, blok dev (dev-only), pesan error role/domain; `/dashboard` menampilkan nama + role + `kelas_id` + logout + empty state §7.4. Rapor penuh = Fase 4A. |
 | CRUD Semester / Prodi / Matkul / Kelas | `BELUM` | **Koreksi §12 lama:** folder `actions/` belum punya modul CRUD (hanya `actions/auth.ts` dari Fase 1). Perlu dikerjakan sebelum Fase 3A/5 atau dicatat sebagai hutang teknis. |
 | Detail Kelas — Mahasiswa + Matkul & PJ | `BELUM` | **Koreksi §12 lama:** belum ada halaman `admin/kelas/[id]` di repo. |
 | **Rebranding SiPoin → Karsa** | `SELESAI` | Terverifikasi di repo Fase 1: tidak ada lagi teks "SiPoin" di kode/UI (hanya tersisa di dokumen ini sebagai catatan nama lama). |
-| **Dual channel routing** | `BELUM` | Baru di v2.0 |
-| **PWA manifest** | `BELUM` | Baru di v2.0 |
+| **Dual channel routing** | `SELESAI` | Fase 1.5: route group `(mobile)` / `(desktop)` tanpa mengubah URL, `lib/channel.ts`, `ChannelToggle`, middleware UA + cookie override. Isi halaman mobile = Fase 3. |
+| **PWA manifest** | `SELESAI` | Minimal: `public/manifest.json` + `icon.svg`. Tanpa offline mode. |
 | **Fase 3A — Input poin PJ (mobile)** | `BELUM` | Prioritas #1 |
 | **Fase 3B — Riwayat input PJ** | `BELUM` | — |
 | **Fase 3C — Rapor mobile (PJ dual role)** | `BELUM` | — |

@@ -18,7 +18,7 @@ import { redirect } from "next/navigation";
 import { googleSignInAction } from "@/actions/auth";
 import { Button } from "@/components/button";
 import { DevLoginButtons } from "@/components/dev-login-buttons";
-import { getSession } from "@/lib/auth-helpers";
+import { getRequestChannel, getSession } from "@/lib/auth-helpers";
 import { DEV_USERS, isDevAuthEnabled } from "@/lib/dev-users";
 import { homePathForUser } from "@/lib/roles";
 
@@ -48,7 +48,8 @@ export default async function LoginPage({
 }) {
   const session = await getSession();
   if (session?.user?.id) {
-    redirect(homePathForUser(session.user));
+    const channel = await getRequestChannel();
+    redirect(homePathForUser(session.user, channel));
   }
 
   const { error } = await searchParams;
