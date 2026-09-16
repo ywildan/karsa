@@ -11,8 +11,9 @@
 --   1. Buka project Supabase → SQL Editor → New query.
 --   2. Tempel SELURUH isi file ini.
 --   3. Klik Run. Semua pernyataan idempoten — aman dijalankan berulang.
---   4. Setelah ini jalankan seed: `npm run db:seed`
---      (atau eksekusi blok SEED di bagian paling bawah, baris 300+).
+--      Struktur database + seed data uji selesai dalam satu kali Run
+--      (blok SEED ada di bagian 6, paling bawah file ini).
+--      `npm run db:seed` bersifat opsional — hasilnya identik.
 --
 -- HUBUNGAN DENGAN prisma/schema.prisma
 --   File ini adalah CERMIN dari schema.prisma. Nama tabel & kolom ditulis
@@ -43,6 +44,7 @@ BEGIN;
 CREATE TABLE IF NOT EXISTS "User" (
     "id"            TEXT         NOT NULL,
     "name"          TEXT,
+    "nim"           TEXT,
     "email"         TEXT         NOT NULL,
     "emailVerified" TIMESTAMP(3),
     "image"         TEXT,
@@ -169,6 +171,9 @@ DO $$
 BEGIN
     IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'User_email_key') THEN
         ALTER TABLE "User" ADD CONSTRAINT "User_email_key" UNIQUE ("email");
+    END IF;
+    IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'User_nim_key') THEN
+        ALTER TABLE "User" ADD CONSTRAINT "User_nim_key" UNIQUE ("nim");
     END IF;
     IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'Account_provider_providerAccountId_key') THEN
         ALTER TABLE "Account" ADD CONSTRAINT "Account_provider_providerAccountId_key" UNIQUE ("provider", "providerAccountId");
@@ -362,13 +367,34 @@ CREATE INDEX IF NOT EXISTS "PoinLog_kelas_matkul_id_mahasiswa_id_idx" ON "PoinLo
 COMMIT;
 
 -- ============================================================================
--- 6. SEED MINIMAL (PRD §5: 4 KategoriPoin + 1 Semester aktif)
+-- 6. DATA UJI (seed)
 -- ----------------------------------------------------------------------------
--- Blok ini idempoten. Jalankan setelah blok di atas sukses.
--- Id dibuat eksplisit supaya hasilnya sama dengan `npm run db:seed`
--- kalau nanti seed Prisma dipakai.
+-- Idempoten: semua INSERT memakai ON CONFLICT DO NOTHING. Aman dijalankan
+-- berulang. Blok ini memuat kategori poin & semester (bagian produksi)
+-- sekaligus data uji, supaya SATU KALI Run di Supabase SQL Editor langsung
+-- menghasilkan database siap pakai — termasuk untuk Dev Quick Login Fase 1.
+--
+-- PENTING: data ini untuk development / testing. Jangan dijalankan di
+-- database produksi. Lihat catatan "membersihkan data uji" di bawah.
+--
+-- Konvensi id eksplisit (mudah direferensikan di Fase 1):
+--   usr_admin  usr_pj_budi  usr_siti  usr_agus  usr_user_baru
+--   prodi_ti   matkul_algo  matkul_pweb
+--   smt_ganjil_2026_2027  kelas_ti01
+--   km_algo_ti01  km_pweb_ti01
+--   kat_bertanya  kat_menjawab  kat_presentasi  kat_lainnya
+--   pl_sample_001  pl_sample_002
+--
+-- Email sengaja pakai domain @students.untidar.ac.id supaya lolos filter
+-- domain auth (PRD §1). Saat test user login sungguhan dengan Google, adapter
+-- NextAuth hanya menyentuh kolom name/image/emailVerified — `is_admin`,
+-- `kelas_id`, dan `nim` tetap seperti di-set di sini, jadi role tidak hilang
+-- (nama tampilan bisa ikut ter-update dari profil Google).
 -- ============================================================================
 
+BEGIN;
+
+-- --- Kategori poin (PRD §3: 4 kategori tetap) -------------------------------
 INSERT INTO "KategoriPoin" ("id", "name", "created_at", "updated_at")
 VALUES
     ('kat_bertanya',   'Bertanya',   CURRENT_TIMESTAMP, CURRENT_TIMESTAMP),
@@ -377,13 +403,112 @@ VALUES
     ('kat_lainnya',    'Lainnya',    CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
 ON CONFLICT ("name") DO NOTHING;
 
+-- --- Semester aktif ---------------------------------------------------------
 INSERT INTO "Semester" ("id", "name", "start_date", "end_date", "is_active", "created_at", "updated_at")
 VALUES
     ('smt_ganjil_2026_2027', 'Ganjil 2026/2027', TIMESTAMP '2026-09-01 00:00:00', TIMESTAMP '2027-01-31 23:59:59', true, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
 ON CONFLICT ("name") DO NOTHING;
 
--- Pastikan hanya satu semester aktif (kalau sebelumnya sudah ada yang aktif).
+-- PRD §9: hanya boleh satu semester aktif.
 UPDATE "Semester"
 SET "is_active" = false
 WHERE "is_active" = true
   AND "name" <> 'Ganjil 2026/2027';
+
+-- --- Prodi ------------------------------------------------------------------
+INSERT INTO "Prodi" ("id", "name", "created_at", "updated_at")
+VALUES
+    ('prodi_ti', 'Teknik Informatika', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
+ON CONFLICT ("name") DO NOTHING;
+
+-- --- Matkul -----------------------------------------------------------------
+INSERT INTO "Matkul" ("id", "name", "code", "created_at", "updated_at")
+VALUES
+    ('matkul_algo', 'Algoritma dan Pemrograman', 'TIF1101', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP),
+    ('matkul_pweb', 'Pemrograman Web',           'TIF1102', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
+ON CONFLICT ("name") DO NOTHING;
+
+-- --- Kelas TI-01 (terikat Prodi TI + semester aktif) ------------------------
+-- `kelas_id` diresolusi lewat nama supaya tetap benar walau semester di-seed
+-- lewat `npm run db:seed` (id-nya cuid acak).
+INSERT INTO "Kelas" ("id", "name", "prodi_id", "semester_id", "created_at", "updated_at")
+VALUES (
+    'kelas_ti01',
+    'TI-01',
+    'prodi_ti',
+    (SELECT "id" FROM "Semester" WHERE "name" = 'Ganjil 2026/2027'),
+    CURRENT_TIMESTAMP,
+    CURRENT_TIMESTAMP
+)
+ON CONFLICT ("name", "prodi_id", "semester_id") DO NOTHING;
+
+-- --- Test users -------------------------------------------------------------
+--  Nama             Email                                  NIM          Peran
+--  ------------------------------------------------------------------------
+--  Admin Karsa      admin@students.untidar.ac.id           NULL         admin
+--  Budi Santoso     pj.budi@students.untidar.ac.id         2310501001   PJ
+--  Siti Aminah      siti.aminah@students.untidar.ac.id     2310501002   mahasiswa
+--  Agus Santoso     agus.santoso@students.untidar.ac.id    2310501003   mahasiswa
+--  User Baru        user.baru@students.untidar.ac.id       2310501099   tanpa kelas
+--
+-- `is_admin` & NIM di-hardcode per baris (bukan lewat variabel) supaya jelas
+-- terbaca saat direview. Domain @students.untidar.ac.id = syarat di Fase 1.
+INSERT INTO "User" ("id", "name", "nim", "email", "is_admin", "kelas_id", "created_at", "updated_at")
+VALUES
+    ('usr_admin',     'Admin Karsa',  NULL,         'admin@students.untidar.ac.id',       true,  NULL,         CURRENT_TIMESTAMP, CURRENT_TIMESTAMP),
+    ('usr_pj_budi',   'Budi Santoso', '2310501001', 'pj.budi@students.untidar.ac.id',     false, 'kelas_ti01', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP),
+    ('usr_siti',      'Siti Aminah',  '2310501002', 'siti.aminah@students.untidar.ac.id', false, 'kelas_ti01', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP),
+    ('usr_agus',      'Agus Santoso', '2310501003', 'agus.santoso@students.untidar.ac.id', false, 'kelas_ti01', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP),
+    ('usr_user_baru', 'User Baru',    '2310501099', 'user.baru@students.untidar.ac.id',   false, NULL,         CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
+ON CONFLICT ("email") DO NOTHING;
+
+-- --- KelasMatkul: Budi sebagai PJ untuk 2 matkul di TI-01 -------------------
+INSERT INTO "KelasMatkul" ("id", "kelas_id", "matkul_id", "pj_id", "created_at", "updated_at")
+VALUES
+    ('km_algo_ti01', 'kelas_ti01', 'matkul_algo', 'usr_pj_budi', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP),
+    ('km_pweb_ti01', 'kelas_ti01', 'matkul_pweb', 'usr_pj_budi', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
+ON CONFLICT ("kelas_id", "matkul_id") DO NOTHING;
+
+-- --- 2 sample PoinLog (agar Fase 4A punya data hidup) -----------------------
+-- Invarian yang dijaga: pj_id = pemegang KelasMatkul, dan mahasiswa_id
+-- memang anggota kelas pemilik KelasMatkul tersebut.
+INSERT INTO "PoinLog" ("id", "kelas_matkul_id", "mahasiswa_id", "pj_id", "kategori_id", "poin", "catatan", "created_at")
+VALUES
+    ('pl_sample_001', 'km_algo_ti01', 'usr_siti', 'usr_pj_budi', 'kat_bertanya',
+     3, 'Bertanya soal kompleksitas waktu algoritma sorting.', CURRENT_TIMESTAMP - INTERVAL '2 days'),
+    ('pl_sample_002', 'km_pweb_ti01', 'usr_agus', 'usr_pj_budi', 'kat_presentasi',
+     4, 'Presentasi demo CRUD sederhana dengan Next.js.',       CURRENT_TIMESTAMP - INTERVAL '1 day')
+ON CONFLICT ("id") DO NOTHING;
+
+COMMIT;
+
+-- ============================================================================
+-- 7. HASIL & CARA MEMBERSIHKAN DATA UJI
+-- ----------------------------------------------------------------------------
+-- Cek cepat setelah Run:
+--   SELECT u."name", u."nim", u."email", u."is_admin",
+--          COALESCE(k."name", '—') AS kelas
+--     FROM "User" u LEFT JOIN "Kelas" k ON k."id" = u."kelas_id"
+--    ORDER BY u."email";
+--   → 5 baris (1 admin tanpa kelas, 3 mahasiswa TI-01, 1 user baru tanpa kelas)
+--
+--   SELECT COUNT(*) AS total_kategori FROM "KategoriPoin";  -- 4
+--   SELECT COUNT(*) AS total_poin_log FROM "PoinLog";        -- 2
+--
+-- Membersihkan data uji (jalankan di Supabase SQL Editor):
+--   BEGIN;
+--   DELETE FROM "PoinLog"
+--    WHERE "id" IN ('pl_sample_001', 'pl_sample_002');
+--   DELETE FROM "KelasMatkul"
+--    WHERE "id" IN ('km_algo_ti01', 'km_pweb_ti01');
+--   DELETE FROM "User"
+--    WHERE "id" IN ('usr_admin', 'usr_pj_budi', 'usr_siti', 'usr_agus', 'usr_user_baru');
+--   DELETE FROM "Matkul" WHERE "id" IN ('matkul_algo', 'matkul_pweb');
+--   DELETE FROM "Kelas"  WHERE "id" = 'kelas_ti01';
+--   DELETE FROM "Prodi"  WHERE "id" = 'prodi_ti';
+--   COMMIT;
+-- Catatan:
+--   · "KategoriPoin" & "Semester" TIDAK dihapus — keduanya data produksi.
+--   · User yang sudah pernah login lewat Google punya baris "Account"/"Session".
+--     Hapus dua tabel itu lebih dulu kalau DELETE di atas kena foreign key.
+-- ============================================================================

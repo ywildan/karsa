@@ -36,6 +36,9 @@ datasource db {
 model User {
   id            String    @id @default(cuid())
   name          String?
+  /// NIM — hanya untuk mahasiswa. Admin boleh NULL.
+  /// Wajib ada karena header rapor menampilkan NIM (PRD §7.3).
+  nim           String?   @unique
   email         String    @unique
   emailVerified DateTime?
   image         String?

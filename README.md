@@ -32,7 +32,7 @@ cp .env.example .env      # lalu isi DATABASE_URL, DIRECT_URL, AUTH_*, dsb.
 npx prisma generate
 npx prisma db push
 
-# 4. Seed: 4 KategoriPoin + 1 Semester aktif
+# 4. Seed: 4 KategoriPoin + 1 Semester aktif + data uji
 npm run db:seed
 
 # 5. Verifikasi
@@ -40,6 +40,26 @@ npx tsc --noEmit
 npm run lint
 npm run build
 ```
+
+### Test user (Dev Quick Login Fase 1)
+
+Blok SEED di `prisma/init.sql` **dan** `npm run db:seed` sama-sama membuat data
+uji ini — jadi kamu bisa ganti role tanpa akun Google asli:
+
+| Email | NIM | Peran |
+|---|---|---|
+| `admin@students.untidar.ac.id` | — | admin (`is_admin = true`, tanpa kelas) |
+| `pj.budi@students.untidar.ac.id` | 2310501001 | PJ (TI-01, pegang 2 KelasMatkul) |
+| `siti.aminah@students.untidar.ac.id` | 2310501002 | mahasiswa TI-01 |
+| `agus.santoso@students.untidar.ac.id` | 2310501003 | mahasiswa TI-01 |
+| `user.baru@students.untidar.ac.id` | 2310501099 | tanpa kelas (`kelas_id = null`) |
+
+Plus 1 Prodi (Teknik Informatika), 2 Matkul (Algoritma dan Pemrograman,
+Pemrograman Web), 1 Kelas (TI-01), 2 KelasMatkul, dan 2 sample PoinLog.
+
+Semua baris pakai id eksplisit (`usr_admin`, `prodi_ti`, `kelas_ti01`, dst.)
+supaya mudah direferensikan di Fase 1. Data uji bisa dimatikan dengan
+`SEED_TEST_DATA="false"` — **wajib** kalau seed dijalankan ke database produksi.
 
 ### `prisma/init.sql` vs `prisma/schema.prisma`
 
