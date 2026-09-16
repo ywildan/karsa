@@ -186,7 +186,8 @@ Middleware menentukan channel:
 > Sumber asli: `prisma/schema.prisma`. **Schema menang** jika berbeda.
 
 ```
-User         →  kelas_id (FK Kelas, nullable), is_admin
+User         →  nim? (unique, nullable — NIM mahasiswa; NULL untuk admin)
+                kelas_id (FK Kelas, nullable), is_admin
 Kelas        →  prodi_id, semester_id
                 @@unique([name, prodi_id, semester_id])
 KelasMatkul  →  kelas_id, matkul_id, pj_id (FK User)
@@ -197,6 +198,12 @@ KategoriPoin →  name (unique)
 ```
 
 **Seed minimal:** 4 KategoriPoin + 1 Semester aktif.
+
+**Guard di level database (`prisma/init.sql`):** di luar schema Prisma ada 2 `CHECK`
+(`poin` 1–4, `end_date > start_date`) dan 1 partial unique index
+`Semester_satu_aktif_key` yang menjaga "hanya 1 semester aktif" (§9) walaupun ada
+jalur tulis di luar aplikasi. Karena `prisma migrate` tidak dipakai, objek ini
+tidak menimbulkan drift — kalau nanti pindah ke `migrate`, hapus ketiganya.
 
 ---
 

@@ -30,7 +30,7 @@
  *   SEED_SEMESTER_NAME, SEED_SEMESTER_START, SEED_SEMESTER_END,
  *   SEED_TEST_DATA, ADMIN_EMAIL
  */
-import { PrismaClient } from "@prisma/client";
+import { Prisma, PrismaClient } from "@prisma/client";
 
 const prisma = new PrismaClient();
 
@@ -98,14 +98,10 @@ async function seedSemester(): Promise<void> {
     throw new Error("SEED_SEMESTER_END harus setelah SEED_SEMESTER_START.");
   }
 
-  const semester = await prisma.semester.upsert({
-    where: { name: SEMESTER_NAME },
-    update: { start_date, end_date, is_active: true },
-    create: { name: SEMESTER_NAME, start_date, end_date, is_active: true },
-  });
-  console.log(`  · Semester aktif: ${semester.name} (${semester.id})`);
-
-  // PRD §9: hanya 1 semester aktif pada satu waktu.
+  // PRD §9: hanya 1 semester aktif. URUTAN PENTING — matikan semester lain
+  // DULU, baru nyalakan semester ini. Kalau dibalik, partial unique index
+  // "Semester_satu_aktif_key" akan menolak (P2002) saat ada semester lain
+  // yang sedang aktif.
   const dimatikan = await prisma.semester.updateMany({
     where: { name: { not: SEMESTER_NAME }, is_active: true },
     data: { is_active: false },
@@ -113,6 +109,13 @@ async function seedSemester(): Promise<void> {
   if (dimatikan.count > 0) {
     console.log(`  · ${dimatikan.count} semester lain dinonaktifkan (is_active = false).`);
   }
+
+  const semester = await prisma.semester.upsert({
+    where: { name: SEMESTER_NAME },
+    update: { start_date, end_date, is_active: true },
+    create: { name: SEMESTER_NAME, start_date, end_date, is_active: true },
+  });
+  console.log(`  · Semester aktif: ${semester.name} (${semester.id})`);
 }
 
 async function promoteAdmin(): Promise<void> {
@@ -238,6 +241,26 @@ async function seedTestUsers(): Promise<void> {
   ] as const;
 
   for (const user of users) {
+    // Kasus: user sudah terlanjur dibuat NextAuth saat login Google —
+    // email sama, tapi id-nya cuid acak. `upsert` by id akan gagal dengan
+    // unique violation pada email. Deteksi lebih dulu supaya pesannya jelas.
+    const emailTerpakai = await prisma.user.findUnique({
+      where: { email: user.email },
+      select: { id: true },
+    });
+
+    if (emailTerpakai && emailTerpakai.id !== user.id) {
+      console.warn(
+        `  ⚠️  ${user.email} sudah ada dengan id "${emailTerpakai.id}" — dilewati.\n` +
+          `      Perbaiki dengan menghapus baris itu (beserta Account/Session-nya),\n` +
+          `      atau set manual:\n` +
+          `      UPDATE "User" SET is_admin = ${user.is_admin}, ` +
+          `kelas_id = ${user.kelas_id ? `'${user.kelas_id}'` : "NULL"}, ` +
+          `nim = ${user.nim ? `'${user.nim}'` : "NULL"} WHERE email = '${user.email}';`,
+      );
+      continue;
+    }
+
     await prisma.user.upsert({
       where: { id: user.id },
       update: {
@@ -347,7 +370,17 @@ async function main(): Promise<void> {
 
 main()
   .catch((error: unknown) => {
-    console.error("❌ Seed gagal:", error);
+    // P2002 = unique constraint violation. Biasanya karena baris dengan nilai
+    // unik yang sama sudah ada tapi id-nya berbeda (mis. prodi/matkul/kelas
+    // dibuat lewat panel admin, atau user dibuat NextAuth saat login Google).
+    if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === "P2002") {
+      console.error(
+        "❌ Seed gagal: ada data dengan nilai unik yang sama tapi id berbeda.\n" +
+          "   Hapus baris lama itu (atau sesuaikan id di prisma/seed.ts), lalu jalankan ulang.",
+      );
+    } else {
+      console.error("❌ Seed gagal:", error);
+    }
     process.exitCode = 1;
   })
   .finally(async () => {

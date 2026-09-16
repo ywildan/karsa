@@ -377,6 +377,20 @@ COMMIT;
 -- PENTING: data ini untuk development / testing. Jangan dijalankan di
 -- database produksi. Lihat catatan "membersihkan data uji" di bawah.
 --
+-- DUA URUTAN YANG PERLU DIPERHATIKAN:
+--   1. Jalankan blok ini SEBELUM login Google pertama untuk email test di
+--      bawah. Kalau user sudah terlanjur dibuat NextAuth (id cuid acak,
+--      email sama), INSERT user akan konflik pada email lalu di-skip —
+--      akibatnya `is_admin` / `kelas_id` / `nim` tidak ter-set. Perbaikannya:
+--        DELETE FROM "Account" WHERE "userId" = (SELECT "id" FROM "User" WHERE email = '...');
+--        DELETE FROM "Session" WHERE "userId" = (SELECT "id" FROM "User" WHERE email = '...');
+--        DELETE FROM "User"    WHERE email = '...';
+--      lalu jalankan blok ini lagi. (Blok ini sengaja hanya DO NOTHING,
+--      tidak pernah menimpa baris yang sudah ada.)
+--   2. Sample PoinLog akan DIBUAT ULANG kalau kamu menghapusnya lewat app
+--      (PJ boleh hapus poinnya sendiri) lalu menjalankan blok ini lagi —
+--      id-nya tetap, jadi dianggap baris yang sama.
+--
 -- Konvensi id eksplisit (mudah direferensikan di Fase 1):
 --   usr_admin  usr_pj_budi  usr_siti  usr_agus  usr_user_baru
 --   prodi_ti   matkul_algo  matkul_pweb
@@ -409,11 +423,22 @@ VALUES
     ('smt_ganjil_2026_2027', 'Ganjil 2026/2027', TIMESTAMP '2026-09-01 00:00:00', TIMESTAMP '2027-01-31 23:59:59', true, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
 ON CONFLICT ("name") DO NOTHING;
 
--- PRD §9: hanya boleh satu semester aktif.
+-- PRD §9: hanya boleh satu semester aktif. URUTAN PENTING — matikan yang lain
+-- dulu (kalau ada), baru nyalakan semester seed di bawah, supaya partial
+-- unique index "Semester_satu_aktif_key" tidak dilanggar.
 UPDATE "Semester"
 SET "is_active" = false
 WHERE "is_active" = true
   AND "name" <> 'Ganjil 2026/2027';
+
+-- Kalau barisnya sudah ada tapi sedang nonaktif (mis. dibuat lewat
+-- `npm run db:seed` dengan id berbeda, atau terlanjur dimatikan manual),
+-- aktifkan lagi. Guard `AND "is_active" = false` membuatnya no-op saat
+-- blok ini dijalankan ulang — jadi tidak ada perubahan sia-sia.
+UPDATE "Semester"
+SET "is_active" = true, "updated_at" = CURRENT_TIMESTAMP
+WHERE "name" = 'Ganjil 2026/2027'
+  AND "is_active" = false;
 
 -- --- Prodi ------------------------------------------------------------------
 INSERT INTO "Prodi" ("id", "name", "created_at", "updated_at")

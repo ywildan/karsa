@@ -61,6 +61,23 @@ Semua baris pakai id eksplisit (`usr_admin`, `prodi_ti`, `kelas_ti01`, dst.)
 supaya mudah direferensikan di Fase 1. Data uji bisa dimatikan dengan
 `SEED_TEST_DATA="false"` — **wajib** kalau seed dijalankan ke database produksi.
 
+**Idempoten — aman dijalankan berulang.** `prisma/init.sql` dan `npm run db:seed`
+sama-sama bisa dijalankan dua kali atau lebih tanpa error, tanpa duplikat user /
+kelas / matkul, dan sample PoinLog tetap 2 baris (bukan menumpuk).
+
+Dua hal yang perlu diperhatikan:
+
+1. **Jalankan seed sebelum login Google pertama** untuk email test. Kalau user
+   sudah terlanjur dibuat NextAuth (id cuid acak, email sama), seed akan
+   melewatinya supaya tidak menimpa role — hapus baris user itu (beserta
+   `Account`/`Session`-nya) lalu jalankan seed lagi.
+2. **Sample PoinLog akan dibuat ulang** kalau kamu menghapusnya lewat app lalu
+   menjalankan seed lagi (id-nya tetap, jadi dianggap baris yang sama).
+
+Seed juga sengaja tidak pernah menimpa baris yang sudah ada (`DO NOTHING` /
+`update` idempoten), jadi perubahan role manual di panel admin tidak akan
+tertimpa — kecuali tanggal & status aktif semester seed itu sendiri.
+
 ### `prisma/init.sql` vs `prisma/schema.prisma`
 
 `schema.prisma` adalah sumber kebenaran struktur data. `init.sql` adalah
