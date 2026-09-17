@@ -52,10 +52,10 @@ export function PoinDetailPopup({
 
               <DialogPrimitive.Content forceMount asChild>
                 <motion.section
-                  className="fixed left-1/2 top-1/2 z-50 flex max-h-[calc(100dvh-2rem)] w-[calc(100vw-2rem)] max-w-2xl -translate-x-1/2 -translate-y-1/2 flex-col rounded-2xl border border-border bg-card shadow-lg focus:outline-none"
-                  initial={{ opacity: 0, scale: 0.95 }}
-                  animate={{ opacity: 1, scale: 1 }}
-                  exit={{ opacity: 0, scale: 0.95 }}
+                  className="fixed left-1/2 top-1/2 z-50 flex max-h-[calc(100dvh-2rem)] w-[calc(100vw-2rem)] max-w-2xl flex-col rounded-2xl border border-border bg-card shadow-lg focus:outline-none"
+                  initial={{ opacity: 0, scale: 0.95, x: "-50%", y: "-50%" }}
+                  animate={{ opacity: 1, scale: 1, x: "-50%", y: "-50%" }}
+                  exit={{ opacity: 0, scale: 0.95, x: "-50%", y: "-50%" }}
                   transition={{ type: "spring", stiffness: 320, damping: 28 }}
                   aria-describedby={descriptionId}
                 >
