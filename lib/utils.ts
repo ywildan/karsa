@@ -87,6 +87,40 @@ export function formatDateTimeWib(value: Date | string): string {
   }).format(date);
 }
 
+/**
+ * Format tanggal saja (tanpa jam) ke WIB (Asia/Jakarta) — timezone EKSPLISIT
+ * karena server Vercel default UTC; tanpa ini tanggal bisa bergeser 7 jam.
+ * Dipakai tabel admin (mulai/akhir semester).
+ */
+export function formatDateWib(value: Date | string): string {
+  const date = value instanceof Date ? value : new Date(value);
+  if (Number.isNaN(date.getTime())) return "-";
+
+  return new Intl.DateTimeFormat("id-ID", {
+    day: "numeric",
+    month: "long",
+    year: "numeric",
+    timeZone: "Asia/Jakarta",
+  }).format(date);
+}
+
+/**
+ * Nilai untuk `<input type="date">` (yyyy-mm-dd) dihitung DALAM WIB —
+ * supaya tanggal yang tampil di form sama dengan tanggal yang disimpan
+ * walau server menyimpannya sebagai UTC.
+ */
+export function toDateInputWib(value: Date | string): string {
+  const date = value instanceof Date ? value : new Date(value);
+  if (Number.isNaN(date.getTime())) return "";
+
+  return new Intl.DateTimeFormat("en-CA", {
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+    timeZone: "Asia/Jakarta",
+  }).format(date);
+}
+
 /** Format angka gaya Indonesia: 1234 → "1.234". */
 export function formatNumber(value: number): string {
   return new Intl.NumberFormat("id-ID").format(value);
