@@ -12,7 +12,6 @@ import Link from "next/link";
 
 import { signOutAction } from "@/actions/auth";
 import { Button } from "@/components/button";
-import { ChannelToggle } from "@/components/channel-toggle";
 import { MobileBottomNav } from "@/components/mobile-bottom-nav";
 import { requirePj } from "@/lib/auth-helpers";
 import { detectChannelFromUserAgent, MOBILE_HOME } from "@/lib/channel";
@@ -49,7 +48,6 @@ export default async function MobileLayout({
             <span className="hidden max-w-[8rem] truncate text-xs text-muted-foreground sm:inline">
               {displayName}
             </span>
-            <ChannelToggle to="desktop" />
             <form action={signOutAction}>
               <Button type="submit" variant="outline" size="sm">
                 Keluar

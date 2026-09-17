@@ -2,7 +2,7 @@
  * Karsa — app/(desktop)/layout.tsx
  * ----------------------------------------------------------------------------
  * Shell desktop (PRD §10.2–§10.3): header dengan logo → /dashboard,
- * nama user, logout, tombol "Mode HP". Route group tidak menambah URL.
+ * nama user, dan logout. Route group tidak menambah URL.
  */
 
 import Image from "next/image";
@@ -10,7 +10,6 @@ import Link from "next/link";
 
 import { signOutAction } from "@/actions/auth";
 import { Button } from "@/components/button";
-import { ChannelToggle } from "@/components/channel-toggle";
 import { getSession } from "@/lib/auth-helpers";
 import { DESKTOP_HOME } from "@/lib/channel";
 
@@ -46,7 +45,6 @@ export default async function DesktopLayout({
             <span className="hidden max-w-[12rem] truncate text-sm text-muted-foreground sm:inline">
               {displayName}
             </span>
-            <ChannelToggle to="mobile" />
             {session?.user?.id ? (
               <form action={signOutAction}>
                 <Button type="submit" variant="outline" size="sm">
