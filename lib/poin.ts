@@ -41,6 +41,42 @@ export interface KategoriItem {
   name: string;
 }
 
+/** Satu riwayat poin yang dicatat PJ, lengkap dengan konteks akademiknya. */
+export interface RiwayatPoinRow {
+  id: string;
+  /** `KelasMatkul.id`, dipakai filter riwayat per penugasan. */
+  kelas_matkul_id: string;
+  poin: number;
+  catatan: string | null;
+  created_at: Date;
+  mahasiswa: {
+    name: string | null;
+    nim: string | null;
+  };
+  kategori: {
+    name: string;
+  };
+  matkul: {
+    name: string;
+    code: string | null;
+  };
+  kelas: {
+    name: string;
+  };
+  prodi: {
+    name: string;
+  };
+  semester: {
+    name: string;
+  };
+}
+
+/** Opsi filter riwayat; id adalah `KelasMatkul.id`, bukan `Matkul.id`. */
+export interface MatkulFilterOption {
+  id: string;
+  label: string;
+}
+
 /**
  * Payload `createPoinLog` dari client. `poin` bertipe longgar karena
  * `FormData`/input mengirim string — Zod (`z.coerce.number()`) yang memutuskan
