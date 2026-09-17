@@ -19,7 +19,11 @@ import { notFound } from "next/navigation";
 
 import { requireAdmin } from "@/lib/auth-helpers";
 import { formatDateWib } from "@/lib/utils";
-import type { KelasMatkulRow, MatkulOption } from "@/lib/kelas-matkul";
+import type {
+  KelasMatkulRow,
+  MatkulOption,
+  PjKandidatOption,
+} from "@/lib/kelas-matkul";
 import type { MahasiswaRow } from "@/lib/mahasiswa";
 import { prisma } from "@/lib/prisma";
 
@@ -61,44 +65,53 @@ export default async function AdminKelasDetailPage({
 
   const { id } = await params;
 
-  const [kelas, mahasiswaRaw, kelasMatkulRaw, matkulsRaw] = await Promise.all([
-    prisma.kelas.findUnique({
-      where: { id },
-      include: { prodi: true, semester: true },
-    }),
-    prisma.user.findMany({
-      where: { kelas_id: id },
-      orderBy: { name: "asc" },
-      select: {
-        id: true,
-        name: true,
-        nim: true,
-        email: true,
-        is_admin: true,
-        kelasMatkulAsPj: {
-          where: { kelas_id: id },
-          select: { id: true },
-          take: 1,
+  const [kelas, mahasiswaRaw, kelasMatkulRaw, matkulsRaw, adminRaw] =
+    await Promise.all([
+      prisma.kelas.findUnique({
+        where: { id },
+        include: { prodi: true, semester: true },
+      }),
+      prisma.user.findMany({
+        where: { kelas_id: id },
+        orderBy: { name: "asc" },
+        select: {
+          id: true,
+          name: true,
+          nim: true,
+          email: true,
+          is_admin: true,
+          kelasMatkulAsPj: {
+            where: { kelas_id: id },
+            select: { id: true },
+            take: 1,
+          },
         },
-      },
-    }),
-    // Penugasan matkul di kelas ini (tab 2D). Unique (kelas_id, matkul_id)
-    // menjamin tidak ada baris ganda untuk matkul yang sama.
-    prisma.kelasMatkul.findMany({
-      where: { kelas_id: id },
-      include: {
-        matkul: true,
-        pj: { select: { id: true, name: true, nim: true, email: true } },
-      },
-      orderBy: { matkul: { name: "asc" } },
-    }),
-    // Semua matkul: dropdown "Assign Matkul" menyaring yang belum di-assign di
-    // client (daftarnya kecil & halaman ini sudah memuat seluruh data kelas).
-    prisma.matkul.findMany({
-      orderBy: { name: "asc" },
-      select: { id: true, name: true, code: true },
-    }),
-  ]);
+      }),
+      // Penugasan matkul di kelas ini (tab 2D). Unique (kelas_id, matkul_id)
+      // menjamin tidak ada baris ganda untuk matkul yang sama.
+      prisma.kelasMatkul.findMany({
+        where: { kelas_id: id },
+        include: {
+          matkul: true,
+          pj: { select: { id: true, name: true, nim: true, email: true } },
+        },
+        orderBy: { matkul: { name: "asc" } },
+      }),
+      // Semua matkul: dropdown "Assign Matkul" menyaring yang belum di-assign
+      // di client (daftarnya kecil & halaman ini sudah memuat seluruh data).
+      prisma.matkul.findMany({
+        orderBy: { name: "asc" },
+        select: { id: true, name: true, code: true },
+      }),
+      // Admin boleh merangkap PJ (Fase 3A, PRD §6) dan tidak mungkin terdaftar
+      // sebagai anggota kelas, jadi kandidatnya diambil terpisah lalu digabung
+      // dengan mahasiswa kelas ini menjadi `pjKandidat`.
+      prisma.user.findMany({
+        where: { is_admin: true },
+        orderBy: { name: "asc" },
+        select: { id: true, name: true, nim: true, email: true },
+      }),
+    ]);
 
   if (!kelas) notFound();
 
@@ -122,6 +135,26 @@ export default async function AdminKelasDetailPage({
   );
 
   const matkuls: MatkulOption[] = matkulsRaw;
+
+  /**
+   * Kandidat PJ (Fase 3A): mahasiswa kelas ini yang bukan admin + semua akun
+   * admin (admin boleh merangkap PJ, PRD §6). Disatukan di server supaya
+   * komponen client tidak perlu menyaring sendiri.
+   */
+  const pjKandidat: PjKandidatOption[] = [
+    ...mahasiswa
+      .filter((row) => !row.is_admin)
+      .map((row): PjKandidatOption => ({
+        id: row.id,
+        name: row.name,
+        nim: row.nim,
+        email: row.email,
+        is_admin: false,
+      })),
+    ...adminRaw.map(
+      (row): PjKandidatOption => ({ ...row, is_admin: true }),
+    ),
+  ];
 
   return (
     <main className="mx-auto flex w-full max-w-5xl flex-col gap-6 px-4 py-8">
@@ -149,6 +182,7 @@ export default async function AdminKelasDetailPage({
         mahasiswa={mahasiswa}
         kelasMatkul={kelasMatkul}
         matkuls={matkuls}
+        pjKandidat={pjKandidat}
       />
     </main>
   );

@@ -16,7 +16,11 @@ import { cn } from "@/lib/utils";
 
 import { MahasiswaTab } from "./mahasiswa-tab";
 import { MatkulPjTab } from "./matkul-pj-tab";
-import type { KelasMatkulRow, MatkulOption } from "@/lib/kelas-matkul";
+import type {
+  KelasMatkulRow,
+  MatkulOption,
+  PjKandidatOption,
+} from "@/lib/kelas-matkul";
 import type { MahasiswaRow } from "@/lib/mahasiswa";
 
 type Panel = "mahasiswa" | "matkul";
@@ -27,12 +31,15 @@ export function KelasDetailTabs({
   mahasiswa,
   kelasMatkul,
   matkuls,
+  pjKandidat,
 }: {
   kelasId: string;
   kelasName: string;
   mahasiswa: MahasiswaRow[];
   kelasMatkul: KelasMatkulRow[];
   matkuls: MatkulOption[];
+  /** Mahasiswa kelas ini (non-admin) + admin — lihat `lib/kelas-matkul.ts`. */
+  pjKandidat: PjKandidatOption[];
 }) {
   const [panel, setPanel] = React.useState<Panel>("mahasiswa");
 
@@ -89,7 +96,7 @@ export function KelasDetailTabs({
             kelasName={kelasName}
             kelasMatkul={kelasMatkul}
             matkuls={matkuls}
-            mahasiswa={mahasiswa}
+            pjKandidat={pjKandidat}
           />
         )}
       </div>

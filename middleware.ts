@@ -1,19 +1,28 @@
 /**
  * Karsa — middleware.ts
  * ----------------------------------------------------------------------------
- * Guard route + dual channel (PRD §4.2, §6) — Fase 1.5.
+ * Guard route + dual channel (PRD §4.2, §6) — Fase 1.5, diselaraskan Fase 3A.
  *
  *   /                 → sudah login → home channel; belum → landing
  *   /login            → sudah login → home channel
  *   /admin/*          → wajib login + `is_admin`; bukan admin → /dashboard
  *   path mobile       → wajib login + `is_pj`; selain itu → /dashboard
- *   /dashboard        → PJ (bukan admin) → /catat-poin
+ *   /dashboard        → PJ **non-admin** → /catat-poin
+ *
+ * **PJ = punya ≥1 `KelasMatkul.pj_id = dirinya`, tidak peduli `is_admin`**
+ * (keputusan Fase 3A, PRD §6). Konsekuensinya:
+ *   · admin yang merangkap PJ dari HP → home `/catat-poin` (lihat
+ *     `homePathForUser`), dan `/admin/*` tetap bisa ia buka langsung.
+ *   · admin yang BUKAN PJ dari HP → home `/dashboard`.
+ *   · `/dashboard` sengaja TIDAK memantul admin-PJ: admin butuh dashboard-nya
+ *     sendiri, dan shell mobile tetap reachable lewat bottom nav / `/catat-poin`.
  *
  * Channel: auto-detect User-Agent (`resolveChannel`), lalu hasilnya ditulis
  * ke cookie `karsa_channel` untuk kebutuhan redirect. Cookie bukan switch
  * layout; route group ditentukan oleh path URL.
  * Klaim dibaca dari cookie JWT (Edge — tanpa Prisma). Otorisasi sesungguhnya
- * tetap di server (`requireAdmin` / `requirePj`).
+ * tetap di server (`requireAdmin` / `requirePj` + guard per-resource di
+ * `actions/poin.ts`).
  */
 import NextAuth from "next-auth";
 import { NextResponse, type NextRequest } from "next/server";
@@ -107,7 +116,8 @@ export default auth((req) => {
     return nextWithChannel(channel, existing);
   }
 
-  // /dashboard: PJ locked mobile (admin yang kebetulan PJ tetap boleh).
+  // /dashboard: PJ non-admin dikunci ke shell mobile. Admin — termasuk admin
+  // yang merangkap PJ — tetap boleh membuka dashboard-nya sendiri (Fase 3A).
   if (pathname === "/dashboard" || pathname.startsWith("/dashboard/")) {
     if (user?.is_pj && !user?.is_admin) {
       return redirectTo(req, MOBILE_HOME, channel, existing);

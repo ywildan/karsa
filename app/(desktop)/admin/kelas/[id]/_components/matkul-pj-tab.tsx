@@ -8,9 +8,11 @@
  * tetap di Server Action; komponen ini hanya mengurus state dialog,
  * `useTransition`, dan toast Sonner.
  *
- * Dropdown PJ HANYA menampilkan mahasiswa kelas ini yang bukan admin — dan
- * server tetap memvalidasi ulang (`resolvePj()` di `actions/kelas-matkul.ts`),
- * jadi request manual pun tidak bisa menjadikan user luar kelas sebagai PJ.
+ * Dropdown PJ menampilkan mahasiswa kelas ini (non-admin) + akun admin —
+ * sejak Fase 3A admin BOLEH merangkap PJ (PRD §6). Daftar kandidatnya dihitung
+ * di server (`page.tsx`), dan server tetap memvalidasi ulang (`resolvePj()` di
+ * `actions/kelas-matkul.ts`), jadi request manual pun tidak bisa menjadikan
+ * user luar kelas sebagai PJ.
  */
 "use client";
 
@@ -46,11 +48,12 @@ import {
 } from "@/components/ui/table";
 import {
   matkulLabel,
+  pjKandidatLabel,
   pjLabel,
   type KelasMatkulRow,
   type MatkulOption,
+  type PjKandidatOption,
 } from "@/lib/kelas-matkul";
-import type { MahasiswaRow } from "@/lib/mahasiswa";
 
 type Mode = "assign" | "edit";
 
@@ -59,18 +62,24 @@ export function MatkulPjTab({
   kelasName,
   kelasMatkul,
   matkuls,
-  mahasiswa,
+  pjKandidat,
 }: {
   kelasId: string;
   kelasName: string;
   kelasMatkul: KelasMatkulRow[];
   matkuls: MatkulOption[];
-  mahasiswa: MahasiswaRow[];
+  /** Mahasiswa kelas ini (non-admin) + admin; dihitung di `page.tsx`. */
+  pjKandidat: PjKandidatOption[];
 }) {
-  // Hanya mahasiswa kelas ini yang bukan admin yang boleh jadi PJ.
-  const pjKandidat = React.useMemo(
-    () => mahasiswa.filter((row) => !row.is_admin),
-    [mahasiswa],
+  // Admin boleh merangkap PJ (Fase 3A) — dipisah hanya untuk pengelompokan
+  // tampilan; keputusan sah/tidaknya tetap di server (`resolvePj()`).
+  const kandidatMahasiswa = React.useMemo(
+    () => pjKandidat.filter((row) => !row.is_admin),
+    [pjKandidat],
+  );
+  const kandidatAdmin = React.useMemo(
+    () => pjKandidat.filter((row) => row.is_admin),
+    [pjKandidat],
   );
   const matkulTersedia = React.useMemo(() => {
     const terpakai = new Set(kelasMatkul.map((row) => row.matkul.id));
@@ -212,7 +221,7 @@ export function MatkulPjTab({
               <UserPlus aria-hidden className="size-4" />
               Tambahkan mahasiswa dulu ke kelas ini
               <span className="font-medium">(tab Mahasiswa)</span> — PJ harus
-              mahasiswa kelas ini.
+              mahasiswa kelas ini atau akun admin.
             </p>
           )}
         </div>
@@ -301,8 +310,8 @@ export function MatkulPjTab({
             </DialogTitle>
             <DialogDescription>
               {mode === "edit"
-                ? "Pilih PJ baru dari mahasiswa kelas ini. Poin yang sudah tercatat tidak berubah."
-                : "Pilih matkul yang belum di-assign dan tentukan PJ-nya dari mahasiswa kelas ini."}
+                ? "Pilih PJ baru dari mahasiswa kelas ini atau akun admin. Poin yang sudah tercatat tidak berubah."
+                : "Pilih matkul yang belum di-assign dan tentukan PJ-nya (mahasiswa kelas ini atau admin)."}
             </DialogDescription>
           </DialogHeader>
 
@@ -353,25 +362,38 @@ export function MatkulPjTab({
                 disabled={pjKandidat.length === 0}
               >
                 {pjKandidat.length === 0 ? (
-                  <option value="">Belum ada mahasiswa di kelas ini</option>
+                  <option value="">Belum ada kandidat PJ</option>
                 ) : (
-                  pjKandidat.map((mahasiswaRow) => (
-                    <option key={mahasiswaRow.id} value={mahasiswaRow.id}>
-                      {mahasiswaRow.name?.trim() || mahasiswaRow.email}
-                      {mahasiswaRow.nim ? ` — ${mahasiswaRow.nim}` : ""}
-                    </option>
-                  ))
+                  <>
+                    {kandidatMahasiswa.length > 0 ? (
+                      <optgroup label="Mahasiswa kelas ini">
+                        {kandidatMahasiswa.map((kandidat) => (
+                          <option key={kandidat.id} value={kandidat.id}>
+                            {pjKandidatLabel(kandidat)}
+                          </option>
+                        ))}
+                      </optgroup>
+                    ) : null}
+                    {kandidatAdmin.length > 0 ? (
+                      <optgroup label="Admin (boleh merangkap PJ)">
+                        {kandidatAdmin.map((kandidat) => (
+                          <option key={kandidat.id} value={kandidat.id}>
+                            {pjKandidatLabel(kandidat)}
+                          </option>
+                        ))}
+                      </optgroup>
+                    ) : null}
+                  </>
                 )}
                 {pjDiLuarKandidat ? (
                   <option value={pjDiLuarKandidat.id}>
-                    {pjLabel(pjDiLuarKandidat)} — PJ saat ini (bukan mahasiswa
-                    kelas ini)
+                    {pjLabel(pjDiLuarKandidat)} — PJ saat ini (di luar kandidat)
                   </option>
                 ) : null}
               </Select>
               <p className="text-xs text-muted-foreground">
-                PJ harus mahasiswa kelas ini. User tanpa kelas atau dari kelas
-                lain akan ditolak server.
+                PJ = mahasiswa kelas ini, atau akun admin yang merangkap PJ.
+                User tanpa kelas / dari kelas lain akan ditolak server.
               </p>
             </div>
 

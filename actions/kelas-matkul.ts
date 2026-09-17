@@ -10,10 +10,12 @@
  * tangkap error Prisma → `revalidatePath` path KONKRET.
  *
  * Invarian yang dijaga:
- *   · PJ WAJIB mahasiswa kelas tempat matkul itu di-assign (`User.kelas_id`).
- *     PJ = mahasiswa kelasnya adalah asumsi seluruh alur mobile Fase 3
- *     (PJ input poin untuk mahasiswa di kelasnya).
- *   · PJ bukan akun admin (keputusan Sub-Fase 2C, diterapkan juga di sini).
+ *   · PJ non-admin WAJIB mahasiswa kelas tempat matkul itu di-assign
+ *     (`User.kelas_id`) — PJ = mahasiswa kelasnya adalah asumsi alur mobile
+ *     Fase 3 (PJ input poin untuk mahasiswa di kelasnya).
+ *   · **Admin BOLEH merangkap PJ (keputusan Fase 3A, PRD §6)** dan dikecualikan
+ *     dari syarat keanggotaan kelas — admin memang tidak bisa didaftarkan
+ *     sebagai mahasiswa. Lihat `resolvePj()`.
  *   · Satu matkul hanya boleh di-assign SEKALI per kelas — unique
  *     `(kelas_id, matkul_id)` di schema + cek eksplisit supaya pesannya ramah.
  *   · Penugasan dengan poin tercatat TIDAK BOLEH dihapus: `PoinLog.kelas_matkul_id`
@@ -79,12 +81,21 @@ interface PjCandidateRow {
 }
 
 /**
- * Validasi calon PJ (dipakai `assignMatkulToKelas` & `updatePjKelasMatkul`):
+ * Validasi calon PJ (dipakai `assignMatkulToKelas` & `updatePjKelasMatkul`).
+ *
+ * **Aturan Fase 3A (PRD §6): admin BOLEH merangkap PJ.** PJ = user dengan ≥1
+ * `KelasMatkul.pj_id = dirinya`, tidak peduli `is_admin`.
+ *
  *   1. user ada;
- *   2. bukan admin;
- *   3. `kelas_id` = kelas tempat matkul di-assign (LULUS untuk PJ yang memang
- *      anggota kelas ini — mis. Budi di TI-01 — dan DITOLAK untuk user tanpa
- *      kelas maupun yang masih di kelas lain).
+ *   2. admin → LANGSUNG LULUS. Admin tidak bisa didaftarkan sebagai anggota
+ *      kelas (`actions/mahasiswa.ts` menolaknya), jadi syarat keanggotaan
+ *      kelas tidak mungkin ia penuhi — dan memang tidak diperlukan: kaitan
+ *      PJ↔kelas ada pada `KelasMatkul.kelas_id`, dan `createPoinLog`
+ *      mengambil mahasiswa dari `kelas_matkul.kelas_id`, BUKAN dari
+ *      `kelas_id` milik PJ.
+ *   3. non-admin → `kelas_id` harus = kelas tempat matkul di-assign (LULUS
+ *      untuk PJ yang memang anggota kelas ini — mis. Budi di TI-01 — dan
+ *      DITOLAK untuk user tanpa kelas maupun yang masih di kelas lain).
  */
 async function resolvePj(
   kelas: KelasRef,
@@ -106,8 +117,9 @@ async function resolvePj(
     return { ok: false, error: "User PJ tidak ditemukan. Mungkin sudah dihapus." };
   }
 
+  // Admin merangkap PJ: dikecualikan dari syarat keanggotaan kelas (lihat di atas).
   if (user.is_admin) {
-    return { ok: false, error: "User ini admin. Admin tidak bisa menjadi PJ." };
+    return { ok: true, user: { id: user.id, name: user.name, email: user.email } };
   }
 
   if (user.kelas_id !== kelas.id) {
