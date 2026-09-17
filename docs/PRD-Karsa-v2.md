@@ -155,16 +155,17 @@ app/
 
 ### 4.2 Device Detection & Routing
 
-Middleware menentukan channel:
+Middleware menentukan channel dengan auto-detect via User-Agent saja:
 
 ```
-1. Cek cookie `karsa_channel` (manual override)
-   → kalau ada, pakai itu
-2. Kalau tidak ada, auto-detect via user-agent:
-   - Mobile UA → channel = mobile
-   - Desktop UA → channel = desktop
-3. Simpan keputusan di cookie (session-only)
+1. Mobile UA → channel = mobile
+2. Desktop UA → channel = desktop
+3. Simpan hasil deteksi ke cookie `karsa_channel` (session-only)
+   untuk kebutuhan redirect saja
 ```
+
+Tidak ada tombol switch manual. Cookie `karsa_channel` bukan pengganti layout;
+layout ditentukan oleh path route group.
 
 **Aturan redirect:**
 
@@ -174,8 +175,6 @@ Middleware menentukan channel:
 | **Mahasiswa** | ❌ Redirect ke `(desktop)/dashboard` | ✅ Semua route `(desktop)` |
 | **Admin** | ❌ Redirect ke `(desktop)/admin` | ✅ Semua route `(desktop)` |
 | **User tanpa kelas** | ❌ Redirect ke `(desktop)/dashboard` | ✅ `(desktop)/dashboard` (empty state) |
-
-**Manual toggle:** tombol kecil "Mode Desktop" / "Mode HP" di header. Set cookie, reload.
 
 > PJ **locked mobile-only**. Buka dari desktop → tetap render mobile layout (sempit), dengan hint *"Buka di HP untuk pengalaman terbaik."*
 
@@ -414,12 +413,12 @@ actions/rekap.ts       ❌ ← Fase 5
 | Auth NextAuth v5 + filter domain | `SEBAGIAN` | Fase 1: Google OAuth + filter domain lewat `callbacks.signIn` (`auth.config.ts`). Alur Google **belum diuji end-to-end** (butuh kredensial OAuth asli) — sisanya teruji. |
 | Dev Quick Login (4 tombol, guard produksi) | `SELESAI` | Fase 1: provider Credentials `dev-login` + Server Action. 3 lapis guard `NODE_ENV`: UI, pendaftaran provider, `authorize()`/action. Teruji 17 assertion lewat HTTP. |
 | JWT refresh `is_admin` / `kelas_id` | `SELESAI` | Fase 1: `callbacks.jwt` me-refresh dari DB tiap pembacaan session (id, `nim`, `is_admin`, `kelas_id`, `is_pj`). Teruji per role. |
-| Middleware guard route | `SELESAI` | Fase 1.5: `/admin/*` (is_admin), `/dashboard/*` (login; PJ → `/catat-poin`), path mobile (wajib PJ), `/login` + `/` (redirect home channel). Cookie `karsa_channel` menang atas UA. |
+| Middleware guard route | `SELESAI` | Fase 1.5: `/admin/*` (is_admin), `/dashboard/*` (login; PJ → `/catat-poin`), path mobile (wajib PJ), `/login` + `/` (redirect home channel). Channel auto-detect dari UA; cookie `karsa_channel` hanya untuk redirect. |
 | Halaman `/login` + `/dashboard` placeholder | `SELESAI` | Fase 1: logo + tagline, tombol Google, blok dev (dev-only), pesan error role/domain; `/dashboard` menampilkan nama + role + `kelas_id` + logout + empty state §7.4. Rapor penuh = Fase 4A. |
 | CRUD Semester / Prodi / Matkul / Kelas | `BELUM` | **Koreksi §12 lama:** folder `actions/` belum punya modul CRUD (hanya `actions/auth.ts` dari Fase 1). Perlu dikerjakan sebelum Fase 3A/5 atau dicatat sebagai hutang teknis. |
 | Detail Kelas — Mahasiswa + Matkul & PJ | `BELUM` | **Koreksi §12 lama:** belum ada halaman `admin/kelas/[id]` di repo. |
 | **Rebranding SiPoin → Karsa** | `SELESAI` | Terverifikasi di repo Fase 1: tidak ada lagi teks "SiPoin" di kode/UI (hanya tersisa di dokumen ini sebagai catatan nama lama). |
-| **Dual channel routing** | `SELESAI` | Fase 1.5: route group `(mobile)` / `(desktop)` tanpa mengubah URL, `lib/channel.ts`, `ChannelToggle`, middleware UA + cookie override. Isi halaman mobile = Fase 3. |
+| **Dual channel routing** | `SELESAI` | Fase 1.5: route group `(mobile)` / `(desktop)` tanpa mengubah URL, `lib/channel.ts`, middleware auto-detect UA + cookie untuk redirect. Tidak ada tombol switch. Isi halaman mobile = Fase 3. |
 | **PWA manifest** | `SELESAI` | Minimal: `public/manifest.json` + `icon.svg`. Tanpa offline mode. |
 | **Fase 3A — Input poin PJ (mobile)** | `BELUM` | Prioritas #1 |
 | **Fase 3B — Riwayat input PJ** | `BELUM` | — |
@@ -453,7 +452,7 @@ actions/rekap.ts       ❌ ← Fase 5
 | Q2 | Mahasiswa akses | **Web-only (desktop)** |
 | Q3 | PJ dual role | **Bottom nav punya tab "Poin Saya"** |
 | Q4 | PWA | **Ya (minimal: manifest + icon)** |
-| Q5 | Device detection | **Auto (UA) + manual toggle (cookie)** |
+| Q5 | Device detection | **Auto-detect via UA saja; tidak ada tombol switch** |
 | Q6 | Halaman mahasiswa | **Single-page rapor personal** |
 | Q7 | Detail matkul mahasiswa | **Popup overlay, Framer Motion** |
 | Q8 | Leaderboard | **Halaman terpisah, nama masked, class-scoped** |
@@ -529,22 +528,22 @@ actions/rekap.ts       ❌ ← Fase 5
 **Scope:**
 - Refactor route: pindahkan `admin/*` ke `(desktop)/admin/*`. Pindahkan `/dashboard` ke `(desktop)/dashboard`.
 - Buat route group `(mobile)` dengan layout bottom nav.
-- Middleware: device detection + role-based redirect + cookie override.
-- Komponen `ChannelToggle` (tombol kecil "Mode Desktop / Mode HP").
+- Middleware: auto-detect via UA + role-based redirect + cookie hasil deteksi untuk redirect.
+- Tidak ada tombol switch channel.
 - PWA: `manifest.json` + icon set.
 
 **File terdampak:**
 - `middleware.ts` (edit)
 - `app/(desktop)/layout.tsx` (baru/pindahan)
 - `app/(mobile)/layout.tsx` (baru)
-- `components/channel-toggle.tsx` (baru)
 - `public/manifest.json` + icons (baru)
 
 **Acceptance:**
 - [ ] Akses dari mobile UA + login PJ → masuk `(mobile)`
 - [ ] Akses dari desktop UA + login PJ → redirect ke `(mobile)/catat-poin` (dengan hint)
 - [ ] Akses mahasiswa dari mobile UA → redirect ke `(desktop)/dashboard`
-- [ ] Manual toggle berfungsi dan persist via cookie
+- [ ] Cookie `karsa_channel` ditulis dari hasil UA dan dipakai untuk redirect
+- [ ] Tidak ada tombol switch channel
 - [ ] PWA installable
 - [ ] `tsc` · `lint` · `build` bersih
 
@@ -728,7 +727,7 @@ actions/rekap.ts       ❌ ← Fase 5
 **Device routing:**
 - Emulasi mobile UA + role PJ → masuk `(mobile)`.
 - Emulasi mobile UA + role mahasiswa → redirect ke `(desktop)`.
-- Manual toggle cookie → override UA.
+- Cookie `karsa_channel` mengikuti hasil auto-detect UA dan hanya dipakai untuk redirect.
 
 **Smoke test UI (manual):**
 - Happy path.

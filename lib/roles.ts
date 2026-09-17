@@ -43,9 +43,8 @@ export const LOGIN_PATH = "/login";
  *   PJ              → `/catat-poin` (locked, channel diabaikan)
  *   lainnya         → `/dashboard`
  *
- * `channel` wajib diisi dari `resolveChannel(cookie, UA)` di middleware,
- * halaman `/login`, dan `setChannelAction` — satu fungsi, tiga pemakai.
- * Kalau `channel` dihilangkan, admin dianggap desktop (aman sebagai fallback).
+ * `channel` diisi dari hasil auto-detect User-Agent di middleware dan halaman
+ * `/login`. Kalau `channel` dihilangkan, admin dianggap desktop (fallback aman).
  */
 export function homePathForUser(
   claims: RoleClaims | null | undefined,

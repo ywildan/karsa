@@ -1,24 +1,25 @@
 /**
  * Karsa — lib/channel.ts
  * ----------------------------------------------------------------------------
- * Resolusi channel (PRD §4.2, §11) — dua sumber kebenaran:
+ * Resolusi channel (PRD §4.2, §11) — auto-detect dari User-Agent.
  *
- *   1. cookie `karsa_channel`  → override manual (tombol "Mode HP" / "Mode Desktop")
- *   2. User-Agent              → auto-detect; kalau tidak jelas → desktop
+ * Cookie `karsa_channel` adalah snapshot hasil deteksi yang ditulis middleware
+ * untuk kebutuhan redirect saja. Cookie bukan override manual dan tidak
+ * menentukan layout; route group dipilih dari path URL.
  *
  * SENGAJA modul murni: tanpa Prisma, tanpa `next/headers`, tanpa DOM. Karena itu
- * bisa diimpor `middleware.ts` (Edge Runtime). Pemanggil yang butuh nilai dari
- * request — layout `(mobile)` / `(desktop)` — membaca `cookies()` / `headers()`
- * sendiri lalu meneruskannya ke `resolveChannel()`. `next/headers` TIDAK boleh
- * dipakai di middleware (sudah tersedia sebagai `req.cookies` / `req.headers`).
+ * bisa diimpor `middleware.ts` (Edge Runtime). Pemanggil yang membutuhkan nilai
+ * request meneruskan User-Agent ke `resolveChannel()` atau
+ * `detectChannelFromUserAgent()`. `next/headers` TIDAK boleh dipakai di
+ * middleware (sudah tersedia sebagai `req.headers`).
  */
 
 export type Channel = "mobile" | "desktop";
 
 /**
- * Cookie override channel. Session-only (tanpa `maxAge`) — lihat
- * `setChannelAction()` di `actions/channel.ts` dan `withChannelCookie()` di
- * `middleware.ts`. Nilainya TIDAK rahasia dan tidak dipakai untuk otorisasi.
+ * Cookie hasil deteksi channel. Session-only (tanpa `maxAge`) dan ditulis oleh
+ * middleware untuk redirect logic. Nilainya TIDAK rahasia dan tidak dipakai
+ * untuk otorisasi.
  */
 export const CHANNEL_COOKIE = "karsa_channel";
 
@@ -66,19 +67,9 @@ export function detectChannelFromUserAgent(
 }
 
 /**
- * Channel efektif untuk satu request: cookie override menang atas auto-detect.
- * `cookieValue` = isi `karsa_channel` (bisa `undefined`), `userAgent` = header UA.
+ * Channel efektif untuk satu request berdasarkan User-Agent.
+ * Tidak ada input cookie: channel tidak dapat diganti lewat tombol manual.
  */
-export function resolveChannel(
-  cookieValue?: string | null,
-  userAgent?: string | null,
-): Channel {
-  return isChannel(cookieValue)
-    ? cookieValue
-    : detectChannelFromUserAgent(userAgent);
-}
-
-/** Label tombol switch channel: tujuan yang dituju, bukan channel saat ini. */
-export function channelToggleLabel(to: Channel): string {
-  return to === "mobile" ? "Mode HP" : "Mode Desktop";
+export function resolveChannel(userAgent?: string | null): Channel {
+  return detectChannelFromUserAgent(userAgent);
 }

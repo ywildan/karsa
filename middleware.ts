@@ -9,7 +9,9 @@
  *   path mobile       → wajib login + `is_pj`; selain itu → /dashboard
  *   /dashboard        → PJ (bukan admin) → /catat-poin
  *
- * Channel: cookie `karsa_channel` menang atas UA (`resolveChannel`).
+ * Channel: auto-detect User-Agent (`resolveChannel`), lalu hasilnya ditulis
+ * ke cookie `karsa_channel` untuk kebutuhan redirect. Cookie bukan switch
+ * layout; route group ditentukan oleh path URL.
  * Klaim dibaca dari cookie JWT (Edge — tanpa Prisma). Otorisasi sesungguhnya
  * tetap di server (`requireAdmin` / `requirePj`).
  */
@@ -21,7 +23,6 @@ import {
   CHANNEL_COOKIE,
   DESKTOP_HOME,
   MOBILE_HOME,
-  isChannel,
   isMobilePath,
   resolveChannel,
   type Channel,
@@ -30,13 +31,13 @@ import { HOME_DEFAULT, LOGIN_PATH, homePathForUser } from "@/lib/roles";
 
 const { auth } = NextAuth(authConfig);
 
-/** Cookie session-only: tanpa maxAge, tidak menimpa override manual yang valid. */
+/** Cookie session-only: nilainya selalu mengikuti hasil deteksi UA. */
 function withChannelCookie(
   response: NextResponse,
   channel: Channel,
   existing: string | undefined,
 ): NextResponse {
-  if (!isChannel(existing)) {
+  if (existing !== channel) {
     response.cookies.set(CHANNEL_COOKIE, channel, {
       path: "/",
       sameSite: "lax",
@@ -66,7 +67,7 @@ export default auth((req) => {
   const { pathname } = nextUrl;
 
   const existing = req.cookies.get(CHANNEL_COOKIE)?.value;
-  const channel = resolveChannel(existing, req.headers.get("user-agent"));
+  const channel = resolveChannel(req.headers.get("user-agent"));
 
   // Landing: anonim tetap lihat `/`; sudah login → home channel.
   if (pathname === "/") {

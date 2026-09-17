@@ -14,12 +14,12 @@
  * Jangan pakai helper ini di middleware (Edge Runtime) — lihat `lib/roles.ts`
  * untuk logika peran yang bebas Prisma.
  */
-import { cookies, headers } from "next/headers";
+import { headers } from "next/headers";
 import { redirect } from "next/navigation";
 import type { Session } from "next-auth";
 
 import { auth } from "@/auth";
-import { CHANNEL_COOKIE, resolveChannel, type Channel } from "@/lib/channel";
+import { resolveChannel, type Channel } from "@/lib/channel";
 import { HOME_DEFAULT, LOGIN_PATH } from "@/lib/roles";
 import {
   loadUserSnapshot,
@@ -97,14 +97,10 @@ export async function requirePj(): Promise<SessionUser> {
 }
 
 /**
- * Channel efektif request ini (cookie `karsa_channel` menang atas UA).
+ * Channel efektif request ini ditentukan dari User-Agent.
  * Hanya untuk Server Component / Server Action — jangan diimpor middleware.
  */
 export async function getRequestChannel(): Promise<Channel> {
-  const cookieStore = await cookies();
   const headerStore = await headers();
-  return resolveChannel(
-    cookieStore.get(CHANNEL_COOKIE)?.value,
-    headerStore.get("user-agent"),
-  );
+  return resolveChannel(headerStore.get("user-agent"));
 }
