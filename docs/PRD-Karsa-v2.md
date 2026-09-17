@@ -400,6 +400,7 @@ actions/semester.ts    ✅
 actions/prodi.ts       ✅
 actions/kelas.ts       ✅
 actions/mahasiswa.ts   ✅ ← Fase 2C (anggota kelas)
+actions/kelas-matkul.ts ✅ ← Fase 2D (assign matkul & PJ)
 actions/matkul.ts      ✅
 actions/poin.ts        ❌ ← Fase 3A
 actions/rekap.ts       ❌ ← Fase 5
@@ -416,8 +417,8 @@ actions/rekap.ts       ❌ ← Fase 5
 | JWT refresh `is_admin` / `kelas_id` | `SELESAI` | Fase 1: `callbacks.jwt` me-refresh dari DB tiap pembacaan session (id, `nim`, `is_admin`, `kelas_id`, `is_pj`). Teruji per role. |
 | Middleware guard route | `SELESAI` | Fase 1.5: `/admin/*` (is_admin), `/dashboard/*` (login; PJ → `/catat-poin`), path mobile (wajib PJ), `/login` + `/` (redirect home channel). Channel auto-detect dari UA; cookie `karsa_channel` hanya untuk redirect. |
 | Halaman `/login` + `/dashboard` placeholder | `SELESAI` | Fase 1: logo + tagline, tombol Google, blok dev (dev-only), pesan error role/domain; `/dashboard` menampilkan nama + role + `kelas_id` + logout + empty state §7.4. Rapor penuh = Fase 4A. |
-| CRUD Semester / Prodi / Matkul / Kelas | `SEBAGIAN` | Fase 2 (Sub-Fase 2A–2B selesai): `actions/semester.ts` (+ `setActiveSemester` transaksi, PRD §9), `actions/prodi.ts`, `actions/matkul.ts`, `actions/kelas.ts` — semua ber-guard `requireAdmin()`, validasi Zod, tangkap `PrismaClientKnownRequestError` → pesan ramah. Halaman `/admin/semester` · `/admin/prodi` · `/admin/matkul` · `/admin/kelas` (tabel + dialog shadcn + select prodi/semester + toast Sonner + `useTransition`) dan dashboard admin berisi 4 kartu statistik (`prisma.count()`). Definisi "mahasiswa" = user `is_admin = false` (termasuk PJ). Assign/hapus anggota kelas (tab Mahasiswa di detail kelas) = Sub-Fase 2C; tab Matkul & PJ = Sub-Fase 2D. |
-| Detail Kelas — Mahasiswa + Matkul & PJ | `SEBAGIAN` | Fase 2: tab **Mahasiswa** selesai di Sub-Fase 2C — `actions/mahasiswa.ts` (`findUserForKelas` preview, `addMahasiswaToKelas`, `createAndAddMahasiswa`, `removeMahasiswaFromKelas`; semua ber-guard `requireAdmin()`, email wajib `@students.untidar.ac.id`, akun admin & PJ dilindungi) + halaman `admin/kelas/[id]` (header, tab bar client, tabel mahasiswa dengan badge peran) & dialog dua mode (cari user lama / buat user baru). Tab **Matkul & PJ** = Sub-Fase 2D (placeholder "Akan tersedia di Sub-Fase 2D"). |
+| CRUD Semester / Prodi / Matkul / Kelas | `SELESAI` | Fase 2 (Sub-Fase 2A–2B selesai): `actions/semester.ts` (+ `setActiveSemester` transaksi, PRD §9), `actions/prodi.ts`, `actions/matkul.ts`, `actions/kelas.ts` — semua ber-guard `requireAdmin()`, validasi Zod, tangkap `PrismaClientKnownRequestError` → pesan ramah. Halaman `/admin/semester` · `/admin/prodi` · `/admin/matkul` · `/admin/kelas` (tabel + dialog shadcn + select prodi/semester + toast Sonner + `useTransition`) dan dashboard admin berisi 4 kartu statistik (`prisma.count()`). Definisi "mahasiswa" = user `is_admin = false` (termasuk PJ). Assign/hapus anggota kelas = Sub-Fase 2C; assign matkul & PJ = Sub-Fase 2D. |
+| Detail Kelas — Mahasiswa + Matkul & PJ | `SELESAI` | Fase 2 (Sub-Fase 2C–2D): halaman `admin/kelas/[id]` = header kelas + tab bar client (default **Mahasiswa**). **Tab Mahasiswa (2C)** — `actions/mahasiswa.ts` (`findUserForKelas` preview, `addMahasiswaToKelas`, `createAndAddMahasiswa`, `removeMahasiswaFromKelas`): email wajib `@students.untidar.ac.id`, akun admin & PJ dilindungi, hapus = `kelas_id = null` (akun & poin tetap). **Tab Matkul & PJ (2D)** — `actions/kelas-matkul.ts` (`assignMatkulToKelas`, `updatePjKelasMatkul`, `removeKelasMatkul`): unique `(kelas_id, matkul_id)` dicek eksplisit + `P2002`, PJ wajib mahasiswa kelas itu & bukan admin, penugasan yang sudah punya poin **tidak bisa dihapus** (FK `PoinLog` Cascade → `count` + `deleteMany` bersyarat `poinLogs: { none: {} }`), ganti PJ tidak mengubah riwayat `PoinLog.pj_id`. Semua action ber-guard `requireAdmin()`, validasi Zod (`z.string().min(1)`, tanpa `.cuid()`), `revalidatePath` path konkret. |
 | **Rebranding SiPoin → Karsa** | `SELESAI` | Terverifikasi di repo Fase 1: tidak ada lagi teks "SiPoin" di kode/UI (hanya tersisa di dokumen ini sebagai catatan nama lama). |
 | **Dual channel routing** | `SELESAI` | Fase 1.5: route group `(mobile)` / `(desktop)` tanpa mengubah URL, `lib/channel.ts`, middleware auto-detect UA + cookie untuk redirect. Tidak ada tombol switch. Isi halaman mobile = Fase 3. |
 | **PWA manifest** | `SELESAI` | Minimal: `public/manifest.json` + `icon.svg`. Tanpa offline mode. |
@@ -431,6 +432,12 @@ actions/rekap.ts       ❌ ← Fase 5
 | Seed di Supabase/Postgres | `SELESAI` | Dikonfirmasi user: 5 test user + data uji lengkap. Idempoten, teruji ulang Fase 1. |
 
 **Label:** `SELESAI` · `SEBAGIAN` · `BELUM` · `BUTUH VERIFIKASI`.
+
+> **Fase 2 (CRUD Admin) selesai — siap lanjut Fase 3 (PJ input poin).**
+> Sub-Fase 2A (master Semester/Prodi/Matkul + dashboard admin), 2B (Kelas),
+> 2C (tab Mahasiswa), dan 2D (tab Matkul & PJ) sudah terverifikasi. Berikutnya:
+> Fase 3A (`/catat-poin`, input poin PJ — prioritas #1), 3B (riwayat input PJ),
+> 3C (rapor mobile PJ).
 
 > **Catatan verifikasi Fase 1 (Auth + Dev Quick Login).** Repo diverifikasi ulang,
 > dan ada dua klaim §12 lama yang tidak sesuai kondisi kode saat itu: tidak ada
@@ -787,4 +794,4 @@ Setelah Fase 0 lapor bersih:
 
 ---
 
-*Versi 2.0 · Brand: Karsa · Update terakhir: 2026-09-17 (WIB) · Fase 2 — Sub-Fase 2C · Maintainer: Yusuf Wildan Affandi*
+*Versi 2.0 · Brand: Karsa · Update terakhir: 2026-09-17 (WIB) · Fase 2 SELESAI (2A–2D) · Maintainer: Yusuf Wildan Affandi*

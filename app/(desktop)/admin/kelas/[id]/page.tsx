@@ -1,8 +1,8 @@
 /**
  * Karsa — app/(desktop)/admin/kelas/[id]/page.tsx
  * ----------------------------------------------------------------------------
- * Detail kelas (Sub-Fase 2C, PRD §7.1 langkah 3): header kelas + tab
- * "Mahasiswa" (2C) dan "Matkul & PJ" (placeholder → 2D).
+ * Detail kelas (Sub-Fase 2C + 2D, PRD §7.1 langkah 3): header kelas + tab
+ * "Mahasiswa" (2C) dan "Matkul & PJ" (2D — assign matkul & kelola PJ).
  *
  * Server component: `requireAdmin()` → query paralel → kirim data primitif ke
  * komponen client. `params` di-await (Next.js 15 — params berupa Promise).
@@ -19,6 +19,7 @@ import { notFound } from "next/navigation";
 
 import { requireAdmin } from "@/lib/auth-helpers";
 import { formatDateWib } from "@/lib/utils";
+import type { KelasMatkulRow, MatkulOption } from "@/lib/kelas-matkul";
 import type { MahasiswaRow } from "@/lib/mahasiswa";
 import { prisma } from "@/lib/prisma";
 
@@ -44,6 +45,13 @@ interface MahasiswaQueryRow {
   kelasMatkulAsPj: { id: string }[];
 }
 
+/** Bentuk baris hasil query `kelasMatkul` (lihat alasannya di tipe di atas). */
+interface KelasMatkulQueryRow {
+  id: string;
+  matkul: { id: string; name: string; code: string | null };
+  pj: { id: string; name: string | null; nim: string | null; email: string };
+}
+
 export default async function AdminKelasDetailPage({
   params,
 }: {
@@ -53,14 +61,10 @@ export default async function AdminKelasDetailPage({
 
   const { id } = await params;
 
-  const [kelas, mahasiswaRaw] = await Promise.all([
+  const [kelas, mahasiswaRaw, kelasMatkulRaw, matkulsRaw] = await Promise.all([
     prisma.kelas.findUnique({
       where: { id },
-      include: {
-        prodi: true,
-        semester: true,
-        _count: { select: { users: true, kelasMatkul: true } },
-      },
+      include: { prodi: true, semester: true },
     }),
     prisma.user.findMany({
       where: { kelas_id: id },
@@ -78,6 +82,22 @@ export default async function AdminKelasDetailPage({
         },
       },
     }),
+    // Penugasan matkul di kelas ini (tab 2D). Unique (kelas_id, matkul_id)
+    // menjamin tidak ada baris ganda untuk matkul yang sama.
+    prisma.kelasMatkul.findMany({
+      where: { kelas_id: id },
+      include: {
+        matkul: true,
+        pj: { select: { id: true, name: true, nim: true, email: true } },
+      },
+      orderBy: { matkul: { name: "asc" } },
+    }),
+    // Semua matkul: dropdown "Assign Matkul" menyaring yang belum di-assign di
+    // client (daftarnya kecil & halaman ini sudah memuat seluruh data kelas).
+    prisma.matkul.findMany({
+      orderBy: { name: "asc" },
+      select: { id: true, name: true, code: true },
+    }),
   ]);
 
   if (!kelas) notFound();
@@ -92,6 +112,16 @@ export default async function AdminKelasDetailPage({
       is_pj: row.kelasMatkulAsPj.length > 0,
     }),
   );
+
+  const kelasMatkul: KelasMatkulRow[] = kelasMatkulRaw.map(
+    (row: KelasMatkulQueryRow): KelasMatkulRow => ({
+      id: row.id,
+      matkul: row.matkul,
+      pj: row.pj,
+    }),
+  );
+
+  const matkuls: MatkulOption[] = matkulsRaw;
 
   return (
     <main className="mx-auto flex w-full max-w-5xl flex-col gap-6 px-4 py-8">
@@ -117,7 +147,8 @@ export default async function AdminKelasDetailPage({
         kelasId={kelas.id}
         kelasName={kelas.name}
         mahasiswa={mahasiswa}
-        jumlahMatkul={kelas._count.kelasMatkul}
+        kelasMatkul={kelasMatkul}
+        matkuls={matkuls}
       />
     </main>
   );

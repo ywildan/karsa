@@ -1,12 +1,12 @@
 /**
  * Karsa — app/(desktop)/admin/kelas/[id]/_components/kelas-detail-tabs.tsx
  * ----------------------------------------------------------------------------
- * Tab switcher halaman detail kelas (Sub-Fase 2C). Client component karena
+ * Tab switcher halaman detail kelas (Sub-Fase 2C + 2D). Client component karena
  * hanya menyimpan satu potong state (`panel`); data & otorisasi tetap berasal
  * dari server component induk (`page.tsx` → `requireAdmin()`).
  *
- * Default tab = Mahasiswa (PRD §7.1 langkah 3). Tab "Matkul & PJ" sengaja
- * tetap bisa diklik dan menampilkan placeholder — diisi Sub-Fase 2D.
+ * Default tab = Mahasiswa (PRD §7.1 langkah 3). Tab kedua "Matkul & PJ"
+ * (Sub-Fase 2D) me-render `MatkulPjTab` untuk assign matkul + kelola PJ.
  */
 "use client";
 
@@ -15,6 +15,8 @@ import * as React from "react";
 import { cn } from "@/lib/utils";
 
 import { MahasiswaTab } from "./mahasiswa-tab";
+import { MatkulPjTab } from "./matkul-pj-tab";
+import type { KelasMatkulRow, MatkulOption } from "@/lib/kelas-matkul";
 import type { MahasiswaRow } from "@/lib/mahasiswa";
 
 type Panel = "mahasiswa" | "matkul";
@@ -23,18 +25,20 @@ export function KelasDetailTabs({
   kelasId,
   kelasName,
   mahasiswa,
-  jumlahMatkul,
+  kelasMatkul,
+  matkuls,
 }: {
   kelasId: string;
   kelasName: string;
   mahasiswa: MahasiswaRow[];
-  jumlahMatkul: number;
+  kelasMatkul: KelasMatkulRow[];
+  matkuls: MatkulOption[];
 }) {
   const [panel, setPanel] = React.useState<Panel>("mahasiswa");
 
   const TABS: { id: Panel; label: string }[] = [
     { id: "mahasiswa", label: `Mahasiswa (${mahasiswa.length})` },
-    { id: "matkul", label: `Matkul & PJ (${jumlahMatkul})` },
+    { id: "matkul", label: `Matkul & PJ (${kelasMatkul.length})` },
   ];
 
   return (
@@ -80,17 +84,13 @@ export function KelasDetailTabs({
             mahasiswa={mahasiswa}
           />
         ) : (
-          <div className="rounded-lg border border-border bg-card p-6 text-sm text-muted-foreground shadow-soft">
-            <p className="font-medium text-foreground">Matkul &amp; PJ</p>
-            <p className="mt-1">
-              Akan tersedia di Sub-Fase 2D — di situ admin bisa meng-assign
-              matkul ke kelas ini beserta penanggung jawab (PJ)-nya.
-            </p>
-            <p className="mt-2">
-              Catatan: penggantian PJ dilakukan di tab ini, jadi mahasiswa yang
-              masih PJ belum bisa dikeluarkan dari kelas.
-            </p>
-          </div>
+          <MatkulPjTab
+            kelasId={kelasId}
+            kelasName={kelasName}
+            kelasMatkul={kelasMatkul}
+            matkuls={matkuls}
+            mahasiswa={mahasiswa}
+          />
         )}
       </div>
     </div>
