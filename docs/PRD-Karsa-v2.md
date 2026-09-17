@@ -415,8 +415,8 @@ actions/rekap.ts       ❌ ← Fase 5
 | JWT refresh `is_admin` / `kelas_id` | `SELESAI` | Fase 1: `callbacks.jwt` me-refresh dari DB tiap pembacaan session (id, `nim`, `is_admin`, `kelas_id`, `is_pj`). Teruji per role. |
 | Middleware guard route | `SELESAI` | Fase 1.5: `/admin/*` (is_admin), `/dashboard/*` (login; PJ → `/catat-poin`), path mobile (wajib PJ), `/login` + `/` (redirect home channel). Channel auto-detect dari UA; cookie `karsa_channel` hanya untuk redirect. |
 | Halaman `/login` + `/dashboard` placeholder | `SELESAI` | Fase 1: logo + tagline, tombol Google, blok dev (dev-only), pesan error role/domain; `/dashboard` menampilkan nama + role + `kelas_id` + logout + empty state §7.4. Rapor penuh = Fase 4A. |
-| CRUD Semester / Prodi / Matkul / Kelas | `BELUM` | **Koreksi §12 lama:** folder `actions/` belum punya modul CRUD (hanya `actions/auth.ts` dari Fase 1). Perlu dikerjakan sebelum Fase 3A/5 atau dicatat sebagai hutang teknis. |
-| Detail Kelas — Mahasiswa + Matkul & PJ | `BELUM` | **Koreksi §12 lama:** belum ada halaman `admin/kelas/[id]` di repo. |
+| CRUD Semester / Prodi / Matkul / Kelas | `SEBAGIAN` | Fase 2 (Sub-Fase 2A selesai): `actions/semester.ts` (+ `setActiveSemester` transaksi, PRD §9), `actions/prodi.ts`, `actions/matkul.ts` — semua ber-guard `requireAdmin()`, validasi Zod, tangkap `PrismaClientKnownRequestError` → pesan ramah. Halaman `/admin/semester` · `/admin/prodi` · `/admin/matkul` (tabel + dialog shadcn + toast Sonner + `useTransition`) dan dashboard admin berisi 4 kartu statistik (`prisma.count()`). Definisi "mahasiswa" = user `is_admin = false` (termasuk PJ). CRUD Kelas + detail = Sub-Fase 2B–2D. |
+| Detail Kelas — Mahasiswa + Matkul & PJ | `BELUM` | Fase 2 Sub-Fase 2C–2D. Belum ada halaman `admin/kelas/[id]` di repo. |
 | **Rebranding SiPoin → Karsa** | `SELESAI` | Terverifikasi di repo Fase 1: tidak ada lagi teks "SiPoin" di kode/UI (hanya tersisa di dokumen ini sebagai catatan nama lama). |
 | **Dual channel routing** | `SELESAI` | Fase 1.5: route group `(mobile)` / `(desktop)` tanpa mengubah URL, `lib/channel.ts`, middleware auto-detect UA + cookie untuk redirect. Tidak ada tombol switch. Isi halaman mobile = Fase 3. |
 | **PWA manifest** | `SELESAI` | Minimal: `public/manifest.json` + `icon.svg`. Tanpa offline mode. |
@@ -786,4 +786,4 @@ Setelah Fase 0 lapor bersih:
 
 ---
 
-*Versi 2.0 · Brand: Karsa · Update terakhir: [isi tanggal] · Maintainer: Yusuf Wildan Affandi*
+*Versi 2.0 · Brand: Karsa · Update terakhir: 2026-09-17 (Fase 2 — Sub-Fase 2A) · Maintainer: Yusuf Wildan Affandi*
