@@ -25,8 +25,8 @@ const kelasInputSchema = z.object({
     .trim()
     .min(1, "Nama kelas wajib diisi.")
     .max(50, "Nama kelas maksimal 50 karakter."),
-  prodi_id: z.string().cuid("Prodi tidak valid."),
-  semester_id: z.string().cuid("Semester tidak valid."),
+    prodi_id: z.string().min(1, "Prodi wajib dipilih."),
+  semester_id: z.string().min(1, "Semester wajib dipilih."),
 });
 
 type KelasInput = z.infer<typeof kelasInputSchema>;
@@ -38,8 +38,8 @@ const kelasUpdateSchema = z.object({
     .trim()
     .min(1, "Nama kelas wajib diisi.")
     .max(50, "Nama kelas maksimal 50 karakter."),
-  prodi_id: z.string().cuid("Prodi tidak valid."),
-  semester_id: z.string().cuid("Semester tidak valid."),
+    prodi_id: z.string().min(1, "Prodi wajib dipilih."),
+  semester_id: z.string().min(1, "Semester wajib dipilih."),
 });
 
 const REVALIDATE = ["/admin/kelas", "/admin/dashboard"] as const;
