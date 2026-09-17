@@ -41,8 +41,10 @@ import {
   mahasiswaLabel,
   type KategoriItem,
   type MahasiswaItem,
+  type MatkulFilterOption,
   type MatkulPjCard,
   type PoinInput,
+  type RiwayatPoinRow,
 } from "@/lib/poin";
 import { prisma } from "@/lib/prisma";
 import { POIN_MAX, POIN_MIN } from "@/lib/utils";
@@ -200,6 +202,73 @@ export async function getKategoriPoin(): Promise<KategoriItem[]> {
   });
 }
 
+/**
+ * Maksimal 100 input poin milik PJ yang sedang login, terbaru lebih dahulu.
+ * Riwayat selalu diikat ke `pj_id` dari session, bukan parameter client.
+ */
+export async function getPoinLogsByPj(): Promise<RiwayatPoinRow[]> {
+  const user = await requireUser();
+
+  const rows = await prisma.poinLog.findMany({
+    where: { pj_id: user.id },
+    include: {
+      mahasiswa: { select: { name: true, nim: true } },
+      kategori: { select: { name: true } },
+      kelasMatkul: {
+        include: {
+          matkul: { select: { name: true, code: true } },
+          kelas: {
+            include: {
+              prodi: { select: { name: true } },
+              semester: { select: { name: true } },
+            },
+          },
+        },
+      },
+    },
+    orderBy: { created_at: "desc" },
+    take: 100,
+  });
+
+  return rows.map((row) => ({
+    id: row.id,
+    kelas_matkul_id: row.kelas_matkul_id,
+    poin: row.poin,
+    catatan: row.catatan,
+    created_at: row.created_at,
+    mahasiswa: row.mahasiswa,
+    kategori: row.kategori,
+    matkul: row.kelasMatkul.matkul,
+    kelas: { name: row.kelasMatkul.kelas.name },
+    prodi: row.kelasMatkul.kelas.prodi,
+    semester: row.kelasMatkul.kelas.semester,
+  }));
+}
+
+/**
+ * Opsi filter hanya untuk penugasan yang sedang/ pernah dikelola PJ dan sudah
+ * memiliki poin. Id sengaja memakai `KelasMatkul.id`: satu matkul bisa muncul
+ * pada lebih dari satu kelas.
+ */
+export async function getMatkulsWithPoinAsPj(): Promise<MatkulFilterOption[]> {
+  const user = await requireUser();
+
+  const rows = await prisma.kelasMatkul.findMany({
+    where: { pj_id: user.id, poinLogs: { some: {} } },
+    select: {
+      id: true,
+      matkul: { select: { name: true } },
+      kelas: { select: { name: true } },
+    },
+    orderBy: [{ matkul: { name: "asc" } }, { kelas: { name: "asc" } }],
+  });
+
+  return rows.map((row) => ({
+    id: row.id,
+    label: `${row.matkul.name} · ${row.kelas.name}`,
+  }));
+}
+
 // ---------------------------------------------------------------------------
 // Mutasi
 // ---------------------------------------------------------------------------
@@ -312,4 +381,46 @@ export async function createPoinLog(input: PoinInput): Promise<ActionResult> {
       mahasiswa,
     )} tercatat.`,
   };
+}
+
+/** Hapus permanen satu input poin milik PJ pembuatnya (PRD §8). */
+export async function deletePoinLog(id: string): Promise<ActionResult> {
+  const user = await requireUser();
+
+  const parsed = idSchema.safeParse(id);
+  if (!parsed.success) {
+    return { ok: false, error: zodFirstError(parsed.error) };
+  }
+
+  // Re-query dari DB: id dari client tidak membuktikan kepemilikan record.
+  const poinLog = await prisma.poinLog.findUnique({
+    where: { id: parsed.data },
+    select: { id: true, pj_id: true },
+  });
+
+  if (!poinLog) {
+    return { ok: false, error: "Poin tidak ditemukan. Mungkin sudah dihapus." };
+  }
+  if (poinLog.pj_id !== user.id) {
+    return { ok: false, error: "Kamu tidak berhak hapus poin ini." };
+  }
+
+  try {
+    await prisma.poinLog.delete({ where: { id: poinLog.id } });
+  } catch (error) {
+    return {
+      ok: false,
+      error: mapPrismaKnownError(
+        error,
+        { P2025: "Poin tidak ditemukan. Mungkin sudah dihapus." },
+        "Gagal menghapus poin. Silakan coba lagi.",
+      ),
+    };
+  }
+
+  revalidatePath("/riwayat-poin");
+  revalidatePath("/catat-poin");
+  revalidatePath("/dashboard");
+
+  return { ok: true, message: "Poin berhasil dihapus." };
 }

@@ -81,6 +81,12 @@ export default async function CatatPoinDetailPage({
           {kelasMatkul.kelas.semester.name}
           {kelasMatkul.matkul.code ? ` · ${kelasMatkul.matkul.code}` : ""}
         </p>
+        <Link
+          href="/riwayat-poin"
+          className="mt-1 inline-flex min-h-11 w-fit items-center text-sm font-medium text-primary hover:underline"
+        >
+          Lihat riwayat →
+        </Link>
       </header>
 
       {bisaDicatat.length === 0 ? (

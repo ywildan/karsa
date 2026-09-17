@@ -105,6 +105,50 @@ export function formatDateWib(value: Date | string): string {
 }
 
 /**
+ * Waktu relatif dalam Bahasa Indonesia. Setelah tujuh hari, gunakan tanggal
+ * absolut WIB supaya waktu yang lama tetap mudah dipindai.
+ */
+export function formatRelativeTime(value: Date | string): string {
+  const date = value instanceof Date ? value : new Date(value);
+  if (Number.isNaN(date.getTime())) return "-";
+
+  const elapsedMs = Math.max(0, Date.now() - date.getTime());
+  const elapsedMinutes = Math.floor(elapsedMs / (60 * 1000));
+
+  if (elapsedMinutes < 1) return "baru saja";
+  if (elapsedMinutes < 60) return `${elapsedMinutes} menit lalu`;
+
+  const elapsedHours = Math.floor(elapsedMinutes / 60);
+  if (elapsedHours < 24) return `${elapsedHours} jam lalu`;
+
+  const elapsedDays = Math.floor(elapsedHours / 24);
+  if (elapsedDays < 7) return `${elapsedDays} hari lalu`;
+
+  return new Intl.DateTimeFormat("id-ID", {
+    day: "numeric",
+    month: "short",
+    year: "numeric",
+    timeZone: "Asia/Jakarta",
+  }).format(date);
+}
+
+/** Format ringkas tanggal dan waktu eksplisit WIB, mis. "17 Sep 2026, 10.00 WIB". */
+export function formatDateTimeShortWib(value: Date | string): string {
+  const date = value instanceof Date ? value : new Date(value);
+  if (Number.isNaN(date.getTime())) return "-";
+
+  return `${new Intl.DateTimeFormat("id-ID", {
+    day: "numeric",
+    month: "short",
+    year: "numeric",
+    hour: "2-digit",
+    minute: "2-digit",
+    hourCycle: "h23",
+    timeZone: "Asia/Jakarta",
+  }).format(date)} WIB`;
+}
+
+/**
  * Nilai untuk `<input type="date">` (yyyy-mm-dd) dihitung DALAM WIB —
  * supaya tanggal yang tampil di form sama dengan tanggal yang disimpan
  * walau server menyimpannya sebagai UTC.
