@@ -173,10 +173,13 @@ layout ditentukan oleh path route group.
 |---|---|---|
 | **PJ** | ✅ Semua route `(mobile)` | ❌ Redirect ke `(mobile)/catat-poin` |
 | **Mahasiswa** | ❌ Redirect ke `(desktop)/dashboard` | ✅ Semua route `(desktop)` |
-| **Admin** | ❌ Redirect ke `(desktop)/admin` | ✅ Semua route `(desktop)` |
+| **Admin (bukan PJ)** | ❌ Home `/dashboard`; `/admin/*` tetap bisa dibuka langsung | ✅ Semua route `(desktop)` |
+| **Admin + PJ** (Fase 3A) | ❌ Home `/catat-poin` (diperlakukan sebagai PJ); `/admin/*` tetap bisa dibuka langsung | Home `/admin/dashboard`; `/catat-poin` tetap bisa dibuka |
 | **User tanpa kelas** | ❌ Redirect ke `(desktop)/dashboard` | ✅ `(desktop)/dashboard` (empty state) |
 
 > PJ **locked mobile-only**. Buka dari desktop → tetap render mobile layout (sempit), dengan hint *"Buka di HP untuk pengalaman terbaik."*
+>
+> **Koreksi Fase 3A:** tabel lama menulis admin+mobile → `(desktop)/admin`. Kode sejak Fase 1.5 mengirim admin **non-PJ** ke `/dashboard` (`HOME_DEFAULT`), bukan `/admin` — dokumen yang salah, bukan kodenya. Tabel di atas sudah disamakan dengan `homePathForUser()` di `lib/roles.ts`.
 
 ---
 
@@ -220,11 +223,17 @@ tidak menimbulkan drift — kalau nanti pindah ke `migrate`, hapus ketiganya.
 | Rekap & export | ✅ | ❌ | ❌ | ❌ |
 | Akses `/admin/*` | ✅ | ❌ | ❌ | ❌ |
 
+**Definisi PJ (dipertegas Fase 3A):** PJ = user dengan **≥1 `KelasMatkul.pj_id = dirinya`**, tanpa mempedulikan `is_admin`. Jadi **admin BOLEH merangkap PJ** — di dunia nyata admin kampus sering ikut memegang satu matkul. Konsekuensi teknis:
+- `is_pj` dihitung dari relasi `KelasMatkul` (`lib/user-snapshot.ts`), bukan kolom di `User`, dan tidak dibatalkan oleh `is_admin`.
+- `resolvePj()` di `actions/kelas-matkul.ts` menerima admin sebagai PJ dan **mengecualikannya** dari syarat "PJ harus anggota kelas" — admin memang tidak bisa didaftarkan sebagai mahasiswa (`actions/mahasiswa.ts` menolaknya). Kaitan PJ↔kelas tetap ada di `KelasMatkul.kelas_id`, dan `createPoinLog()` mengambil mahasiswa dari `kelas_matkul.kelas_id` (bukan dari `kelas_id` milik PJ), jadi pengecualian ini tidak melonggarkan cakupan pencatatan.
+- Admin yang merangkap PJ tetap punya dua pintu: `/admin/*` (desktop) dan `/catat-poin` (mobile).
+
 **Guard route:**
 - `/admin/*` → wajib `is_admin === true`
-- `/dashboard/*`, `/leaderboard` → wajib login
-- `(mobile)/*` → wajib login **dan** user adalah PJ (punya ≥1 `KelasMatkul`)
+- `/dashboard/*`, `/leaderboard` → wajib login. PJ **non-admin** diarahkan ke `/catat-poin`; admin (termasuk yang merangkap PJ) tetap boleh membuka `/dashboard`.
+- `(mobile)/*` → wajib login **dan** user adalah PJ (punya ≥1 `KelasMatkul`) — `is_admin` tidak menghalangi
 - `/login` → jika sudah login, redirect ke home channel masing-masing
+- Guard per-resource tetap di server: `createPoinLog()` memverifikasi `KelasMatkul.pj_id === session.user.id` dari DB, menolak mahasiswa di luar kelas penugasan, dan menolak PJ menilai dirinya sendiri (PRD §0 aturan 6).
 
 ---
 
@@ -299,7 +308,7 @@ tidak menimbulkan drift — kalau nanti pindah ke `migrate`, hapus ketiganya.
 | Topik | Default |
 |---|---|
 | PJ input poin untuk dirinya sendiri? | **Tidak** |
-| Admin input poin? | **Ya** (via desktop) |
+| Admin input poin? | **Ya** — via desktop, dan via mobile bila ia merangkap PJ (Fase 3A) |
 | Soft delete poin? | **Tidak** (hard delete) |
 | Catatan wajib? | **Tidak** |
 | Nilai poin fixed 1–4? | **Ya** |
@@ -383,8 +392,8 @@ tidak menimbulkan drift — kalau nanti pindah ke `migrate`, hapus ketiganya.
 ### Akan dibangun
 ```
 MOBILE (route group (mobile)):
-  /catat-poin                        ← isi Fase 3A (shell sudah ada)
-  /catat-poin/[kelas_matkul_id]      ← Fase 3A
+  /catat-poin                        ✅ Fase 3A (daftar matkul yang dipegang PJ)
+  /catat-poin/[kelas_matkul_id]      ✅ Fase 3A (list mahasiswa + bottom sheet)
   /riwayat-poin                      ← isi Fase 3B (shell sudah ada)
   /poin-saya                         ← isi Fase 3C (shell sudah ada)
 
@@ -402,7 +411,7 @@ actions/kelas.ts       ✅
 actions/mahasiswa.ts   ✅ ← Fase 2C (anggota kelas)
 actions/kelas-matkul.ts ✅ ← Fase 2D (assign matkul & PJ)
 actions/matkul.ts      ✅
-actions/poin.ts        ❌ ← Fase 3A
+actions/poin.ts        ✅ ← Fase 3A
 actions/rekap.ts       ❌ ← Fase 5
 ```
 
@@ -418,11 +427,11 @@ actions/rekap.ts       ❌ ← Fase 5
 | Middleware guard route | `SELESAI` | Fase 1.5: `/admin/*` (is_admin), `/dashboard/*` (login; PJ → `/catat-poin`), path mobile (wajib PJ), `/login` + `/` (redirect home channel). Channel auto-detect dari UA; cookie `karsa_channel` hanya untuk redirect. |
 | Halaman `/login` + `/dashboard` placeholder | `SELESAI` | Fase 1: logo + tagline, tombol Google, blok dev (dev-only), pesan error role/domain; `/dashboard` menampilkan nama + role + `kelas_id` + logout + empty state §7.4. Rapor penuh = Fase 4A. |
 | CRUD Semester / Prodi / Matkul / Kelas | `SELESAI` | Fase 2 (Sub-Fase 2A–2B selesai): `actions/semester.ts` (+ `setActiveSemester` transaksi, PRD §9), `actions/prodi.ts`, `actions/matkul.ts`, `actions/kelas.ts` — semua ber-guard `requireAdmin()`, validasi Zod, tangkap `PrismaClientKnownRequestError` → pesan ramah. Halaman `/admin/semester` · `/admin/prodi` · `/admin/matkul` · `/admin/kelas` (tabel + dialog shadcn + select prodi/semester + toast Sonner + `useTransition`) dan dashboard admin berisi 4 kartu statistik (`prisma.count()`). Definisi "mahasiswa" = user `is_admin = false` (termasuk PJ). Assign/hapus anggota kelas = Sub-Fase 2C; assign matkul & PJ = Sub-Fase 2D. |
-| Detail Kelas — Mahasiswa + Matkul & PJ | `SELESAI` | Fase 2 (Sub-Fase 2C–2D): halaman `admin/kelas/[id]` = header kelas + tab bar client (default **Mahasiswa**). **Tab Mahasiswa (2C)** — `actions/mahasiswa.ts` (`findUserForKelas` preview, `addMahasiswaToKelas`, `createAndAddMahasiswa`, `removeMahasiswaFromKelas`): email wajib `@students.untidar.ac.id`, akun admin & PJ dilindungi, hapus = `kelas_id = null` (akun & poin tetap). **Tab Matkul & PJ (2D)** — `actions/kelas-matkul.ts` (`assignMatkulToKelas`, `updatePjKelasMatkul`, `removeKelasMatkul`): unique `(kelas_id, matkul_id)` dicek eksplisit + `P2002`, PJ wajib mahasiswa kelas itu & bukan admin, penugasan yang sudah punya poin **tidak bisa dihapus** (FK `PoinLog` Cascade → `count` + `deleteMany` bersyarat `poinLogs: { none: {} }`), ganti PJ tidak mengubah riwayat `PoinLog.pj_id`. Semua action ber-guard `requireAdmin()`, validasi Zod (`z.string().min(1)`, tanpa `.cuid()`), `revalidatePath` path konkret. |
+| Detail Kelas — Mahasiswa + Matkul & PJ | `SELESAI` | Fase 2 (Sub-Fase 2C–2D): halaman `admin/kelas/[id]` = header kelas + tab bar client (default **Mahasiswa**). **Tab Mahasiswa (2C)** — `actions/mahasiswa.ts` (`findUserForKelas` preview, `addMahasiswaToKelas`, `createAndAddMahasiswa`, `removeMahasiswaFromKelas`): email wajib `@students.untidar.ac.id`, akun admin & PJ dilindungi, hapus = `kelas_id = null` (akun & poin tetap). **Tab Matkul & PJ (2D)** — `actions/kelas-matkul.ts` (`assignMatkulToKelas`, `updatePjKelasMatkul`, `removeKelasMatkul`): unique `(kelas_id, matkul_id)` dicek eksplisit + `P2002`, PJ = mahasiswa kelas itu **atau akun admin yang merangkap PJ** (aturan diperbarui Fase 3A), penugasan yang sudah punya poin **tidak bisa dihapus** (FK `PoinLog` Cascade → `count` + `deleteMany` bersyarat `poinLogs: { none: {} }`), ganti PJ tidak mengubah riwayat `PoinLog.pj_id`. Semua action ber-guard `requireAdmin()`, validasi Zod (`z.string().min(1)`, tanpa `.cuid()`), `revalidatePath` path konkret. |
 | **Rebranding SiPoin → Karsa** | `SELESAI` | Terverifikasi di repo Fase 1: tidak ada lagi teks "SiPoin" di kode/UI (hanya tersisa di dokumen ini sebagai catatan nama lama). |
 | **Dual channel routing** | `SELESAI` | Fase 1.5: route group `(mobile)` / `(desktop)` tanpa mengubah URL, `lib/channel.ts`, middleware auto-detect UA + cookie untuk redirect. Tidak ada tombol switch. Isi halaman mobile = Fase 3. |
 | **PWA manifest** | `SELESAI` | Minimal: `public/manifest.json` + `icon.svg`. Tanpa offline mode. |
-| **Fase 3A — Input poin PJ (mobile)** | `BELUM` | Prioritas #1 |
+| **Fase 3A — Input poin PJ (mobile)** | `BUTUH VERIFIKASI` | Dikerjakan 2026-09-17. `actions/poin.ts` (`getMatkulsAsPj`, `getMahasiswaInKelasMatkul`, `getKategoriPoin`, `createPoinLog`) — semua ber-guard `requireUser()` + re-query `KelasMatkul.pj_id === session.user.id` dari DB (anti-IDOR), mahasiswa wajib `kelas_id` penugasan & `is_admin = false`, PJ tidak bisa menilai diri sendiri, `poin` integer 1–4 (Zod + CHECK DB), catatan ≤500 char, anti double-submit ≤3 detik, `pj_id` selalu dari session. UI: `/catat-poin` (kartu matkul + jumlah mahasiswa) → `/catat-poin/[kelas_matkul_id]` (list mahasiswa, `notFound()` bila bukan PJ-nya) → bottom sheet `vaul` (segmented kategori, tombol poin 1–4, catatan collapsible, haptic 10ms + toast Sonner + `router.refresh()`). Aturan PJ diubah: **admin boleh merangkap PJ** (`lib/roles.ts`, `actions/kelas-matkul.ts`, dropdown PJ di tab Matkul & PJ). `tsc` · `lint` · `build` bersih di sandbox. **Belum diuji end-to-end** — sandbox tidak punya akses database. |
 | **Fase 3B — Riwayat input PJ** | `BELUM` | — |
 | **Fase 3C — Rapor mobile (PJ dual role)** | `BELUM` | — |
 | **Fase 4A — Rapor mahasiswa (desktop)** | `BELUM` | — |
@@ -472,7 +481,7 @@ actions/rekap.ts       ❌ ← Fase 5
 | Topik | Default |
 |---|---|
 | PJ input untuk diri sendiri | Tidak |
-| Admin input poin | Ya (via desktop) |
+| Admin input poin | Ya (via desktop; via mobile bila merangkap PJ) |
 | Bulk input | Tidak dulu |
 | Batas waktu koreksi | Tidak ada |
 | Catatan wajib | Tidak |
@@ -794,4 +803,4 @@ Setelah Fase 0 lapor bersih:
 
 ---
 
-*Versi 2.0 · Brand: Karsa · Update terakhir: 2026-09-17 (WIB) · Fase 2 SELESAI (2A–2D) · Maintainer: Yusuf Wildan Affandi*
+*Versi 2.0 · Brand: Karsa · Update terakhir: 2026-09-17 (WIB) · Fase 3A selesai (menunggu uji preview) · Maintainer: Yusuf Wildan Affandi*

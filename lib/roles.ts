@@ -18,7 +18,11 @@ export type Role = "admin" | "pj" | "mahasiswa" | "tanpa_kelas";
 /** Klaim minimum untuk menentukan peran & home channel. */
 export interface RoleClaims {
   is_admin: boolean;
-  /** PJ bila punya ≥1 `KelasMatkul` dengan `pj_id = dirinya`. */
+  /**
+   * PJ bila punya ≥1 `KelasMatkul` dengan `pj_id = dirinya` (dihitung di
+   * `lib/user-snapshot.ts`). Sejak Fase 3A klaim ini TIDAK dibatalkan oleh
+   * `is_admin` — admin boleh merangkap PJ (PRD §6).
+   */
   is_pj?: boolean;
   kelas_id?: string | null;
 }
@@ -38,10 +42,17 @@ export const LOGIN_PATH = "/login";
 /**
  * Home channel berdasarkan klaim session + channel efektif.
  *
- *   admin + desktop → `/admin/dashboard`
- *   admin + mobile  → `/dashboard`
- *   PJ              → `/catat-poin` (locked, channel diabaikan)
- *   lainnya         → `/dashboard`
+ *   PJ (dari HP)     → `/catat-poin` (locked) — TERMASUK admin yang merangkap PJ
+ *   admin + desktop  → `/admin/dashboard`
+ *   admin + mobile   → `/dashboard`   (admin yang bukan PJ)
+ *   PJ murni desktop → `/catat-poin`  (locked, render shell mobile + hint)
+ *   lainnya          → `/dashboard`
+ *
+ * **Keputusan Fase 3A:** PJ = user dengan ≥1 `KelasMatkul.pj_id = dirinya`,
+ * TIDAK peduli `is_admin` (PRD §6). Admin boleh merangkap PJ — jadi cabang PJ
+ * di channel mobile harus diperiksa SEBELUM cabang admin. Sebelumnya admin
+ * diperiksa lebih dulu sehingga admin-PJ dari HP selalu terlempar ke
+ * `/dashboard` dan tidak pernah sampai ke `/catat-poin`.
  *
  * `channel` diisi dari hasil auto-detect User-Agent di middleware dan halaman
  * `/login`. Kalau `channel` dihilangkan, admin dianggap desktop (fallback aman).
@@ -50,9 +61,15 @@ export function homePathForUser(
   claims: RoleClaims | null | undefined,
   channel?: Channel,
 ): string {
+  // PJ locked mobile (PRD §7.2) — menang atas admin di channel mobile.
+  if (claims?.is_pj && channel === "mobile") {
+    return MOBILE_HOME;
+  }
+  // Admin tanpa tugas PJ: desktop → panel admin (Q9), mobile → /dashboard.
   if (claims?.is_admin) {
     return channel === "mobile" ? DESKTOP_HOME : HOME_ADMIN;
   }
+  // PJ murni yang membuka dari desktop tetap dikunci ke shell mobile.
   if (claims?.is_pj) {
     return MOBILE_HOME;
   }
@@ -62,6 +79,10 @@ export function homePathForUser(
 /**
  * Prioritas peran untuk label UI (PRD §6): admin > PJ > mahasiswa > tanpa kelas.
  * Catatan: Budi adalah PJ **sekaligus** mahasiswa, jadi `is_pj` menang.
+ *
+ * Ini HANYA untuk label. Untuk otorisasi & routing, `is_admin` dan `is_pj`
+ * dipakai terpisah — sejak Fase 3A admin boleh merangkap PJ, jadi dua klaim
+ * itu tidak saling meniadakan (lihat `homePathForUser`).
  */
 export function roleOf(claims: RoleClaims | null | undefined): Role {
   if (claims?.is_admin) return "admin";
@@ -70,11 +91,11 @@ export function roleOf(claims: RoleClaims | null | undefined): Role {
   return "tanpa_kelas";
 }
 
-/** Label peran siap tampil. */
+/** Label peran siap tampil. Admin yang merangkap PJ ditulis "Admin · PJ". */
 export function roleLabel(claims: RoleClaims | null | undefined): string {
   switch (roleOf(claims)) {
     case "admin":
-      return "Admin";
+      return claims?.is_pj ? "Admin · PJ" : "Admin";
     case "pj":
       return "PJ (Penanggung Jawab)";
     case "mahasiswa":

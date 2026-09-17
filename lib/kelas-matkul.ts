@@ -24,6 +24,28 @@ export interface PjOption {
   email: string;
 }
 
+/**
+ * Kandidat PJ untuk dropdown "Assign Matkul" / "Edit PJ".
+ *
+ * Sejak Fase 3A (PRD §6) **admin boleh merangkap PJ**, jadi daftarnya =
+ * mahasiswa kelas ini (non-admin) + semua akun admin. Flag `is_admin` hanya
+ * untuk mengelompokkan tampilan; keputusan sah/tidaknya tetap di server
+ * (`resolvePj()` di `actions/kelas-matkul.ts`).
+ */
+export interface PjKandidatOption {
+  id: string;
+  name: string | null;
+  nim: string | null;
+  email: string;
+  is_admin: boolean;
+}
+
+/** Label kandidat PJ di dropdown: "Budi Santoso — 2310501001". */
+export function pjKandidatLabel(kandidat: PjKandidatOption): string {
+  const nama = kandidat.name?.trim() || kandidat.email;
+  return kandidat.nim ? `${nama} — ${kandidat.nim}` : nama;
+}
+
 /** Satu baris penugasan matkul di kelas (KelasMatkul + matkul + PJ). */
 export interface KelasMatkulRow {
   id: string;
