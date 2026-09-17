@@ -67,8 +67,7 @@ export default async function AdminDashboardPage() {
       description: "Rombel semua semester",
       value: kelasCount,
       icon: Layers,
-      // Halaman CRUD kelas dibangun di Sub-Fase 2B.
-      href: null,
+      href: "/admin/kelas",
     },
     {
       label: "Matkul",

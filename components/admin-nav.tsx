@@ -17,6 +17,7 @@ const NAV_ITEMS = [
   { href: "/admin/semester", label: "Semester" },
   { href: "/admin/prodi", label: "Prodi" },
   { href: "/admin/matkul", label: "Matkul" },
+  { href: "/admin/kelas", label: "Kelas" },
 ] as const;
 
 export function AdminNav() {
