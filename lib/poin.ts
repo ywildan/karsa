@@ -19,7 +19,7 @@ export interface MatkulPjCard {
   kelasName: string;
   prodiName: string;
   semesterName: string;
-  /** Anggota kelas (user `is_admin = false`) yang bisa diberi poin. */
+  /** Semua anggota kelas yang bisa diberi poin, termasuk admin yang merangkap mahasiswa. */
   jumlahMahasiswa: number;
 }
 

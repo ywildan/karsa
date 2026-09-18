@@ -38,7 +38,7 @@ export function KelasDetailTabs({
   mahasiswa: MahasiswaRow[];
   kelasMatkul: KelasMatkulRow[];
   matkuls: MatkulOption[];
-  /** Mahasiswa kelas ini (non-admin) + admin — lihat `lib/kelas-matkul.ts`. */
+  /** Semua anggota kelas + admin di luar kelas — lihat `lib/kelas-matkul.ts`. */
   pjKandidat: PjKandidatOption[];
 }) {
   const [panel, setPanel] = React.useState<Panel>("mahasiswa");

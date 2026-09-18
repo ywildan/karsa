@@ -62,7 +62,6 @@ export type UserPreviewStatus =
   | "siap"
   | "sudah_di_kelas_ini"
   | "kelas_lain"
-  | "admin"
   | "tidak_ditemukan";
 
 /**
@@ -79,7 +78,6 @@ export type UserPreviewResult =
       message: string;
       user: UserPreview;
     }
-  | { ok: true; status: "admin"; message: string; user: UserPreview }
   | {
       ok: true;
       status: "kelas_lain";

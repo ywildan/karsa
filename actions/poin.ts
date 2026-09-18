@@ -138,7 +138,7 @@ export async function getMatkulsAsPj(): Promise<MatkulPjCard[]> {
   const kelasIds = [...new Set(rows.map((row) => row.kelas_id))];
   const hitungan = await prisma.user.groupBy({
     by: ["kelas_id"],
-    where: { kelas_id: { in: kelasIds }, is_admin: false },
+    where: { kelas_id: { in: kelasIds } },
     _count: { _all: true },
   });
   const perKelas = new Map<string, number>(
@@ -164,8 +164,8 @@ export async function getMatkulsAsPj(): Promise<MatkulPjCard[]> {
  *
  * Guard: hanya PJ dari `kelas_matkul` itu yang boleh melihat daftarnya.
  * Bukan haknya / id tidak ada → array kosong (bukan bocor data, bukan 500).
- * Definisi "mahasiswa" = user `is_admin = false` (PRD §12), jadi akun admin
- * tidak muncul walau `kelas_id`-nya kebetulan terisi.
+ * Semua user yang menjadi anggota kelas penugasan dapat muncul, termasuk admin
+ * yang merangkap mahasiswa.
  */
 export async function getMahasiswaInKelasMatkul(
   kelasMatkulId: string,
@@ -179,7 +179,7 @@ export async function getMahasiswaInKelasMatkul(
   if (!kelasMatkul) return [];
 
   const rows = await prisma.user.findMany({
-    where: { kelas_id: kelasMatkul.kelas_id, is_admin: false },
+    where: { kelas_id: kelasMatkul.kelas_id },
     orderBy: { name: "asc" },
     select: { id: true, name: true, nim: true },
   });
@@ -307,7 +307,7 @@ export async function createPoinLog(input: PoinInput): Promise<ActionResult> {
 
   // 3. Mahasiswa harus anggota kelas milik penugasan ini (bukan kelas lain).
   const mahasiswa = await prisma.user.findFirst({
-    where: { id: mahasiswa_id, kelas_id: kelasMatkul.kelas_id, is_admin: false },
+    where: { id: mahasiswa_id, kelas_id: kelasMatkul.kelas_id },
     select: { id: true, name: true },
   });
   if (!mahasiswa) {

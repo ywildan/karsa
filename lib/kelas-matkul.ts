@@ -27,9 +27,9 @@ export interface PjOption {
 /**
  * Kandidat PJ untuk dropdown "Assign Matkul" / "Edit PJ".
  *
- * Sejak Fase 3A (PRD §6) **admin boleh merangkap PJ**, jadi daftarnya =
- * mahasiswa kelas ini (non-admin) + semua akun admin. Flag `is_admin` hanya
- * untuk mengelompokkan tampilan; keputusan sah/tidaknya tetap di server
+ * Admin boleh merangkap PJ dan mahasiswa (PRD §6), jadi daftarnya = semua
+ * anggota kelas + admin di luar kelas tersebut. Flag `is_admin` hanya untuk
+ * mengelompokkan tampilan; keputusan sah/tidaknya tetap di server
  * (`resolvePj()` di `actions/kelas-matkul.ts`).
  */
 export interface PjKandidatOption {

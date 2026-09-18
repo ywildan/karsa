@@ -16,7 +16,8 @@
  *   · `removeMahasiswaFromKelas()` hanya melepas `kelas_id` (akun, NIM, dan
  *     PoinLog tetap utuh) dan menolak bila user masih PJ (`KelasMatkul.pj_id`
  *     memakai `onDelete: Restrict`; PJ wajib anggota kelasnya — keputusan 2C).
- *   · Akun admin (`is_admin = true`) tidak boleh dimasukkan sebagai mahasiswa.
+ *   · Admin boleh merangkap mahasiswa; keanggotaan kelas tetap dibatasi domain
+ *     email, kelas tunggal, dan pemeriksaan duplikasi.
  *
  * CATATAN: `kelasId`/`userId` divalidasi dengan `z.string().min(1)` — BUKAN
  * `z.string().cuid()` — karena data seed memakai id custom (`kelas_ti01`,
@@ -186,15 +187,6 @@ export async function findUserForKelas(
     };
   }
 
-  if (row.is_admin) {
-    return {
-      ok: true,
-      status: "admin",
-      user,
-      message: `${displayName(row)} adalah akun admin. Admin tidak bisa ditambahkan sebagai mahasiswa.`,
-    };
-  }
-
   if (row.kelas_id !== null) {
     const kelasLama = row.kelas?.name ?? null;
     return {
@@ -219,7 +211,7 @@ export async function findUserForKelas(
 /**
  * Tambahkan user yang SUDAH ada (pernah login Google) ke kelas.
  * Urutan penolakan mengikuti spesifikasi Sub-Fase 2C: tidak ditemukan → sudah
- * di kelas ini → sudah di kelas lain → akun admin.
+ * di kelas ini → sudah di kelas lain.
  */
 export async function addMahasiswaToKelas(
   kelasId: string,
@@ -266,13 +258,6 @@ export async function addMahasiswaToKelas(
       error: `User sudah terdaftar di kelas lain${
         kelasLama ? ` (${kelasLama})` : ""
       }. Pindahkan dulu.`,
-    };
-  }
-
-  if (user.is_admin) {
-    return {
-      ok: false,
-      error: "User ini admin. Admin tidak bisa ditambahkan sebagai mahasiswa.",
     };
   }
 

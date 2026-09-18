@@ -8,11 +8,11 @@
  * tetap di Server Action; komponen ini hanya mengurus state dialog,
  * `useTransition`, dan toast Sonner.
  *
- * Dropdown PJ menampilkan mahasiswa kelas ini (non-admin) + akun admin —
- * sejak Fase 3A admin BOLEH merangkap PJ (PRD §6). Daftar kandidatnya dihitung
+ * Dropdown PJ menampilkan semua anggota kelas serta admin di luar kelas itu.
+ * Admin BOLEH merangkap PJ dan mahasiswa (PRD §6). Daftar kandidatnya dihitung
  * di server (`page.tsx`), dan server tetap memvalidasi ulang (`resolvePj()` di
  * `actions/kelas-matkul.ts`), jadi request manual pun tidak bisa menjadikan
- * user luar kelas sebagai PJ.
+ * user non-admin dari luar kelas sebagai PJ.
  */
 "use client";
 
@@ -68,10 +68,10 @@ export function MatkulPjTab({
   kelasName: string;
   kelasMatkul: KelasMatkulRow[];
   matkuls: MatkulOption[];
-  /** Mahasiswa kelas ini (non-admin) + admin; dihitung di `page.tsx`. */
+  /** Semua anggota kelas + admin di luar kelas; dihitung di `page.tsx`. */
   pjKandidat: PjKandidatOption[];
 }) {
-  // Admin boleh merangkap PJ (Fase 3A) — dipisah hanya untuk pengelompokan
+  // Admin boleh merangkap PJ dan mahasiswa — dipisah hanya untuk pengelompokan
   // tampilan; keputusan sah/tidaknya tetap di server (`resolvePj()`).
   const kandidatMahasiswa = React.useMemo(
     () => pjKandidat.filter((row) => !row.is_admin),
