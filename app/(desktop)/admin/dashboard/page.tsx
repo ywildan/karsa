@@ -47,11 +47,8 @@ export default async function AdminDashboardPage() {
       prisma.prodi.count(),
       prisma.kelas.count(),
       prisma.matkul.count(),
-      // DEFINISI "Mahasiswa" (keputusan Sub-Fase 2A, A1):
-      // user dengan `is_admin = false`. Termasuk PJ (mis. Budi) karena PJ
-      // juga mahasiswa, dan termasuk user yang belum punya kelas.
-      // Jangan ubah definisi ini tanpa menyelaraskan laporan/PRD.
-      prisma.user.count({ where: { is_admin: false } }),
+      // Jumlah anggota kelas, termasuk admin yang merangkap mahasiswa.
+      prisma.user.count({ where: { kelas_id: { not: null } } }),
     ]);
 
   const cards: StatCard[] = [

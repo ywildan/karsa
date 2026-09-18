@@ -103,9 +103,8 @@ export default async function AdminKelasDetailPage({
         orderBy: { name: "asc" },
         select: { id: true, name: true, code: true },
       }),
-      // Admin boleh merangkap PJ (Fase 3A, PRD §6) dan tidak mungkin terdaftar
-      // sebagai anggota kelas, jadi kandidatnya diambil terpisah lalu digabung
-      // dengan mahasiswa kelas ini menjadi `pjKandidat`.
+      // Admin di luar kelas ini tetap boleh merangkap PJ (PRD §6), jadi diambil
+      // terpisah lalu digabung tanpa duplikasi dengan anggota kelas.
       prisma.user.findMany({
         where: { is_admin: true },
         orderBy: { name: "asc" },
@@ -137,23 +136,22 @@ export default async function AdminKelasDetailPage({
   const matkuls: MatkulOption[] = matkulsRaw;
 
   /**
-   * Kandidat PJ (Fase 3A): mahasiswa kelas ini yang bukan admin + semua akun
-   * admin (admin boleh merangkap PJ, PRD §6). Disatukan di server supaya
-   * komponen client tidak perlu menyaring sendiri.
+   * Kandidat PJ: semua anggota kelas + admin di luar kelas ini. Admin yang
+   * sudah menjadi anggota kelas tidak diduplikasi dan tetap ber-flag admin.
    */
+  const mahasiswaIds = new Set(mahasiswa.map((row) => row.id));
   const pjKandidat: PjKandidatOption[] = [
     ...mahasiswa
-      .filter((row) => !row.is_admin)
       .map((row): PjKandidatOption => ({
         id: row.id,
         name: row.name,
         nim: row.nim,
         email: row.email,
-        is_admin: false,
+        is_admin: row.is_admin,
       })),
-    ...adminRaw.map(
-      (row): PjKandidatOption => ({ ...row, is_admin: true }),
-    ),
+    ...adminRaw
+      .filter((row) => !mahasiswaIds.has(row.id))
+      .map((row): PjKandidatOption => ({ ...row, is_admin: true })),
   ];
 
   return (
