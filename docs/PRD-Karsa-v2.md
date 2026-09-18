@@ -286,6 +286,7 @@ tidak menimbulkan drift — kalau nanti pindah ke `migrate`, hapus ketiganya.
   - Aturan: pertahankan **2 karakter pertama** setiap kata, sisanya ganti `x`
   - Nama 1 kata → `Rixxx`
   - User yang login → barisnya highlighted + nama **full** (unmasked)
+- **NIM disensor:** NIM mahasiswa lain selalu tampil sebagai `••••••••` (panjang tetap, tanpa digit asli). NIM user yang login tampil penuh; NIM kosong tetap `-`.
 - **Rank:** dense (1, 1, 2, 3, 3).
 - **Empty state:** jika matkul belum ada poin.
 
@@ -298,8 +299,8 @@ tidak menimbulkan drift — kalau nanti pindah ke `migrate`, hapus ketiganya.
 - `poin`: integer **1–4** (validasi server, radio di UI).
 - `kategori_id` wajib ada di tabel `KategoriPoin`.
 - `catatan`: opsional.
-- Setiap input → insert 1 baris `PoinLog` dengan `pj_id = session.user.id`.
-- **Koreksi:** hapus permanen oleh PJ pembuat / admin, dengan dialog konfirmasi.
+- Setiap input → insert 1 baris `PoinLog` dengan `pj_id = session.user.id` dan 1 peristiwa `INPUT` di `PoinAuditLog` dalam satu transaksi.
+- **Koreksi:** hapus poin oleh PJ pembuat dengan dialog konfirmasi; peristiwa `HAPUS` menyimpan snapshot poin dan identitas PJ dalam transaksi yang sama. Admin dapat memeriksa riwayat di `/admin/audit-poin`.
 - **Tidak ada batas waktu koreksi.**
 - **Tidak ada bulk input** dulu.
 - **Double-submit prevention:** disable tombol saat loading + guard server (cek duplikat dalam 3 detik dengan payload sama → skip).
@@ -487,6 +488,7 @@ actions/rekap.ts       ❌ ← Fase 5
 | Catatan wajib | Tidak |
 | Nilai poin | Fixed 1–4 |
 | Nama masked user login | Ditampilkan **full** |
+| NIM di leaderboard | Mahasiswa lain `••••••••`; user login full |
 | Rank seri | Dense rank |
 | PDF export | Tidak |
 | Timezone | WIB (Asia/Jakarta) |
@@ -682,6 +684,7 @@ actions/rekap.ts       ❌ ← Fase 5
 **Acceptance:**
 - [ ] Hanya matkul kelas user yang bisa dipilih
 - [ ] Nama ter-mask sesuai aturan (`Rizki Dermawan` → `Rixxx Dexxxxxx`)
+- [ ] NIM mahasiswa lain tidak terkirim dalam bentuk asli ke client; hanya NIM user login yang tampil penuh
 - [ ] Baris user login: nama full + highlight
 - [ ] Rank dense
 - [ ] Tidak bisa akses kelas lain via manipulasi URL/query
@@ -716,7 +719,7 @@ actions/rekap.ts       ❌ ← Fase 5
 - Index DB untuk query leaderboard & rekap (audit dulu).
 - Error boundary + `loading.tsx` untuk route utama.
 - Audit aksesibilitas dasar.
-- Audit log perubahan poin (jika diputuskan).
+- Audit log perubahan poin melalui aplikasi: `PoinAuditLog` untuk `INPUT`/`HAPUS` sudah disiapkan; proses langsung di SQL Editor memerlukan audit operasional terpisah.
 
 ---
 

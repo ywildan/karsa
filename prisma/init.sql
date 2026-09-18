@@ -163,6 +163,31 @@ CREATE TABLE IF NOT EXISTS "PoinLog" (
     CONSTRAINT "PoinLog_pkey" PRIMARY KEY ("id")
 );
 
+-- PoinAuditLog — snapshot input/hapus poin, tetap ada setelah PoinLog dihapus.
+CREATE TABLE IF NOT EXISTS "PoinAuditLog" (
+    "id"              TEXT         NOT NULL,
+    "action"          TEXT         NOT NULL,
+    "poin_log_id"     TEXT         NOT NULL,
+    "kelas_matkul_id" TEXT         NOT NULL,
+    "kelas_name"      TEXT         NOT NULL,
+    "matkul_name"     TEXT         NOT NULL,
+    "mahasiswa_id"    TEXT         NOT NULL,
+    "mahasiswa_name"  TEXT,
+    "mahasiswa_nim"   TEXT,
+    "pj_id"           TEXT         NOT NULL,
+    "pj_name"         TEXT,
+    "pj_email"        TEXT,
+    "kategori_name"   TEXT         NOT NULL,
+    "poin"            INTEGER      NOT NULL,
+    "catatan"         TEXT,
+    "poin_created_at" TIMESTAMP(3) NOT NULL,
+    "occurred_at"     TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    CONSTRAINT "PoinAuditLog_pkey" PRIMARY KEY ("id")
+);
+
+ALTER TABLE "PoinAuditLog" ENABLE ROW LEVEL SECURITY;
+REVOKE ALL ON "PoinAuditLog" FROM PUBLIC, anon, authenticated;
+
 -- ---------------------------------------------------------------------------
 -- 2. UNIQUE CONSTRAINT
 -- ---------------------------------------------------------------------------
@@ -326,6 +351,10 @@ BEGIN
         ALTER TABLE "PoinLog"
             ADD CONSTRAINT "PoinLog_poin_check" CHECK ("poin" >= 1 AND "poin" <= 4);
     END IF;
+    IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'PoinAuditLog_action_check') THEN
+        ALTER TABLE "PoinAuditLog" ADD CONSTRAINT "PoinAuditLog_action_check"
+            CHECK ("action" IN ('INPUT', 'HAPUS'));
+    END IF;
     IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'Semester_rentang_check') THEN
         ALTER TABLE "Semester"
             ADD CONSTRAINT "Semester_rentang_check" CHECK ("end_date" > "start_date");
@@ -363,6 +392,11 @@ CREATE INDEX IF NOT EXISTS "PoinLog_pj_id_idx" ON "PoinLog" ("pj_id");
 CREATE INDEX IF NOT EXISTS "PoinLog_kategori_id_idx" ON "PoinLog" ("kategori_id");
 CREATE INDEX IF NOT EXISTS "PoinLog_created_at_idx" ON "PoinLog" ("created_at");
 CREATE INDEX IF NOT EXISTS "PoinLog_kelas_matkul_id_mahasiswa_id_idx" ON "PoinLog" ("kelas_matkul_id", "mahasiswa_id");
+
+-- PoinAuditLog
+CREATE INDEX IF NOT EXISTS "PoinAuditLog_mahasiswa_id_occurred_at_idx" ON "PoinAuditLog" ("mahasiswa_id", "occurred_at");
+CREATE INDEX IF NOT EXISTS "PoinAuditLog_pj_id_occurred_at_idx" ON "PoinAuditLog" ("pj_id", "occurred_at");
+CREATE INDEX IF NOT EXISTS "PoinAuditLog_occurred_at_idx" ON "PoinAuditLog" ("occurred_at");
 
 COMMIT;
 

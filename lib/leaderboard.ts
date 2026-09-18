@@ -18,6 +18,11 @@ export interface LeaderboardRow {
 /** Data baris sebelum dense rank dihitung. */
 export type UnrankedLeaderboardRow = Omit<LeaderboardRow, "rank">;
 
+/** NIM mahasiswa lain ditutup penuh dengan panjang tetap agar tidak bisa dipakai mengenali pemilik baris. */
+export function maskNim(nim: string | null): string | null {
+  return nim ? "••••••••" : null;
+}
+
 /**
  * Sembunyikan nama mahasiswa: dua karakter alfanumerik awal tiap kata tetap
  * terlihat, sedangkan seluruh karakter setelahnya menjadi `x`.

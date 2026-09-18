@@ -96,6 +96,7 @@ async function resolveKelasMatkulAsPj(kelasMatkulId: string, pjId: string) {
       kelas_id: true,
       pj_id: true,
       matkul: { select: { id: true, name: true, code: true } },
+      kelas: { select: { name: true } },
     },
   });
 
@@ -308,7 +309,7 @@ export async function createPoinLog(input: PoinInput): Promise<ActionResult> {
   // 3. Mahasiswa harus anggota kelas milik penugasan ini (bukan kelas lain).
   const mahasiswa = await prisma.user.findFirst({
     where: { id: mahasiswa_id, kelas_id: kelasMatkul.kelas_id },
-    select: { id: true, name: true },
+    select: { id: true, name: true, nim: true },
   });
   if (!mahasiswa) {
     return {
@@ -346,15 +347,37 @@ export async function createPoinLog(input: PoinInput): Promise<ActionResult> {
   }
 
   try {
-    await prisma.poinLog.create({
-      data: {
-        kelas_matkul_id: kelasMatkul.id,
-        mahasiswa_id,
-        pj_id: user.id,
-        kategori_id,
-        poin,
-        catatan,
-      },
+    await prisma.$transaction(async (tx) => {
+      const created = await tx.poinLog.create({
+        data: {
+          kelas_matkul_id: kelasMatkul.id,
+          mahasiswa_id,
+          pj_id: user.id,
+          kategori_id,
+          poin,
+          catatan,
+        },
+      });
+
+      await tx.poinAuditLog.create({
+        data: {
+          action: "INPUT",
+          poin_log_id: created.id,
+          kelas_matkul_id: kelasMatkul.id,
+          kelas_name: kelasMatkul.kelas.name,
+          matkul_name: kelasMatkul.matkul.name,
+          mahasiswa_id,
+          mahasiswa_name: mahasiswa.name,
+          mahasiswa_nim: mahasiswa.nim,
+          pj_id: user.id,
+          pj_name: user.name,
+          pj_email: user.email,
+          kategori_name: kategori.name,
+          poin,
+          catatan,
+          poin_created_at: created.created_at,
+        },
+      });
     });
   } catch (error) {
     return {
@@ -383,7 +406,7 @@ export async function createPoinLog(input: PoinInput): Promise<ActionResult> {
   };
 }
 
-/** Hapus permanen satu input poin milik PJ pembuatnya (PRD §8). */
+/** Hapus satu poin milik PJ pembuatnya; snapshot audit tetap tersimpan. */
 export async function deletePoinLog(id: string): Promise<ActionResult> {
   const user = await requireUser();
 
@@ -392,21 +415,63 @@ export async function deletePoinLog(id: string): Promise<ActionResult> {
     return { ok: false, error: zodFirstError(parsed.error) };
   }
 
-  // Re-query dari DB: id dari client tidak membuktikan kepemilikan record.
-  const poinLog = await prisma.poinLog.findUnique({
-    where: { id: parsed.data },
-    select: { id: true, pj_id: true },
-  });
-
-  if (!poinLog) {
-    return { ok: false, error: "Poin tidak ditemukan. Mungkin sudah dihapus." };
-  }
-  if (poinLog.pj_id !== user.id) {
-    return { ok: false, error: "Kamu tidak berhak hapus poin ini." };
-  }
-
   try {
-    await prisma.poinLog.delete({ where: { id: poinLog.id } });
+    const result = await prisma.$transaction(async (tx): Promise<ActionResult> => {
+      // Re-query di dalam transaksi; ID dari client tidak membuktikan hak hapus.
+      const poinLog = await tx.poinLog.findUnique({
+        where: { id: parsed.data },
+        include: {
+          mahasiswa: { select: { name: true, nim: true } },
+          kategori: { select: { name: true } },
+          kelasMatkul: {
+            select: {
+              kelas: { select: { name: true } },
+              matkul: { select: { name: true } },
+            },
+          },
+        },
+      });
+
+      if (!poinLog) {
+        return { ok: false, error: "Poin tidak ditemukan. Mungkin sudah dihapus." };
+      }
+      if (poinLog.pj_id !== user.id) {
+        return { ok: false, error: "Kamu tidak berhak hapus poin ini." };
+      }
+
+      // Syarat pemilik pada DELETE menutup celah bila baris berubah di saat
+      // yang sama. Gagal menulis audit akan me-rollback penghapusan.
+      const deleted = await tx.poinLog.deleteMany({
+        where: { id: poinLog.id, pj_id: user.id },
+      });
+      if (deleted.count !== 1) {
+        return { ok: false, error: "Poin tidak ditemukan. Mungkin sudah dihapus." };
+      }
+
+      await tx.poinAuditLog.create({
+        data: {
+          action: "HAPUS",
+          poin_log_id: poinLog.id,
+          kelas_matkul_id: poinLog.kelas_matkul_id,
+          kelas_name: poinLog.kelasMatkul.kelas.name,
+          matkul_name: poinLog.kelasMatkul.matkul.name,
+          mahasiswa_id: poinLog.mahasiswa_id,
+          mahasiswa_name: poinLog.mahasiswa.name,
+          mahasiswa_nim: poinLog.mahasiswa.nim,
+          pj_id: user.id,
+          pj_name: user.name,
+          pj_email: user.email,
+          kategori_name: poinLog.kategori.name,
+          poin: poinLog.poin,
+          catatan: poinLog.catatan,
+          poin_created_at: poinLog.created_at,
+        },
+      });
+
+      return { ok: true, message: "Poin berhasil dihapus; riwayat tercatat." };
+    });
+
+    if (!result.ok) return result;
   } catch (error) {
     return {
       ok: false,
@@ -422,5 +487,5 @@ export async function deletePoinLog(id: string): Promise<ActionResult> {
   revalidatePath("/catat-poin");
   revalidatePath("/dashboard");
 
-  return { ok: true, message: "Poin berhasil dihapus." };
+  return { ok: true, message: "Poin berhasil dihapus; riwayat tercatat." };
 }

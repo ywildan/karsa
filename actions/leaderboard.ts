@@ -11,6 +11,7 @@ import { requireUser } from "@/lib/auth-helpers";
 import {
   denseRank,
   maskName,
+  maskNim,
   type LeaderboardRow,
   type UnrankedLeaderboardRow,
 } from "@/lib/leaderboard";
@@ -123,7 +124,7 @@ export async function getLeaderboard(
       nama: isCurrentUser
         ? mahasiswaItem.name?.trim() || "Tanpa Nama"
         : maskName(mahasiswaItem.name),
-      nim: mahasiswaItem.nim,
+      nim: isCurrentUser ? mahasiswaItem.nim : maskNim(mahasiswaItem.nim),
       totalPoin: total._sum.poin ?? 0,
       isCurrentUser,
     });
