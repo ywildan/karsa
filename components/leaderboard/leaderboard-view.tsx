@@ -123,7 +123,7 @@ export function LeaderboardView({
             <div
               role="radiogroup"
               aria-labelledby="filter-matkul-heading"
-              className="mt-3 flex flex-wrap gap-2"
+              className="mt-3 -mx-6 flex gap-2 overflow-x-auto px-6 pb-2 sm:-mx-8 sm:px-8"
             >
               {options.map((option) => {
                 const selected = option.id === selectedKelasMatkulId;
@@ -136,7 +136,7 @@ export function LeaderboardView({
                     aria-checked={selected}
                     onClick={() => setSelectedKelasMatkulId(option.id)}
                     className={cn(
-                      "rounded-full border px-4 py-2 text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background",
+                      "shrink-0 whitespace-nowrap rounded-full border px-4 py-2 text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background",
                       selected
                         ? "border-primary bg-primary text-primary-foreground"
                         : "border-input bg-background hover:bg-accent hover:text-accent-foreground",
@@ -189,8 +189,10 @@ export function LeaderboardView({
                     <TableRow>
                       <TableHead className="w-20">Rank</TableHead>
                       <TableHead>Nama</TableHead>
-                      <TableHead>NIM</TableHead>
-                      <TableHead className="text-right">Total Poin</TableHead>
+                      <TableHead className="whitespace-nowrap">NIM</TableHead>
+                      <TableHead className="whitespace-nowrap text-right">
+                        Total
+                      </TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
@@ -219,8 +221,10 @@ export function LeaderboardView({
                             row.rank
                           )}
                         </TableCell>
-                        <TableCell>{row.nama}</TableCell>
-                        <TableCell className="text-muted-foreground">
+                        <TableCell className="max-w-[150px] truncate">
+                          {row.nama}
+                        </TableCell>
+                        <TableCell className="whitespace-nowrap text-muted-foreground">
                           {row.nim ?? "-"}
                         </TableCell>
                         <TableCell className="text-right">
