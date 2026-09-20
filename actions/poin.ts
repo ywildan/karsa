@@ -34,6 +34,7 @@ import { z } from "zod";
 
 import type { ActionResult } from "@/lib/action-utils";
 import { mapPrismaKnownError, zodFirstError } from "@/lib/action-utils";
+import { logAudit } from "@/lib/audit";
 import { requireUser } from "@/lib/auth-helpers";
 import {
   CATATAN_MAX,
@@ -359,25 +360,36 @@ export async function createPoinLog(input: PoinInput): Promise<ActionResult> {
         },
       });
 
-      await tx.poinAuditLog.create({
-        data: {
-          action: "INPUT",
-          poin_log_id: created.id,
-          kelas_matkul_id: kelasMatkul.id,
-          kelas_name: kelasMatkul.kelas.name,
-          matkul_name: kelasMatkul.matkul.name,
-          mahasiswa_id,
-          mahasiswa_name: mahasiswa.name,
-          mahasiswa_nim: mahasiswa.nim,
-          pj_id: user.id,
-          pj_name: user.name,
-          pj_email: user.email,
-          kategori_name: kategori.name,
-          poin,
-          catatan,
-          poin_created_at: created.created_at,
+      await logAudit(
+        {
+          actor: {
+            id: user.id,
+            name: user.name?.trim() || user.email?.trim() || "Pengguna",
+            is_admin: user.is_admin,
+          },
+          action: "POIN_INPUT",
+          entity: {
+            type: "PoinLog",
+            id: created.id,
+            label: mahasiswa.name?.trim() || mahasiswa.nim || "Mahasiswa",
+          },
+          context: {
+            kelas_id: kelasMatkul.kelas_id,
+            kelas_label: kelasMatkul.kelas.name,
+            matkul_id: kelasMatkul.matkul.id,
+            matkul_label: kelasMatkul.matkul.name,
+          },
+          after: {
+            poin,
+            kategori: kategori.name,
+            catatan,
+          },
+          metadata: {
+            mahasiswa_nim: mahasiswa.nim,
+          },
         },
-      });
+        tx,
+      );
     });
   } catch (error) {
     return {
@@ -406,7 +418,7 @@ export async function createPoinLog(input: PoinInput): Promise<ActionResult> {
   };
 }
 
-/** Hapus satu poin milik PJ pembuatnya; snapshot audit tetap tersimpan. */
+/** Hapus satu poin milik PJ pembuatnya; snapshot audit tersimpan atomik. */
 export async function deletePoinLog(id: string): Promise<ActionResult> {
   const user = await requireUser();
 
@@ -425,8 +437,8 @@ export async function deletePoinLog(id: string): Promise<ActionResult> {
           kategori: { select: { name: true } },
           kelasMatkul: {
             select: {
-              kelas: { select: { name: true } },
-              matkul: { select: { name: true } },
+              kelas: { select: { id: true, name: true } },
+              matkul: { select: { id: true, name: true } },
             },
           },
         },
@@ -439,8 +451,7 @@ export async function deletePoinLog(id: string): Promise<ActionResult> {
         return { ok: false, error: "Kamu tidak berhak hapus poin ini." };
       }
 
-      // Syarat pemilik pada DELETE menutup celah bila baris berubah di saat
-      // yang sama. Gagal menulis audit akan me-rollback penghapusan.
+      // Syarat pemilik pada DELETE menutup celah bila baris berubah bersamaan.
       const deleted = await tx.poinLog.deleteMany({
         where: { id: poinLog.id, pj_id: user.id },
       });
@@ -448,25 +459,39 @@ export async function deletePoinLog(id: string): Promise<ActionResult> {
         return { ok: false, error: "Poin tidak ditemukan. Mungkin sudah dihapus." };
       }
 
-      await tx.poinAuditLog.create({
-        data: {
-          action: "HAPUS",
-          poin_log_id: poinLog.id,
-          kelas_matkul_id: poinLog.kelas_matkul_id,
-          kelas_name: poinLog.kelasMatkul.kelas.name,
-          matkul_name: poinLog.kelasMatkul.matkul.name,
-          mahasiswa_id: poinLog.mahasiswa_id,
-          mahasiswa_name: poinLog.mahasiswa.name,
-          mahasiswa_nim: poinLog.mahasiswa.nim,
-          pj_id: user.id,
-          pj_name: user.name,
-          pj_email: user.email,
-          kategori_name: poinLog.kategori.name,
-          poin: poinLog.poin,
-          catatan: poinLog.catatan,
-          poin_created_at: poinLog.created_at,
+      await logAudit(
+        {
+          actor: {
+            id: user.id,
+            name: user.name?.trim() || user.email?.trim() || "Pengguna",
+            is_admin: user.is_admin,
+          },
+          action: "POIN_DELETE",
+          entity: {
+            type: "PoinLog",
+            id: poinLog.id,
+            label:
+              poinLog.mahasiswa.name?.trim() ||
+              poinLog.mahasiswa.nim ||
+              "Mahasiswa",
+          },
+          context: {
+            kelas_id: poinLog.kelasMatkul.kelas.id,
+            kelas_label: poinLog.kelasMatkul.kelas.name,
+            matkul_id: poinLog.kelasMatkul.matkul.id,
+            matkul_label: poinLog.kelasMatkul.matkul.name,
+          },
+          before: {
+            poin: poinLog.poin,
+            kategori: poinLog.kategori.name,
+            catatan: poinLog.catatan,
+          },
+          metadata: {
+            alasan: "manual_delete_from_pj_ui",
+          },
         },
-      });
+        tx,
+      );
 
       return { ok: true, message: "Poin berhasil dihapus; riwayat tercatat." };
     });

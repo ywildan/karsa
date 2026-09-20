@@ -299,8 +299,8 @@ tidak menimbulkan drift — kalau nanti pindah ke `migrate`, hapus ketiganya.
 - `poin`: integer **1–4** (validasi server, radio di UI).
 - `kategori_id` wajib ada di tabel `KategoriPoin`.
 - `catatan`: opsional.
-- Setiap input → insert 1 baris `PoinLog` dengan `pj_id = session.user.id` dan 1 peristiwa `INPUT` di `PoinAuditLog` dalam satu transaksi.
-- **Koreksi:** hapus poin oleh PJ pembuat dengan dialog konfirmasi; peristiwa `HAPUS` menyimpan snapshot poin dan identitas PJ dalam transaksi yang sama. Admin dapat memeriksa riwayat di `/admin/audit-poin`.
+- Setiap input → insert 1 baris `PoinLog` dengan `pj_id = session.user.id` dan 1 event `POIN_INPUT` di `AuditLog` dalam satu transaksi.
+- **Koreksi:** hapus poin oleh PJ pembuat dengan dialog konfirmasi; event `POIN_DELETE` menyimpan snapshot poin dan identitas PJ dalam transaksi yang sama. Admin dapat memeriksa riwayat di `/admin/audit`.
 - **Tidak ada batas waktu koreksi.**
 - **Tidak ada bulk input** dulu.
 - **Double-submit prevention:** disable tombol saat loading + guard server (cek duplikat dalam 3 detik dengan payload sama → skip).
@@ -719,7 +719,7 @@ actions/rekap.ts       ❌ ← Fase 5
 - Index DB untuk query leaderboard & rekap (audit dulu).
 - Error boundary + `loading.tsx` untuk route utama.
 - Audit aksesibilitas dasar.
-- Audit log perubahan poin melalui aplikasi: `PoinAuditLog` untuk `INPUT`/`HAPUS` sudah disiapkan; proses langsung di SQL Editor memerlukan audit operasional terpisah.
+- Audit trail sistemik melalui aplikasi: `AuditLog` mencatat event `POIN_INPUT`/`POIN_DELETE` dan event PJ. Proses langsung di SQL Editor memerlukan audit operasional terpisah.
 
 ---
 

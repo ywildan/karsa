@@ -220,26 +220,35 @@ model PoinLog {
 
 /// Riwayat input/penghapusan poin dari aplikasi. Snapshot dipertahankan saat
 /// PoinLog dihapus; tidak ada FK agar retensi data akademik dapat diatur terpisah.
-model PoinAuditLog {
-  id              String   @id @default(cuid())
-  action          String
-  poin_log_id     String
-  kelas_matkul_id String
-  kelas_name      String
-  matkul_name     String
-  mahasiswa_id    String
-  mahasiswa_name  String?
-  mahasiswa_nim   String?
-  pj_id           String
-  pj_name         String?
-  pj_email        String?
-  kategori_name   String
-  poin            Int
-  catatan         String?
-  poin_created_at DateTime
-  occurred_at     DateTime @default(now())
+model AuditLog {
+  id           String   @id @default(cuid())
 
-  @@index([mahasiswa_id, occurred_at])
-  @@index([pj_id, occurred_at])
-  @@index([occurred_at])
+  // Siapa yang melakukan
+  actor_id     String
+  actor_name   String
+  actor_role   String
+
+  // Apa yang dilakukan
+  action       String
+  entity_type  String
+  entity_id    String
+  entity_label String?
+
+  // Konteks snapshot untuk filter cepat
+  kelas_id     String?
+  kelas_label  String?
+  matkul_id    String?
+  matkul_label String?
+
+  // Perubahan
+  before       Json?
+  after        Json?
+  metadata     Json?
+
+  created_at   DateTime @default(now())
+
+  @@index([kelas_id, created_at(sort: Desc)])
+  @@index([action, created_at(sort: Desc)])
+  @@index([actor_id, created_at(sort: Desc)])
+  @@index([created_at(sort: Desc)])
 }

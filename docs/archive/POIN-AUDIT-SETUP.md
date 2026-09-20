@@ -1,3 +1,9 @@
+> [!warning] DEPRECATED
+> Dokumen ini sudah tidak relevan. Audit trail sudah di-upgrade ke sistem
+> event log sistemik (Fase 6A). Lihat:
+> - `docs/SPEC-AUDIT-TRAIL.md` (spec)
+> - `prisma/init.sql` (DDL terbaru)
+
 # Setup audit input dan penghapusan poin
 
 Fitur ini mencatat `INPUT` dan `HAPUS` pada tabel `PoinAuditLog`. Setiap
@@ -9,10 +15,8 @@ perubahan poin ikut batal.
 ## Urutan pemasangan pada Supabase yang sudah berisi data
 
 1. Cadangkan database sesuai prosedur operasional yang berlaku.
-2. Jalankan [`prisma/audit-poin.sql`](../prisma/audit-poin.sql) **sekali sebelum
-   deployment kode baru** melalui Supabase SQL Editor. Skrip dapat dijalankan
-   ulang dan tidak menghapus data poin lama. Jangan menjalankan ulang
-   `prisma/init.sql` pada produksi karena file itu juga memuat data uji.
+2. Prosedur SQL legacy `prisma/audit-poin.sql` sudah dihapus pada Fase 6A.
+   Untuk DDL audit terbaru, gunakan `prisma/init.sql` sesuai spec saat ini.
 3. Pastikan role koneksi PostgreSQL yang dipakai Prisma dapat membaca dan
    menulis tabel baru. Tabel audit mengaktifkan RLS tanpa policy dan mencabut
    akses `anon`/`authenticated` melalui Supabase Data API; koneksi Prisma yang
