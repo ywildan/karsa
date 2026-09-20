@@ -31,6 +31,7 @@ import { z } from "zod";
 
 import type { ActionResult } from "@/lib/action-utils";
 import { mapPrismaKnownError, zodFirstError } from "@/lib/action-utils";
+import { logAudit } from "@/lib/audit";
 import { requireAdmin } from "@/lib/auth-helpers";
 import { prisma } from "@/lib/prisma";
 
@@ -146,7 +147,7 @@ export async function assignMatkulToKelas(
   kelasId: string,
   input: { matkul_id: string; pj_id: string },
 ): Promise<ActionResult> {
-  await requireAdmin();
+  const admin = await requireAdmin();
 
   const parsedId = idSchema.safeParse(kelasId);
   if (!parsedId.success) return { ok: false, error: zodFirstError(parsedId.error) };
@@ -177,6 +178,8 @@ export async function assignMatkulToKelas(
   const pj = await resolvePj(kelas, pj_id);
   if (!pj.ok) return { ok: false, error: pj.error };
 
+  const pjName = pj.user.name?.trim() || pj.user.email;
+
   const sudahAda = await prisma.kelasMatkul.findFirst({
     where: { kelas_id: kelas.id, matkul_id: matkul.id },
     select: { id: true },
@@ -186,8 +189,40 @@ export async function assignMatkulToKelas(
   }
 
   try {
-    await prisma.kelasMatkul.create({
-      data: { kelas_id: kelas.id, matkul_id: matkul.id, pj_id: pj.user.id },
+    await prisma.$transaction(async (tx) => {
+      const created = await tx.kelasMatkul.create({
+        data: { kelas_id: kelas.id, matkul_id: matkul.id, pj_id: pj.user.id },
+      });
+
+      await logAudit(
+        {
+          actor: {
+            id: admin.id,
+            name: admin.name?.trim() || admin.email?.trim() || "Administrator",
+            is_admin: admin.is_admin,
+          },
+          action: "PJ_ASSIGN",
+          entity: {
+            type: "KelasMatkul",
+            id: created.id,
+            label: matkul.name,
+          },
+          context: {
+            kelas_id: kelas.id,
+            kelas_label: kelas.name,
+            matkul_id: matkul.id,
+            matkul_label: matkul.name,
+          },
+          after: {
+            pj_id: pj.user.id,
+            pj_name: pjName,
+          },
+          metadata: {
+            matkul_nama: matkul.name,
+          },
+        },
+        tx,
+      );
     });
   } catch (error) {
     return {
@@ -207,9 +242,7 @@ export async function assignMatkulToKelas(
   revalidateKelas(kelas.id);
   return {
     ok: true,
-    message: `${matkul.name} berhasil di-assign ke kelas ${kelas.name} dengan PJ ${
-      pj.user.name?.trim() || pj.user.email
-    }.`,
+    message: `${matkul.name} berhasil di-assign ke kelas ${kelas.name} dengan PJ ${pjName}.`,
   };
 }
 
@@ -222,7 +255,7 @@ export async function updatePjKelasMatkul(
   kelasMatkulId: string,
   input: { pj_id: string },
 ): Promise<ActionResult> {
-  await requireAdmin();
+  const admin = await requireAdmin();
 
   const parsedId = idSchema.safeParse(kelasMatkulId);
   if (!parsedId.success) return { ok: false, error: zodFirstError(parsedId.error) };
@@ -237,7 +270,8 @@ export async function updatePjKelasMatkul(
     select: {
       id: true,
       pj_id: true,
-      matkul: { select: { name: true } },
+      pj: { select: { id: true, name: true, email: true } },
+      matkul: { select: { id: true, name: true } },
       kelas: { select: { id: true, name: true } },
     },
   });
@@ -254,10 +288,49 @@ export async function updatePjKelasMatkul(
   const pj = await resolvePj(row.kelas, pj_id);
   if (!pj.ok) return { ok: false, error: pj.error };
 
+  const oldPjName = row.pj.name?.trim() || row.pj.email;
+  const newPjName = pj.user.name?.trim() || pj.user.email;
+
   try {
-    await prisma.kelasMatkul.update({
-      where: { id: row.id },
-      data: { pj_id: pj.user.id },
+    await prisma.$transaction(async (tx) => {
+      await tx.kelasMatkul.update({
+        where: { id: row.id },
+        data: { pj_id: pj.user.id },
+      });
+
+      await logAudit(
+        {
+          actor: {
+            id: admin.id,
+            name: admin.name?.trim() || admin.email?.trim() || "Administrator",
+            is_admin: admin.is_admin,
+          },
+          action: "PJ_REPLACE",
+          entity: {
+            type: "KelasMatkul",
+            id: row.id,
+            label: row.matkul.name,
+          },
+          context: {
+            kelas_id: row.kelas.id,
+            kelas_label: row.kelas.name,
+            matkul_id: row.matkul.id,
+            matkul_label: row.matkul.name,
+          },
+          before: {
+            pj_id: row.pj.id,
+            pj_name: oldPjName,
+          },
+          after: {
+            pj_id: pj.user.id,
+            pj_name: newPjName,
+          },
+          metadata: {
+            matkul_nama: row.matkul.name,
+          },
+        },
+        tx,
+      );
     });
   } catch (error) {
     return {
@@ -276,9 +349,7 @@ export async function updatePjKelasMatkul(
   revalidateKelas(row.kelas.id);
   return {
     ok: true,
-    message: `PJ ${row.matkul.name} di kelas ${row.kelas.name} diganti ke ${
-      pj.user.name?.trim() || pj.user.email
-    }.`,
+    message: `PJ ${row.matkul.name} di kelas ${row.kelas.name} diganti ke ${newPjName}.`,
   };
 }
 
@@ -299,7 +370,7 @@ export async function updatePjKelasMatkul(
 export async function removeKelasMatkul(
   kelasMatkulId: string,
 ): Promise<ActionResult> {
-  await requireAdmin();
+  const admin = await requireAdmin();
 
   const parsedId = idSchema.safeParse(kelasMatkulId);
   if (!parsedId.success) return { ok: false, error: zodFirstError(parsedId.error) };
@@ -308,7 +379,8 @@ export async function removeKelasMatkul(
     where: { id: parsedId.data },
     select: {
       id: true,
-      matkul: { select: { name: true } },
+      pj: { select: { id: true, name: true, email: true } },
+      matkul: { select: { id: true, name: true } },
       kelas: { select: { id: true, name: true } },
     },
   });
@@ -324,25 +396,68 @@ export async function removeKelasMatkul(
     return { ok: false, error: pesanPoinTercatat(row.matkul.name, poinCount) };
   }
 
-  try {
-    const hasil = await prisma.kelasMatkul.deleteMany({
-      where: { id: row.id, poinLogs: { none: {} } },
-    });
+  const pjName = row.pj.name?.trim() || row.pj.email;
 
-    if (hasil.count === 0) {
-      // Kalah balapan: poin baru tersimpan setelah cek di atas (atau barisnya
-      // sudah hilang). Bedakan supaya pesannya tepat.
-      const sisa = await prisma.poinLog.count({
-        where: { kelas_matkul_id: row.id },
-      });
-      return {
-        ok: false,
-        error:
-          sisa > 0
-            ? pesanPoinTercatat(row.matkul.name, sisa)
-            : "Penugasan tidak ditemukan. Mungkin sudah dihapus.",
-      };
-    }
+  try {
+    const result = await prisma.$transaction(
+      async (tx): Promise<ActionResult> => {
+        const hasil = await tx.kelasMatkul.deleteMany({
+          where: { id: row.id, poinLogs: { none: {} } },
+        });
+
+        if (hasil.count === 0) {
+          // Kalah balapan: poin baru tersimpan setelah cek di atas (atau
+          // barisnya sudah hilang). Bedakan supaya pesannya tepat.
+          const sisa = await tx.poinLog.count({
+            where: { kelas_matkul_id: row.id },
+          });
+          return {
+            ok: false,
+            error:
+              sisa > 0
+                ? pesanPoinTercatat(row.matkul.name, sisa)
+                : "Penugasan tidak ditemukan. Mungkin sudah dihapus.",
+          };
+        }
+
+        await logAudit(
+          {
+            actor: {
+              id: admin.id,
+              name: admin.name?.trim() || admin.email?.trim() || "Administrator",
+              is_admin: admin.is_admin,
+            },
+            action: "PJ_REMOVE",
+            entity: {
+              type: "KelasMatkul",
+              id: row.id,
+              label: row.matkul.name,
+            },
+            context: {
+              kelas_id: row.kelas.id,
+              kelas_label: row.kelas.name,
+              matkul_id: row.matkul.id,
+              matkul_label: row.matkul.name,
+            },
+            before: {
+              pj_id: row.pj.id,
+              pj_name: pjName,
+            },
+            metadata: {
+              matkul_nama: row.matkul.name,
+            },
+          },
+          tx,
+        );
+
+        return {
+          ok: true,
+          message: `Penugasan ${row.matkul.name} di kelas ${row.kelas.name} dihapus.`,
+        };
+      },
+    );
+
+    if (!result.ok) return result;
   } catch (error) {
     return {
       ok: false,
