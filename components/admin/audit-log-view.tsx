@@ -69,14 +69,141 @@ function getActionLabel(action: string): string {
   );
 }
 
-function formatSnapshot(value: AuditLogRow["before"]): string {
-  if (value === null) return "";
+function isNonEmptyString(value: string | null): value is string {
+  return Boolean(value);
+}
 
-  try {
-    return JSON.stringify(value, null, 2);
-  } catch {
-    return "Snapshot tidak dapat ditampilkan.";
+function getSnapshotValue(
+  value: AuditLogRow["before"],
+  key: string,
+): string | number | string[] | null {
+  if (!value || typeof value !== "object" || Array.isArray(value)) return null;
+
+  const candidate = (value as Record<string, unknown>)[key];
+  if (
+    typeof candidate === "string" ||
+    typeof candidate === "number" ||
+    (Array.isArray(candidate) &&
+      candidate.every((item) => typeof item === "string"))
+  ) {
+    return candidate;
   }
+
+  return null;
+}
+
+function getSubjectName(event: AuditLogRow): string {
+  switch (event.action) {
+    case "PJ_ASSIGN":
+    case "PJ_REPLACE":
+      return (
+        (getSnapshotValue(event.after, "pj_name") as string | null) ??
+        event.entity_label ??
+        event.entity_type
+      );
+    case "PJ_REMOVE":
+      return (
+        (getSnapshotValue(event.before, "pj_name") as string | null) ??
+        event.entity_label ??
+        event.entity_type
+      );
+    case "MATKUL_ASSIGN":
+      return event.matkul_label ?? event.entity_label ?? event.entity_type;
+    case "SEMESTER_SET_ACTIVE":
+      return (
+        (getSnapshotValue(event.after, "semester_name") as string | null) ??
+        event.entity_label ??
+        event.entity_type
+      );
+    default:
+      return event.entity_label ?? event.entity_type;
+  }
+}
+
+function getEventContext(event: AuditLogRow): string[] {
+  const kelas = event.kelas_label;
+  const matkul = event.matkul_label;
+  const prodi =
+    (getSnapshotValue(event.metadata, "prodi_name") as string | null) ??
+    (getSnapshotValue(event.metadata, "prodi") as string | null);
+  const semester =
+    (getSnapshotValue(event.metadata, "semester_name") as string | null) ??
+    (getSnapshotValue(event.metadata, "semester") as string | null);
+
+  if (event.action.startsWith("POIN_")) {
+    return [kelas, matkul].filter(isNonEmptyString);
+  }
+  if (event.action.startsWith("PJ_")) {
+    return [matkul, kelas].filter(isNonEmptyString);
+  }
+  if (event.action.startsWith("MAHASISWA_")) {
+    return [kelas].filter(isNonEmptyString);
+  }
+  if (event.action.startsWith("KELAS_")) {
+    return [prodi, semester].filter(isNonEmptyString);
+  }
+  if (event.action.startsWith("MATKUL_")) {
+    return [kelas].filter(isNonEmptyString);
+  }
+  if (event.action.startsWith("SEMESTER_")) return [];
+
+  return [kelas, matkul].filter(isNonEmptyString);
+}
+
+function getSnapshotSummary(event: AuditLogRow): string | null {
+  if (event.action.startsWith("POIN_")) {
+    const source = event.action === "POIN_INPUT" ? event.after : event.before;
+    const poin = getSnapshotValue(source, "poin");
+    const kategori = getSnapshotValue(source, "kategori");
+
+    return poin !== null && kategori !== null ? `Poin ${poin} · ${kategori}` : null;
+  }
+
+  if (event.action === "PJ_REPLACE") {
+    const oldPjName = getSnapshotValue(event.before, "pj_name");
+    return oldPjName ? `Sebelumnya: ${oldPjName}` : null;
+  }
+
+  if (event.action === "KELAS_UPDATE") {
+    const changedFields = getSnapshotValue(event.metadata, "changed_fields");
+    return Array.isArray(changedFields)
+      ? `Field: ${changedFields.join(", ")}`
+      : null;
+  }
+
+  return null;
+}
+
+function shouldHideSnapshot(event: AuditLogRow): boolean {
+  return (
+    event.action === "PJ_ASSIGN" ||
+    event.action === "PJ_REMOVE" ||
+    event.action.startsWith("MAHASISWA_")
+  );
+}
+
+function formatSnapshotInline(value: AuditLogRow["before"]): string {
+  if (value === null) return "—";
+  if (typeof value !== "object") return String(value);
+  if (Array.isArray(value)) return value.join(", ");
+
+  const entries = Object.entries(value as Record<string, unknown>).filter(
+    ([, entryValue]) =>
+      entryValue !== null &&
+      entryValue !== undefined &&
+      entryValue !== "",
+  );
+
+  if (entries.length === 0) return "—";
+
+  return entries
+    .map(([key, entryValue]) => {
+      const formattedValue = Array.isArray(entryValue)
+        ? entryValue.join(", ")
+        : String(entryValue);
+      return `${key}: ${formattedValue}`;
+    })
+    .join(" · ");
 }
 
 function Snapshot({
@@ -89,12 +216,9 @@ function Snapshot({
   if (value === null) return null;
 
   return (
-    <div className="min-w-0 rounded-md bg-muted/60 p-3">
-      <p className="text-xs font-medium text-muted-foreground">{label}</p>
-      <pre className="mt-1 overflow-x-auto whitespace-pre-wrap break-words text-xs text-foreground">
-        {formatSnapshot(value)}
-      </pre>
-    </div>
+    <p className="text-xs text-muted-foreground">
+      <strong>{label}:</strong> {formatSnapshotInline(value)}
+    </p>
   );
 }
 
@@ -121,9 +245,14 @@ function AuditLogSkeleton() {
 
 function AuditEventCard({ event }: { event: AuditLogRow }) {
   const category = getActionCategory(event.action);
-  const context = [event.kelas_label, event.matkul_label].filter(
-    (label): label is string => Boolean(label),
-  );
+  const context = getEventContext(event);
+  const subjectName = getSubjectName(event);
+  const snapshotSummary = getSnapshotSummary(event);
+  const showGenericSnapshots =
+    !shouldHideSnapshot(event) &&
+    snapshotSummary === null &&
+    (event.before !== null || event.after !== null);
+  const hasSnapshotColumn = Boolean(snapshotSummary || showGenericSnapshots);
 
   return (
     <li className="rounded-lg border border-border bg-card p-4 shadow-sm">
@@ -138,14 +267,9 @@ function AuditEventCard({ event }: { event: AuditLogRow }) {
             >
               {getActionLabel(event.action)}
             </span>
-            <h2 className="truncate font-medium">
-              {event.entity_label ?? event.entity_type}
-            </h2>
+            <h2 className="truncate font-medium">{subjectName}</h2>
           </div>
 
-          <p className="mt-2 text-sm text-muted-foreground">
-            Oleh {event.actor_name} · {event.actor_role}
-          </p>
         </div>
 
         <time
@@ -156,19 +280,39 @@ function AuditEventCard({ event }: { event: AuditLogRow }) {
         </time>
       </div>
 
-      {context.length > 0 ? (
-        <p className="mt-3 text-sm">
-          <span className="text-muted-foreground">Konteks: </span>
-          {context.join(" · ")}
-        </p>
-      ) : null}
-
-      {event.before !== null || event.after !== null ? (
-        <div className="mt-3 grid gap-3 md:grid-cols-2">
-          <Snapshot label="Sebelum" value={event.before} />
-          <Snapshot label="Sesudah" value={event.after} />
+      <div className="mt-3 grid gap-4 lg:grid-cols-3">
+        <div
+          className={cn(
+            "space-y-1",
+            hasSnapshotColumn ? "lg:col-span-2" : "lg:col-span-3",
+          )}
+        >
+          <p className="text-sm text-muted-foreground">
+            Oleh {event.actor_name} · {event.actor_role}
+          </p>
+          {context.length > 0 ? (
+            <p className="text-sm text-muted-foreground">
+              Untuk: {context.join(" · ")}
+            </p>
+          ) : null}
         </div>
-      ) : null}
+
+        {hasSnapshotColumn ? (
+          <div className="border-t border-border pt-3 lg:border-t-0 lg:border-l lg:pl-4 lg:pt-0">
+            {snapshotSummary ? (
+              <p className="text-sm text-muted-foreground">
+                {snapshotSummary}
+              </p>
+            ) : null}
+            {showGenericSnapshots ? (
+              <div className="grid gap-2">
+                <Snapshot label="Sebelum" value={event.before} />
+                <Snapshot label="Sesudah" value={event.after} />
+              </div>
+            ) : null}
+          </div>
+        ) : null}
+      </div>
     </li>
   );
 }
