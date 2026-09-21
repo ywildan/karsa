@@ -123,7 +123,14 @@ export default async function LoginPage({
               <span className="font-medium text-foreground">
                 @students.untidar.ac.id
               </span>{" "}
-              yang bisa masuk. Ada kendala? Hubungi admin kelasmu.
+              yang bisa masuk. Ada kendala? Hubungi{" "}
+              <Link
+                href="mailto:yuwiaffa@gmail.com"
+                className="font-medium text-foreground underline underline-offset-4 hover:underline"
+              >
+                developer
+              </Link>
+              .
             </p>
           </div>
         </div>

@@ -33,7 +33,7 @@ export default function HomePage() {
 
         <p className="mt-6 text-balance text-sm leading-relaxed text-muted-foreground sm:text-base">
           Pencatatan poin keaktifan mahasiswa per mata kuliah per kelas.
-          PJ mencatat dari HP, mahasiswa melihat rapor dari desktop.
+          PJ mencatat dari HP, mahasiswa melihat rapor secara LIVE.
         </p>
 
         <div className="mt-8 flex flex-col items-center justify-center gap-3 sm:flex-row">
@@ -47,10 +47,6 @@ export default function HomePage() {
           <span className="font-medium text-foreground">@students.untidar.ac.id</span>
         </p>
       </div>
-
-      <footer className="relative mt-16 text-xs text-muted-foreground">
-        Fase 0 · code complete — build &amp; Prisma verification dilakukan di lokal
-      </footer>
     </main>
   );
 }
