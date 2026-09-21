@@ -1,6 +1,7 @@
 "use client";
 
 import * as React from "react";
+import { ChevronDown } from "lucide-react";
 
 import {
   getAuditLog,
@@ -69,14 +70,113 @@ function getActionLabel(action: string): string {
   );
 }
 
-function formatSnapshot(value: AuditLogRow["before"]): string {
-  if (value === null) return "";
+function isNonEmptyString(value: string | null): value is string {
+  return Boolean(value);
+}
 
-  try {
-    return JSON.stringify(value, null, 2);
-  } catch {
-    return "Snapshot tidak dapat ditampilkan.";
+function getSnapshotValue(
+  value: AuditLogRow["before"],
+  key: string,
+): string | number | string[] | null {
+  if (!value || typeof value !== "object" || Array.isArray(value)) return null;
+
+  const candidate = (value as Record<string, unknown>)[key];
+  if (
+    typeof candidate === "string" ||
+    typeof candidate === "number" ||
+    (Array.isArray(candidate) &&
+      candidate.every((item) => typeof item === "string"))
+  ) {
+    return candidate;
   }
+
+  return null;
+}
+
+function getSubjectName(event: AuditLogRow): string {
+  switch (event.action) {
+    case "PJ_ASSIGN":
+    case "PJ_REPLACE":
+      return (
+        (getSnapshotValue(event.after, "pj_name") as string | null) ??
+        event.entity_label ??
+        event.entity_type
+      );
+    case "PJ_REMOVE":
+      return (
+        (getSnapshotValue(event.before, "pj_name") as string | null) ??
+        event.entity_label ??
+        event.entity_type
+      );
+    default:
+      return event.entity_label ?? event.entity_type;
+  }
+}
+
+function getEventContext(event: AuditLogRow): string[] {
+  if (event.action.startsWith("PJ_")) {
+    return [event.matkul_label, event.kelas_label].filter(isNonEmptyString);
+  }
+
+  return [event.kelas_label, event.matkul_label].filter(isNonEmptyString);
+}
+
+function getSnapshotSummary(event: AuditLogRow): string | null {
+  if (event.action.startsWith("POIN_")) {
+    const source = event.action === "POIN_INPUT" ? event.after : event.before;
+    const poin = getSnapshotValue(source, "poin");
+    const kategori = getSnapshotValue(source, "kategori");
+
+    return poin !== null && kategori !== null
+      ? `Poin ${poin} · ${kategori}`
+      : null;
+  }
+
+  if (event.action === "PJ_REPLACE") {
+    const oldPjName = getSnapshotValue(event.before, "pj_name");
+    return oldPjName ? `Sebelumnya: ${oldPjName}` : null;
+  }
+
+  if (event.action === "KELAS_UPDATE") {
+    const changedFields = getSnapshotValue(event.metadata, "changed_fields");
+    return Array.isArray(changedFields)
+      ? `Field: ${changedFields.join(", ")}`
+      : null;
+  }
+
+  return null;
+}
+
+function shouldHideSnapshot(event: AuditLogRow): boolean {
+  return (
+    event.action === "PJ_ASSIGN" ||
+    event.action === "PJ_REMOVE" ||
+    event.action.startsWith("MAHASISWA_")
+  );
+}
+
+function formatSnapshotInline(value: AuditLogRow["before"]): string {
+  if (value === null) return "—";
+  if (typeof value !== "object") return String(value);
+  if (Array.isArray(value)) return value.join(", ");
+
+  const entries = Object.entries(value as Record<string, unknown>).filter(
+    ([, entryValue]) =>
+      entryValue !== null &&
+      entryValue !== undefined &&
+      entryValue !== "",
+  );
+
+  if (entries.length === 0) return "—";
+
+  return entries
+    .map(([key, entryValue]) => {
+      const formattedValue = Array.isArray(entryValue)
+        ? entryValue.join(", ")
+        : String(entryValue);
+      return `${key}: ${formattedValue}`;
+    })
+    .join(" · ");
 }
 
 function Snapshot({
@@ -89,12 +189,9 @@ function Snapshot({
   if (value === null) return null;
 
   return (
-    <div className="min-w-0 rounded-md bg-muted/60 p-3">
-      <p className="text-xs font-medium text-muted-foreground">{label}</p>
-      <pre className="mt-1 overflow-x-auto whitespace-pre-wrap break-words text-xs text-foreground">
-        {formatSnapshot(value)}
-      </pre>
-    </div>
+    <p className="text-xs text-muted-foreground">
+      <strong>{label}:</strong> {formatSnapshotInline(value)}
+    </p>
   );
 }
 
@@ -120,55 +217,87 @@ function AuditLogSkeleton() {
 }
 
 function AuditEventCard({ event }: { event: AuditLogRow }) {
+  const [open, setOpen] = React.useState(false);
   const category = getActionCategory(event.action);
-  const context = [event.kelas_label, event.matkul_label].filter(
-    (label): label is string => Boolean(label),
-  );
+  const context = getEventContext(event);
+  const subjectName = getSubjectName(event);
+  const snapshotSummary = getSnapshotSummary(event);
+  const showGenericSnapshots =
+    !shouldHideSnapshot(event) &&
+    snapshotSummary === null &&
+    (event.before !== null || event.after !== null);
 
   return (
-    <li className="rounded-lg border border-border bg-card p-4 shadow-sm">
-      <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
-        <div className="min-w-0">
-          <div className="flex flex-wrap items-center gap-2">
-            <span
-              className={cn(
-                "rounded px-2 py-1 text-xs font-semibold",
-                CATEGORY_STYLES[category] ?? "bg-muted text-muted-foreground",
-              )}
-            >
-              {getActionLabel(event.action)}
-            </span>
-            <h2 className="truncate font-medium">
-              {event.entity_label ?? event.entity_type}
-            </h2>
+    <li className="overflow-hidden rounded-lg border border-border bg-card shadow-sm">
+      <button
+        type="button"
+        onClick={() => setOpen((current) => !current)}
+        aria-expanded={open}
+        className="flex min-h-14 w-full items-center justify-between gap-3 p-4 text-left transition-colors hover:bg-muted/40"
+      >
+        <div className="flex min-w-0 flex-1 flex-wrap items-center gap-2">
+          <span
+            className={cn(
+              "rounded px-2 py-1 text-xs font-semibold",
+              CATEGORY_STYLES[category] ?? "bg-muted text-muted-foreground",
+            )}
+          >
+            {getActionLabel(event.action)}
+          </span>
+          <h2 className="truncate font-medium">{subjectName}</h2>
+        </div>
+
+        <div className="flex shrink-0 items-center gap-3">
+          <time
+            dateTime={event.created_at}
+            className="text-xs text-muted-foreground"
+          >
+            {formatDateTimeShortWib(event.created_at)}
+          </time>
+          <ChevronDown
+            aria-hidden
+            className={cn(
+              "size-4 text-muted-foreground transition-transform duration-200 motion-reduce:transition-none",
+              open && "rotate-180",
+            )}
+          />
+        </div>
+      </button>
+
+      <div
+        className={cn(
+          "grid transition-[grid-template-rows] duration-300 ease-out motion-reduce:transition-none",
+          open ? "grid-rows-[1fr]" : "grid-rows-[0fr]",
+        )}
+      >
+        <div className="overflow-hidden">
+          <div className="border-t border-border p-4">
+            <p className="text-sm text-muted-foreground">
+              Oleh {event.actor_name} · {event.actor_role}
+            </p>
+
+            {context.length > 0 ? (
+              <p className="mt-2 text-sm">
+                <span className="text-muted-foreground">Untuk: </span>
+                {context.join(" · ")}
+              </p>
+            ) : null}
+
+            {snapshotSummary ? (
+              <p className="mt-3 text-sm text-muted-foreground">
+                {snapshotSummary}
+              </p>
+            ) : null}
+
+            {showGenericSnapshots ? (
+              <div className="mt-3 grid gap-3 md:grid-cols-2">
+                <Snapshot label="Sebelum" value={event.before} />
+                <Snapshot label="Sesudah" value={event.after} />
+              </div>
+            ) : null}
           </div>
-
-          <p className="mt-2 text-sm text-muted-foreground">
-            Oleh {event.actor_name} · {event.actor_role}
-          </p>
         </div>
-
-        <time
-          dateTime={event.created_at}
-          className="shrink-0 text-xs text-muted-foreground"
-        >
-          {formatDateTimeShortWib(event.created_at)}
-        </time>
       </div>
-
-      {context.length > 0 ? (
-        <p className="mt-3 text-sm">
-          <span className="text-muted-foreground">Konteks: </span>
-          {context.join(" · ")}
-        </p>
-      ) : null}
-
-      {event.before !== null || event.after !== null ? (
-        <div className="mt-3 grid gap-3 md:grid-cols-2">
-          <Snapshot label="Sebelum" value={event.before} />
-          <Snapshot label="Sesudah" value={event.after} />
-        </div>
-      ) : null}
     </li>
   );
 }
