@@ -38,6 +38,11 @@ jobs:
           sed -i 's/minSdkVersion flutter.minSdkVersion/minSdkVersion 21/' karsa-mobile-build/android/app/build.gradle
           grep -n "minSdkVersion" karsa-mobile-build/android/app/build.gradle
 
+      - name: Patch AndroidManifest for Internet permission
+        run: |
+          sed -i '/<application/i \    <uses-permission android:name="android.permission.INTERNET"/>\n    <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE"/>' karsa-mobile-build/android/app/src/main/AndroidManifest.xml
+          grep -n "permission" karsa-mobile-build/android/app/src/main/AndroidManifest.xml
+
       - name: Patch Kotlin Gradle plugin version
         run: |
           sed -i 's/id "org.jetbrains.kotlin.android" version ".*"/id "org.jetbrains.kotlin.android" version "1.9.23"/' karsa-mobile-build/android/settings.gradle

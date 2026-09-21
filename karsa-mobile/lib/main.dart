@@ -78,14 +78,10 @@ class _WebViewScreenState extends State<WebViewScreen> {
       _hasError = false;
     });
 
-    // Bersihkan cache WebView agar tidak muncul ERR_CACHE_MISS.
-    await _controller.clearCache();
-
     await _controller.loadRequest(Uri.parse(karsaBaseUrl));
   }
 
   Future<void> _retry() async {
-    await _controller.clearCache();
     await _loadHomePage();
   }
 
