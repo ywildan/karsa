@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:webview_flutter/webview_flutter.dart';
 
 /// Ganti dengan URL production Karsa Anda sebelum build release.
@@ -45,6 +46,9 @@ class _WebViewScreenState extends State<WebViewScreen> {
     _controller = WebViewController()
       ..setJavaScriptMode(JavaScriptMode.unrestricted)
       ..setBackgroundColor(const Color(0x00000000))
+      ..setUserAgent(
+        'Mozilla/5.0 (Linux; Android 13; KarsaMobile) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Mobile Safari/537.36',
+      )
       ..setNavigationDelegate(
         NavigationDelegate(
           onPageStarted: (_) => setState(() {
@@ -59,12 +63,30 @@ class _WebViewScreenState extends State<WebViewScreen> {
             });
           },
           onNavigationRequest: (NavigationRequest request) {
-            // Biarkan semua navigasi di dalam WebView agar OAuth berjalan normal.
+            // Izinkan semua navigasi internal agar OAuth/Google login berjalan.
             return NavigationDecision.navigate;
           },
         ),
-      )
-      ..loadRequest(Uri.parse(karsaBaseUrl));
+      );
+
+    _loadHomePage();
+  }
+
+  Future<void> _loadHomePage() async {
+    setState(() {
+      _isLoading = true;
+      _hasError = false;
+    });
+
+    // Bersihkan cache WebView agar tidak muncul ERR_CACHE_MISS.
+    await _controller.clearCache();
+
+    await _controller.loadRequest(Uri.parse(karsaBaseUrl));
+  }
+
+  Future<void> _retry() async {
+    await _controller.clearCache();
+    await _loadHomePage();
   }
 
   Future<bool> _onWillPop() async {
@@ -85,10 +107,10 @@ class _WebViewScreenState extends State<WebViewScreen> {
             alignment: Alignment.center,
             children: [
               WebViewWidget(controller: _controller),
-              if (_isLoading)
-                const CircularProgressIndicator(),
+              if (_isLoading) const CircularProgressIndicator(),
               if (_hasError)
-                Padding(
+                Container(
+                  color: Theme.of(context).colorScheme.surface,
                   padding: const EdgeInsets.all(24.0),
                   child: Column(
                     mainAxisAlignment: MainAxisAlignment.center,
@@ -107,7 +129,7 @@ class _WebViewScreenState extends State<WebViewScreen> {
                       ),
                       const SizedBox(height: 16),
                       ElevatedButton(
-                        onPressed: () => _controller.reload(),
+                        onPressed: _retry,
                         child: const Text('Coba Lagi'),
                       ),
                     ],
