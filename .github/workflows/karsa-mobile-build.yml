@@ -38,6 +38,11 @@ jobs:
           sed -i 's/minSdkVersion flutter.minSdkVersion/minSdkVersion 21/' karsa-mobile-build/android/app/build.gradle
           grep -n "minSdkVersion" karsa-mobile-build/android/app/build.gradle
 
+      - name: Patch Kotlin Gradle plugin version
+        run: |
+          sed -i 's/id "org.jetbrains.kotlin.android" version ".*"/id "org.jetbrains.kotlin.android" version "1.9.23"/' karsa-mobile-build/android/settings.gradle
+          grep -n "org.jetbrains.kotlin.android" karsa-mobile-build/android/settings.gradle
+
       - name: Get dependencies
         run: |
           cd karsa-mobile-build
