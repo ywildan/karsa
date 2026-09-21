@@ -1,6 +1,7 @@
 "use client";
 
 import * as React from "react";
+import { ChevronDown } from "lucide-react";
 
 import {
   getAuditLog,
@@ -120,55 +121,79 @@ function AuditLogSkeleton() {
 }
 
 function AuditEventCard({ event }: { event: AuditLogRow }) {
+  const [open, setOpen] = React.useState(false);
   const category = getActionCategory(event.action);
   const context = [event.kelas_label, event.matkul_label].filter(
     (label): label is string => Boolean(label),
   );
 
   return (
-    <li className="rounded-lg border border-border bg-card p-4 shadow-sm">
-      <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
-        <div className="min-w-0">
-          <div className="flex flex-wrap items-center gap-2">
-            <span
-              className={cn(
-                "rounded px-2 py-1 text-xs font-semibold",
-                CATEGORY_STYLES[category] ?? "bg-muted text-muted-foreground",
-              )}
-            >
-              {getActionLabel(event.action)}
-            </span>
-            <h2 className="truncate font-medium">
-              {event.entity_label ?? event.entity_type}
-            </h2>
+    <li className="overflow-hidden rounded-lg border border-border bg-card shadow-sm">
+      <button
+        type="button"
+        onClick={() => setOpen((current) => !current)}
+        aria-expanded={open}
+        className="flex min-h-14 w-full items-center justify-between gap-3 p-4 text-left transition-colors hover:bg-muted/40"
+      >
+        <div className="flex min-w-0 flex-1 flex-wrap items-center gap-2">
+          <span
+            className={cn(
+              "rounded px-2 py-1 text-xs font-semibold",
+              CATEGORY_STYLES[category] ?? "bg-muted text-muted-foreground",
+            )}
+          >
+            {getActionLabel(event.action)}
+          </span>
+          <h2 className="truncate font-medium">
+            {event.entity_label ?? event.entity_type}
+          </h2>
+        </div>
+
+        <div className="flex shrink-0 items-center gap-3">
+          <time
+            dateTime={event.created_at}
+            className="text-xs text-muted-foreground"
+          >
+            {formatDateTimeShortWib(event.created_at)}
+          </time>
+          <ChevronDown
+            aria-hidden
+            className={cn(
+              "size-4 text-muted-foreground transition-transform duration-200 motion-reduce:transition-none",
+              open && "rotate-180",
+            )}
+          />
+        </div>
+      </button>
+
+      <div
+        className={cn(
+          "grid transition-[grid-template-rows] duration-300 ease-out motion-reduce:transition-none",
+          open ? "grid-rows-[1fr]" : "grid-rows-[0fr]",
+        )}
+      >
+        <div className="overflow-hidden">
+          <div className="border-t border-border p-4">
+            <p className="text-sm text-muted-foreground">
+              Oleh {event.actor_name} · {event.actor_role}
+            </p>
+
+            {context.length > 0 ? (
+              <p className="mt-2 text-sm">
+                <span className="text-muted-foreground">Untuk: </span>
+                {context.join(" · ")}
+              </p>
+            ) : null}
+
+            {event.before !== null || event.after !== null ? (
+              <div className="mt-3 grid gap-3 md:grid-cols-2">
+                <Snapshot label="Sebelum" value={event.before} />
+                <Snapshot label="Sesudah" value={event.after} />
+              </div>
+            ) : null}
           </div>
-
-          <p className="mt-2 text-sm text-muted-foreground">
-            Oleh {event.actor_name} · {event.actor_role}
-          </p>
         </div>
-
-        <time
-          dateTime={event.created_at}
-          className="shrink-0 text-xs text-muted-foreground"
-        >
-          {formatDateTimeShortWib(event.created_at)}
-        </time>
       </div>
-
-      {context.length > 0 ? (
-        <p className="mt-3 text-sm">
-          <span className="text-muted-foreground">Konteks: </span>
-          {context.join(" · ")}
-        </p>
-      ) : null}
-
-      {event.before !== null || event.after !== null ? (
-        <div className="mt-3 grid gap-3 md:grid-cols-2">
-          <Snapshot label="Sebelum" value={event.before} />
-          <Snapshot label="Sesudah" value={event.after} />
-        </div>
-      ) : null}
     </li>
   );
 }
