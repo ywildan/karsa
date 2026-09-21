@@ -4,7 +4,7 @@
 
 | Aspek | Nilai |
 | --- | --- |
-| **Versi** | 1.1 |
+| **Versi** | 1.3 |
 | **Tanggal berlaku** | 19 September 2026 |
 | **Penanggung jawab** | Yusuf Wildan Affandi (admin) |
 | **Review berikutnya** | Desember 2026 (akhir semester) |
@@ -292,6 +292,16 @@ Admin kirim email konfirmasi:
 
 **Frekuensi:** setiap akhir semester + sebelum perubahan besar.
 
+**Format dan penyimpanan:**
+
+- Ekspor CSV terpisah untuk setiap tabel, termasuk `User`, `PoinLog`,
+  `AuditLog`, `Kelas`, `KelasMatkul`, `Matkul`, `Prodi`, `Semester`, dan tabel
+  terkait lainnya.
+- Simpan di Google Drive pada folder `Karsa Backup`.
+- Gunakan nama `backup_<tabel>_<yyyyMMdd>.csv`, misalnya
+  `backup_PoinLog_20260921.csv`.
+- Pertahankan minimal backup dari 3 bulan terakhir.
+
 **Prosedur:**
 1. Buka Supabase SQL Editor
 2. Ekspor tabel kunci:
@@ -304,14 +314,27 @@ Admin kirim email konfirmasi:
 4. Nama file: `backup_<tabel>_<yyyyMMdd>.csv`
 5. Simpan minimal 3 bulan terakhir
 
-### 5.3 Recovery
+### 5.3 Uji Restore Berkala
+
+- **Frekuensi:** setiap 6 bulan sekali.
+- **Jadwal:** minggu pertama Januari dan minggu pertama Juli setiap tahun.
+- Gunakan environment non-produksi atau database sementara; jangan menimpa
+  database produksi untuk pengujian.
+- Pulihkan sampel backup, lalu cocokkan jumlah baris dan relasi tabel utama
+  (`User`, `PoinLog`, `AuditLog`, `Kelas`, dan `KelasMatkul`).
+- Catat tanggal, backup yang diuji, hasil, temuan, dan tindak lanjut.
+
+### 5.4 Recovery
 
 Jika data corrupt atau hilang:
 1. Cek Supabase daily backup (retensi 7 hari)
 2. Jika backup tidak cukup → restore dari manual backup
 3. Kontak Supabase support jika insiden server
 
-### 5.4 Rencana Insiden
+### 5.5 Rencana Insiden
+
+Panduan klasifikasi, eskalasi, mitigasi, rollback, komunikasi, dan post-mortem
+tersedia di [Incident Runbook Karsa](./INCIDENT-RUNBOOK.md).
 
 **Jika Karsa down:**
 1. Cek [status Vercel](https://www.vercel-status.com).
@@ -357,6 +380,7 @@ Jika data corrupt atau hilang:
 | 19 Sep 2026 | 1.0 | Dokumen dibuat | Yusuf |
 | 19 Sep 2026 | 1.1 | Memperbaiki inkonsistensi FK `RESTRICT` pada prosedur erasure, menghapus nested code fence, dan menambahkan disclaimer legal | Yusuf |
 | 20 Sep 2026 | 1.2 | Memperbarui retensi AuditLog menjadi 5 tahun dan prosedur erasure audit trail sistemik | Yusuf |
+| 21 Sep 2026 | 1.3 | Menambahkan strategi backup manual, jadwal uji restore enam bulanan, dan rujukan Incident Runbook | Yusuf |
 
 ---
 

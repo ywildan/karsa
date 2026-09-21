@@ -22,6 +22,7 @@ import { z } from "zod";
 
 import type { ActionResult } from "@/lib/action-utils";
 import { mapPrismaKnownError, zodFirstError } from "@/lib/action-utils";
+import { logAudit } from "@/lib/audit";
 import { requireAdmin } from "@/lib/auth-helpers";
 import { prisma } from "@/lib/prisma";
 
@@ -67,14 +68,37 @@ function revalidateAll() {
 
 /** Tambah semester baru (default tidak aktif). */
 export async function createSemester(input: SemesterInput): Promise<ActionResult> {
-  await requireAdmin();
+  const admin = await requireAdmin();
 
   const parsed = semesterInputSchema.safeParse(input);
   if (!parsed.success) return { ok: false, error: zodFirstError(parsed.error) };
 
   const { name, start_date, end_date } = parsed.data;
   try {
-    await prisma.semester.create({ data: { name, start_date, end_date } });
+    await prisma.$transaction(async (tx) => {
+      const created = await tx.semester.create({
+        data: { name, start_date, end_date },
+      });
+
+      await logAudit(
+        {
+          actor: {
+            id: admin.id,
+            name: admin.name?.trim() || admin.email?.trim() || "Administrator",
+            is_admin: admin.is_admin,
+          },
+          action: "SEMESTER_CREATE",
+          entity: { type: "Semester", id: created.id, label: name },
+          after: {
+            name,
+            is_active: created.is_active,
+            start_date: start_date.toISOString(),
+            end_date: end_date.toISOString(),
+          },
+        },
+        tx,
+      );
+    });
   } catch (error) {
     return {
       ok: false,
@@ -95,16 +119,52 @@ export async function updateSemester(
   id: string,
   input: SemesterInput,
 ): Promise<ActionResult> {
-  await requireAdmin();
+  const admin = await requireAdmin();
 
   const parsed = semesterInputSchema.safeParse(input);
   if (!parsed.success) return { ok: false, error: zodFirstError(parsed.error) };
 
   const { name, start_date, end_date } = parsed.data;
+
+  const before = await prisma.semester.findUnique({ where: { id } });
+  if (!before) {
+    return {
+      ok: false,
+      error: "Semester tidak ditemukan. Mungkin sudah dihapus.",
+    };
+  }
+
   try {
-    await prisma.semester.update({
-      where: { id },
-      data: { name, start_date, end_date },
+    await prisma.$transaction(async (tx) => {
+      await tx.semester.update({
+        where: { id },
+        data: { name, start_date, end_date },
+      });
+
+      await logAudit(
+        {
+          actor: {
+            id: admin.id,
+            name: admin.name?.trim() || admin.email?.trim() || "Administrator",
+            is_admin: admin.is_admin,
+          },
+          action: "SEMESTER_UPDATE",
+          entity: { type: "Semester", id, label: name },
+          before: {
+            name: before.name,
+            is_active: before.is_active,
+            start_date: before.start_date.toISOString(),
+            end_date: before.end_date.toISOString(),
+          },
+          after: {
+            name,
+            is_active: before.is_active,
+            start_date: start_date.toISOString(),
+            end_date: end_date.toISOString(),
+          },
+        },
+        tx,
+      );
     });
   } catch (error) {
     return {
@@ -130,7 +190,7 @@ export async function updateSemester(
  *   · masih ada kelas terikat (relasi `onDelete: Restrict`).
  */
 export async function deleteSemester(id: string): Promise<ActionResult> {
-  await requireAdmin();
+  const admin = await requireAdmin();
 
   const semester = await prisma.semester.findUnique({ where: { id } });
   if (!semester) {
@@ -153,7 +213,28 @@ export async function deleteSemester(id: string): Promise<ActionResult> {
   }
 
   try {
-    await prisma.semester.delete({ where: { id } });
+    await prisma.$transaction(async (tx) => {
+      await tx.semester.delete({ where: { id } });
+
+      await logAudit(
+        {
+          actor: {
+            id: admin.id,
+            name: admin.name?.trim() || admin.email?.trim() || "Administrator",
+            is_admin: admin.is_admin,
+          },
+          action: "SEMESTER_DELETE",
+          entity: { type: "Semester", id, label: semester.name },
+          before: {
+            name: semester.name,
+            is_active: semester.is_active,
+            start_date: semester.start_date.toISOString(),
+            end_date: semester.end_date.toISOString(),
+          },
+        },
+        tx,
+      );
+    });
   } catch (error) {
     return {
       ok: false,
@@ -180,7 +261,7 @@ export async function deleteSemester(id: string): Promise<ActionResult> {
  * `Semester_satu_aktif_key` di DB).
  */
 export async function setActiveSemester(id: string): Promise<ActionResult> {
-  await requireAdmin();
+  const admin = await requireAdmin();
 
   const target = await prisma.semester.findUnique({ where: { id } });
   if (!target) {
@@ -191,13 +272,47 @@ export async function setActiveSemester(id: string): Promise<ActionResult> {
   }
 
   try {
-    await prisma.$transaction([
-      prisma.semester.updateMany({
+    await prisma.$transaction(async (tx) => {
+      const previousActive = await tx.semester.findFirst({
+        where: { is_active: true },
+        select: { id: true },
+      });
+
+      await tx.semester.updateMany({
         where: { is_active: true },
         data: { is_active: false },
-      }),
-      prisma.semester.update({ where: { id }, data: { is_active: true } }),
-    ]);
+      });
+      await tx.semester.update({ where: { id }, data: { is_active: true } });
+
+      await logAudit(
+        {
+          actor: {
+            id: admin.id,
+            name: admin.name?.trim() || admin.email?.trim() || "Administrator",
+            is_admin: admin.is_admin,
+          },
+          action: "SEMESTER_SET_ACTIVE",
+          entity: { type: "Semester", id, label: target.name },
+          before: {
+            name: target.name,
+            is_active: target.is_active,
+            start_date: target.start_date.toISOString(),
+            end_date: target.end_date.toISOString(),
+          },
+          after: {
+            name: target.name,
+            is_active: true,
+            start_date: target.start_date.toISOString(),
+            end_date: target.end_date.toISOString(),
+          },
+          metadata: {
+            previous_active_id: previousActive?.id ?? null,
+            new_active_id: id,
+          },
+        },
+        tx,
+      );
+    });
   } catch (error) {
     return {
       ok: false,

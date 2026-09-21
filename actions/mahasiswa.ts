@@ -28,6 +28,7 @@ import { z } from "zod";
 
 import type { ActionResult } from "@/lib/action-utils";
 import { mapPrismaKnownError, zodFirstError } from "@/lib/action-utils";
+import { logAudit } from "@/lib/audit";
 import { requireAdmin } from "@/lib/auth-helpers";
 import {
   isStudentEmail,
@@ -217,7 +218,7 @@ export async function addMahasiswaToKelas(
   kelasId: string,
   input: { email: string },
 ): Promise<ActionResult> {
-  await requireAdmin();
+  const admin = await requireAdmin();
 
   const parsedId = idSchema.safeParse(kelasId);
   if (!parsedId.success) return { ok: false, error: zodFirstError(parsedId.error) };
@@ -262,9 +263,37 @@ export async function addMahasiswaToKelas(
   }
 
   try {
-    await prisma.user.update({
-      where: { id: user.id },
-      data: { kelas_id: kelas.id },
+    await prisma.$transaction(async (tx) => {
+      await tx.user.update({
+        where: { id: user.id },
+        data: { kelas_id: kelas.id },
+      });
+
+      await logAudit(
+        {
+          actor: {
+            id: admin.id,
+            name: admin.name?.trim() || admin.email?.trim() || "Administrator",
+            is_admin: admin.is_admin,
+          },
+          action: "MAHASISWA_ADD",
+          entity: {
+            type: "User",
+            id: user.id,
+            label: displayName(user),
+          },
+          context: {
+            kelas_id: kelas.id,
+            kelas_label: kelas.name,
+          },
+          after: {
+            name: user.name,
+            nim: user.nim,
+            kelas_id: kelas.id,
+          },
+        },
+        tx,
+      );
     });
   } catch (error) {
     return {
@@ -304,7 +333,7 @@ export async function createAndAddMahasiswa(
   kelasId: string,
   input: { name: string; nim: string; email: string },
 ): Promise<ActionResult> {
-  await requireAdmin();
+  const admin = await requireAdmin();
 
   const parsedId = idSchema.safeParse(kelasId);
   if (!parsedId.success) return { ok: false, error: zodFirstError(parsedId.error) };
@@ -354,14 +383,43 @@ export async function createAndAddMahasiswa(
   }
 
   try {
-    await prisma.user.create({
-      data: {
-        name,
-        nim,
-        email,
-        kelas_id: kelas.id,
-        is_admin: false,
-      },
+    await prisma.$transaction(async (tx) => {
+      const created = await tx.user.create({
+        data: {
+          name,
+          nim,
+          email,
+          kelas_id: kelas.id,
+          is_admin: false,
+        },
+      });
+
+      await logAudit(
+        {
+          actor: {
+            id: admin.id,
+            name: admin.name?.trim() || admin.email?.trim() || "Administrator",
+            is_admin: admin.is_admin,
+          },
+          action: "MAHASISWA_ADD",
+          entity: {
+            type: "User",
+            id: created.id,
+            label: name,
+          },
+          context: {
+            kelas_id: kelas.id,
+            kelas_label: kelas.name,
+          },
+          after: {
+            name,
+            nim,
+            email,
+            kelas_id: kelas.id,
+          },
+        },
+        tx,
+      );
     });
   } catch (error) {
     return {
@@ -407,7 +465,7 @@ interface PjMatkulRow {
 export async function removeMahasiswaFromKelas(
   userId: string,
 ): Promise<ActionResult> {
-  await requireAdmin();
+  const admin = await requireAdmin();
 
   const parsedId = idSchema.safeParse(userId);
   if (!parsedId.success) return { ok: false, error: zodFirstError(parsedId.error) };
@@ -452,10 +510,38 @@ export async function removeMahasiswaFromKelas(
     };
   }
 
+  const kelasLama = user.kelas;
+
   try {
-    await prisma.user.update({
-      where: { id: user.id },
-      data: { kelas_id: null },
+    await prisma.$transaction(async (tx) => {
+      await tx.user.update({
+        where: { id: user.id },
+        data: { kelas_id: null },
+      });
+
+      await logAudit(
+        {
+          actor: {
+            id: admin.id,
+            name: admin.name?.trim() || admin.email?.trim() || "Administrator",
+            is_admin: admin.is_admin,
+          },
+          action: "MAHASISWA_REMOVE",
+          entity: {
+            type: "User",
+            id: user.id,
+            label: displayName(user),
+          },
+          context: {
+            kelas_id: kelasLama.id,
+            kelas_label: kelasLama.name,
+          },
+          before: {
+            kelas_id: kelasLama.id,
+          },
+        },
+        tx,
+      );
     });
   } catch (error) {
     return {
@@ -468,9 +554,9 @@ export async function removeMahasiswaFromKelas(
     };
   }
 
-  revalidateKelas(user.kelas_id);
+  revalidateKelas(kelasLama.id);
   return {
     ok: true,
-    message: `${displayName(user)} dikeluarkan dari kelas ${user.kelas.name}. Akunnya tetap aktif.`,
+    message: `${displayName(user)} dikeluarkan dari kelas ${kelasLama.name}. Akunnya tetap aktif.`,
   };
 }
