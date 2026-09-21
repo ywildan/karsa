@@ -14,6 +14,7 @@ import { z } from "zod";
 
 import type { ActionResult } from "@/lib/action-utils";
 import { mapPrismaKnownError, zodFirstError } from "@/lib/action-utils";
+import { logAudit } from "@/lib/audit";
 import { requireAdmin } from "@/lib/auth-helpers";
 import { prisma } from "@/lib/prisma";
 
@@ -42,14 +43,30 @@ function revalidateAll() {
 
 /** Tambah matkul baru ke master. */
 export async function createMatkul(input: MatkulInput): Promise<ActionResult> {
-  await requireAdmin();
+  const admin = await requireAdmin();
 
   const parsed = matkulInputSchema.safeParse(input);
   if (!parsed.success) return { ok: false, error: zodFirstError(parsed.error) };
 
   const { name, code } = parsed.data;
   try {
-    await prisma.matkul.create({ data: { name, code } });
+    await prisma.$transaction(async (tx) => {
+      const created = await tx.matkul.create({ data: { name, code } });
+
+      await logAudit(
+        {
+          actor: {
+            id: admin.id,
+            name: admin.name?.trim() || admin.email?.trim() || "Administrator",
+            is_admin: admin.is_admin,
+          },
+          action: "MATKUL_CREATE",
+          entity: { type: "Matkul", id: created.id, label: name },
+          after: { name, code },
+        },
+        tx,
+      );
+    });
   } catch (error) {
     return {
       ok: false,
@@ -70,14 +87,40 @@ export async function updateMatkul(
   id: string,
   input: MatkulInput,
 ): Promise<ActionResult> {
-  await requireAdmin();
+  const admin = await requireAdmin();
 
   const parsed = matkulInputSchema.safeParse(input);
   if (!parsed.success) return { ok: false, error: zodFirstError(parsed.error) };
 
   const { name, code } = parsed.data;
+
+  const before = await prisma.matkul.findUnique({
+    where: { id },
+    select: { name: true, code: true },
+  });
+  if (!before) {
+    return { ok: false, error: "Matkul tidak ditemukan. Mungkin sudah dihapus." };
+  }
+
   try {
-    await prisma.matkul.update({ where: { id }, data: { name, code } });
+    await prisma.$transaction(async (tx) => {
+      await tx.matkul.update({ where: { id }, data: { name, code } });
+
+      await logAudit(
+        {
+          actor: {
+            id: admin.id,
+            name: admin.name?.trim() || admin.email?.trim() || "Administrator",
+            is_admin: admin.is_admin,
+          },
+          action: "MATKUL_UPDATE",
+          entity: { type: "Matkul", id, label: name },
+          before,
+          after: { name, code },
+        },
+        tx,
+      );
+    });
   } catch (error) {
     return {
       ok: false,
@@ -101,7 +144,7 @@ export async function updateMatkul(
  * (relasi `Matkul → KelasMatkul` memakai `onDelete: Restrict`).
  */
 export async function deleteMatkul(id: string): Promise<ActionResult> {
-  await requireAdmin();
+  const admin = await requireAdmin();
 
   const matkul = await prisma.matkul.findUnique({ where: { id } });
   if (!matkul) {
@@ -117,7 +160,23 @@ export async function deleteMatkul(id: string): Promise<ActionResult> {
   }
 
   try {
-    await prisma.matkul.delete({ where: { id } });
+    await prisma.$transaction(async (tx) => {
+      await tx.matkul.delete({ where: { id } });
+
+      await logAudit(
+        {
+          actor: {
+            id: admin.id,
+            name: admin.name?.trim() || admin.email?.trim() || "Administrator",
+            is_admin: admin.is_admin,
+          },
+          action: "MATKUL_DELETE",
+          entity: { type: "Matkul", id, label: matkul.name },
+          before: { name: matkul.name, code: matkul.code },
+        },
+        tx,
+      );
+    });
   } catch (error) {
     return {
       ok: false,

@@ -12,6 +12,7 @@ import { z } from "zod";
 
 import type { ActionResult } from "@/lib/action-utils";
 import { mapPrismaKnownError, zodFirstError } from "@/lib/action-utils";
+import { logAudit } from "@/lib/audit";
 import { requireAdmin } from "@/lib/auth-helpers";
 import { prisma } from "@/lib/prisma";
 
@@ -33,14 +34,30 @@ function revalidateAll() {
 
 /** Tambah prodi baru. */
 export async function createProdi(input: ProdiInput): Promise<ActionResult> {
-  await requireAdmin();
+  const admin = await requireAdmin();
 
   const parsed = prodiInputSchema.safeParse(input);
   if (!parsed.success) return { ok: false, error: zodFirstError(parsed.error) };
 
   const { name } = parsed.data;
   try {
-    await prisma.prodi.create({ data: { name } });
+    await prisma.$transaction(async (tx) => {
+      const created = await tx.prodi.create({ data: { name } });
+
+      await logAudit(
+        {
+          actor: {
+            id: admin.id,
+            name: admin.name?.trim() || admin.email?.trim() || "Administrator",
+            is_admin: admin.is_admin,
+          },
+          action: "PRODI_CREATE",
+          entity: { type: "Prodi", id: created.id, label: name },
+          after: { name },
+        },
+        tx,
+      );
+    });
   } catch (error) {
     return {
       ok: false,
@@ -61,14 +78,40 @@ export async function updateProdi(
   id: string,
   input: ProdiInput,
 ): Promise<ActionResult> {
-  await requireAdmin();
+  const admin = await requireAdmin();
 
   const parsed = prodiInputSchema.safeParse(input);
   if (!parsed.success) return { ok: false, error: zodFirstError(parsed.error) };
 
   const { name } = parsed.data;
+
+  const before = await prisma.prodi.findUnique({
+    where: { id },
+    select: { name: true },
+  });
+  if (!before) {
+    return { ok: false, error: "Prodi tidak ditemukan. Mungkin sudah dihapus." };
+  }
+
   try {
-    await prisma.prodi.update({ where: { id }, data: { name } });
+    await prisma.$transaction(async (tx) => {
+      await tx.prodi.update({ where: { id }, data: { name } });
+
+      await logAudit(
+        {
+          actor: {
+            id: admin.id,
+            name: admin.name?.trim() || admin.email?.trim() || "Administrator",
+            is_admin: admin.is_admin,
+          },
+          action: "PRODI_UPDATE",
+          entity: { type: "Prodi", id, label: name },
+          before,
+          after: { name },
+        },
+        tx,
+      );
+    });
   } catch (error) {
     return {
       ok: false,
@@ -92,7 +135,7 @@ export async function updateProdi(
  * (relasi `Prodi → Kelas` memakai `onDelete: Restrict`).
  */
 export async function deleteProdi(id: string): Promise<ActionResult> {
-  await requireAdmin();
+  const admin = await requireAdmin();
 
   const prodi = await prisma.prodi.findUnique({ where: { id } });
   if (!prodi) {
@@ -108,7 +151,23 @@ export async function deleteProdi(id: string): Promise<ActionResult> {
   }
 
   try {
-    await prisma.prodi.delete({ where: { id } });
+    await prisma.$transaction(async (tx) => {
+      await tx.prodi.delete({ where: { id } });
+
+      await logAudit(
+        {
+          actor: {
+            id: admin.id,
+            name: admin.name?.trim() || admin.email?.trim() || "Administrator",
+            is_admin: admin.is_admin,
+          },
+          action: "PRODI_DELETE",
+          entity: { type: "Prodi", id, label: prodi.name },
+          before: { name: prodi.name },
+        },
+        tx,
+      );
+    });
   } catch (error) {
     return {
       ok: false,

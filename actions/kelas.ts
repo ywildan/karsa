@@ -16,6 +16,7 @@ import { z } from "zod";
 
 import type { ActionResult } from "@/lib/action-utils";
 import { mapPrismaKnownError, zodFirstError } from "@/lib/action-utils";
+import { logAudit } from "@/lib/audit";
 import { requireAdmin } from "@/lib/auth-helpers";
 import { prisma } from "@/lib/prisma";
 
@@ -55,14 +56,33 @@ function revalidateAll(paths: readonly string[]) {
 
 /** Tambah kelas baru. Unique (name, prodi_id, semester_id). */
 export async function createKelas(input: KelasInput): Promise<ActionResult> {
-  await requireAdmin();
+  const admin = await requireAdmin();
 
   const parsed = kelasInputSchema.safeParse(input);
   if (!parsed.success) return { ok: false, error: zodFirstError(parsed.error) };
 
   const { name, prodi_id, semester_id } = parsed.data;
   try {
-    await prisma.kelas.create({ data: { name, prodi_id, semester_id } });
+    await prisma.$transaction(async (tx) => {
+      const created = await tx.kelas.create({
+        data: { name, prodi_id, semester_id },
+      });
+
+      await logAudit(
+        {
+          actor: {
+            id: admin.id,
+            name: admin.name?.trim() || admin.email?.trim() || "Administrator",
+            is_admin: admin.is_admin,
+          },
+          action: "KELAS_CREATE",
+          entity: { type: "Kelas", id: created.id, label: name },
+          context: { kelas_id: created.id, kelas_label: name },
+          after: { name, prodi_id, semester_id },
+        },
+        tx,
+      );
+    });
   } catch (error) {
     return {
       ok: false,
@@ -89,16 +109,48 @@ export async function updateKelas(
   id: string,
   input: KelasInput,
 ): Promise<ActionResult> {
-  await requireAdmin();
+  const admin = await requireAdmin();
 
   const parsed = kelasUpdateSchema.safeParse(input);
   if (!parsed.success) return { ok: false, error: zodFirstError(parsed.error) };
 
   const { name, prodi_id, semester_id } = parsed.data;
+
+  const before = await prisma.kelas.findUnique({
+    where: { id },
+    select: { name: true, prodi_id: true, semester_id: true },
+  });
+  if (!before) {
+    return { ok: false, error: "Kelas tidak ditemukan. Mungkin sudah dihapus." };
+  }
+
+  const changedFields = (
+    ["name", "prodi_id", "semester_id"] as const
+  ).filter((field) => before[field] !== parsed.data[field]);
+
   try {
-    await prisma.kelas.update({
-      where: { id },
-      data: { name, prodi_id, semester_id },
+    await prisma.$transaction(async (tx) => {
+      await tx.kelas.update({
+        where: { id },
+        data: { name, prodi_id, semester_id },
+      });
+
+      await logAudit(
+        {
+          actor: {
+            id: admin.id,
+            name: admin.name?.trim() || admin.email?.trim() || "Administrator",
+            is_admin: admin.is_admin,
+          },
+          action: "KELAS_UPDATE",
+          entity: { type: "Kelas", id, label: name },
+          context: { kelas_id: id, kelas_label: name },
+          before,
+          after: { name, prodi_id, semester_id },
+          metadata: { changed_fields: changedFields },
+        },
+        tx,
+      );
     });
   } catch (error) {
     return {
@@ -124,11 +176,11 @@ export async function updateKelas(
  * pesan dinamis & prediktif.
  */
 export async function deleteKelas(id: string): Promise<ActionResult> {
-  await requireAdmin();
+  const admin = await requireAdmin();
 
   const kelas = await prisma.kelas.findUnique({
     where: { id },
-    select: { name: true },
+    select: { name: true, prodi_id: true, semester_id: true },
   });
   if (!kelas) {
     return { ok: false, error: "Kelas tidak ditemukan. Mungkin sudah dihapus." };
@@ -159,7 +211,28 @@ export async function deleteKelas(id: string): Promise<ActionResult> {
   }
 
   try {
-    await prisma.kelas.delete({ where: { id } });
+    await prisma.$transaction(async (tx) => {
+      await tx.kelas.delete({ where: { id } });
+
+      await logAudit(
+        {
+          actor: {
+            id: admin.id,
+            name: admin.name?.trim() || admin.email?.trim() || "Administrator",
+            is_admin: admin.is_admin,
+          },
+          action: "KELAS_DELETE",
+          entity: { type: "Kelas", id, label: kelas.name },
+          context: { kelas_id: id, kelas_label: kelas.name },
+          before: {
+            name: kelas.name,
+            prodi_id: kelas.prodi_id,
+            semester_id: kelas.semester_id,
+          },
+        },
+        tx,
+      );
+    });
   } catch (error) {
     return {
       ok: false,
