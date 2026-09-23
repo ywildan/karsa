@@ -1,90 +1,45 @@
-# Karsa Mobile (Flutter WebView Wrapper)
+# SiKarsa Mobile
 
-APK Flutter yang membungkus aplikasi web Karsa menggunakan WebView. Cocok untuk PJ (mobile view) dan Mahasiswa (desktop view) karena langsung memakai aplikasi web yang sudah responsif.
+Aplikasi Flutter native untuk mahasiswa dan penanggung jawab (PJ) mata kuliah. Aplikasi ini tidak memuat situs melalui WebView; antarmuka, navigasi, penyimpanan sesi, dan komunikasi API berjalan sebagai komponen mobile native.
 
-## Struktur File
+## Fitur
 
-```
+- Login Google melalui browser sistem dengan OAuth bridge, PKCE, dan deep link.
+- Sesi disimpan di secure storage dengan access token singkat dan rotasi refresh token.
+- Mahasiswa: laporan poin per mata kuliah dan peringkat kelas.
+- PJ: seluruh fitur mahasiswa, input poin, riwayat input, dan hapus poin miliknya.
+- Admin tetap menggunakan dashboard web dan tidak memperoleh akses khusus di aplikasi.
+- Idempotency key mencegah poin ganda ketika permintaan terkirim ulang.
+
+## Struktur
+
+```text
 karsa-mobile/
-├── pubspec.yaml      # Konfigurasi Flutter + dependencies + config ikon
-├── assets/
-│   ├── icon.png             # Launcher icon legacy (full-bleed #CF6A12)
-│   └── icon_foreground.png  # Foreground ikon adaptif (transparan)
+├── android/AndroidManifest.xml  # izin jaringan dan deep link karsa://
+├── assets/                      # ikon launcher
 ├── lib/
-│   └── main.dart     # Entry point: WebView full screen
-└── README.md         # Dokumentasi ini
+│   ├── core/                    # API, autentikasi, sesi, model
+│   ├── screens/                 # layar native mahasiswa dan PJ
+│   ├── widgets/                 # komponen bersama
+│   ├── app.dart
+│   └── main.dart
+├── test/                        # pengujian model/kontrak
+└── pubspec.yaml
 ```
 
-## Cara Kerja Build
+## Build tanpa instalasi lokal
 
-GitHub Actions di `.github/workflows/karsa-mobile-build.yml` akan:
+Workflow `.github/workflows/karsa-mobile-build.yml` melakukan seluruh proses di GitHub Actions:
 
-1. Generate project Flutter baru dari template (`flutter create`).
-2. Overlay file custom kita (`pubspec.yaml`, `lib/main.dart`, dan `assets/*.png`).
-3. Patch nama app menjadi **SiKarsa** (`android:label` di AndroidManifest).
-4. Patch `minSdkVersion` ke 21 agar kompatibel dengan `webview_flutter`.
-5. Generate launcher icon dari `assets/icon.png` via `flutter_launcher_icons`.
-6. Build APK release.
-7. Upload artifact bernama `karsa-mobile-apk`.
+1. Membuat project Flutter sementara.
+2. Menyalin source, manifest, aset, dan pengujian.
+3. Mengambil dependency di runner GitHub.
+4. Menjalankan format check, analyzer, dan test.
+5. Membuat launcher icon dan APK release.
+6. Mengunggah `karsa-mobile-apk` sebagai artifact.
 
-Tidak perlu install Flutter di lokal.
+Jalankan workflow secara manual dari tab **Actions**, atau push perubahan yang termasuk dalam path pemicu. URL backend dapat diganti melalui input manual workflow; nilai default-nya `https://www.sikarsa.id`.
 
-## Konfigurasi Wajib
+## Kontrak backend
 
-Sebelum build, ubah URL di `lib/main.dart`:
-
-```dart
-const String karsaBaseUrl = 'https://www.sikarsa.id';
-```
-
-Ganti dengan URL production Karsa Anda.
-
-## Cara Build APK
-
-### Otomatis via Push
-
-Setiap push ke branch `main` yang menyentuh file di folder `karsa-mobile/` atau workflow akan otomatis trigger build.
-
-### Manual via GitHub UI
-
-1. Buka tab **Actions** di repository GitHub.
-2. Pilih workflow **Build Karsa Mobile APK**.
-3. Klik **Run workflow**.
-
-### Download APK
-
-1. Buka workflow run yang sudah selesai.
-2. Scroll ke bawah ke bagian **Artifacts**.
-3. Download `karsa-mobile-apk`.
-4. File `app-release.apk` ada di dalam zip tersebut.
-
-## Cara Install di Android
-
-1. Copy `app-release.apk` ke HP.
-2. Izinkan install dari **Sumber Tidak Dikenal**.
-3. Install APK seperti aplikasi biasa.
-
-## Catatan Keamanan OAuth
-
-Login Google OAuth akan berjalan di dalam WebView. Pastikan URL redirect/callback OAuth Google diatur agar merujuk kembali ke URL yang sama, sehingga sesi tetap berada di dalam WebView.
-
-## Dependencies Utama
-
-- `webview_flutter`: wrapper WebView resmi dari Flutter team.
-
-## Kustomisasi Ikon & Nama App
-
-- **Nama app** di launcher HP: **SiKarsa**, di-patch otomatis oleh workflow ke `android:label` di `AndroidManifest.xml`.
-- **Ikon app**: di-generate otomatis oleh workflow via `flutter_launcher_icons` dari `assets/icon.png` (legacy) dan `assets/icon_foreground.png` (adaptive, Android 8+).
-- Referensi desain ikon: `public/icon.svg` di repo utama (aksen `#CF6A12`, latar `#FDFBF7`).
-
-Jika ingin mengganti ikon, cukup replace kedua PNG di `assets/` — config di `pubspec.yaml`:
-
-```yaml
-flutter_launcher_icons:
-  android: true
-  ios: true
-  image_path: "assets/icon.png"
-  adaptive_icon_background: "#FDFBF7"
-  adaptive_icon_foreground: "assets/icon_foreground.png"
-```
+Endpoint native berada di `/api/mobile/v1`. Build APK harus diarahkan ke deployment backend yang telah menjalankan migrasi tambahan `prisma/mobile-native.sql`.
