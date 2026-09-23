@@ -2,7 +2,7 @@ name: Validate and Build Karsa Mobile
 
 on:
   push:
-    branches: [main, feat/native-karsa-mobile]
+    branches: [main, "feat/**"]
     paths:
       - "karsa-mobile/**"
       - "app/api/mobile/**"

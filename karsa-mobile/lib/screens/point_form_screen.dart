@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 
 import '../core/api_client.dart';
 import '../core/models.dart';
+import '../core/student_search.dart';
 import '../widgets/common.dart';
 
 class PointFormScreen extends StatefulWidget {
@@ -17,6 +18,8 @@ class PointFormScreen extends StatefulWidget {
 class _PointFormScreenState extends State<PointFormScreen> {
   final _formKey = GlobalKey<FormState>();
   final _noteController = TextEditingController();
+  final _studentSearchController = TextEditingController();
+  final _studentSearchFocusNode = FocusNode();
   List<Assignment>? _assignments;
   List<Student>? _students;
   List<PointCategory>? _categories;
@@ -38,6 +41,8 @@ class _PointFormScreenState extends State<PointFormScreen> {
   @override
   void dispose() {
     _noteController.dispose();
+    _studentSearchController.dispose();
+    _studentSearchFocusNode.dispose();
     super.dispose();
   }
 
@@ -66,6 +71,7 @@ class _PointFormScreenState extends State<PointFormScreen> {
   }
 
   Future<void> _chooseAssignment(Assignment? value) async {
+    _studentSearchController.clear();
     setState(() {
       _assignment = value;
       _student = null;
@@ -113,6 +119,7 @@ class _PointFormScreenState extends State<PointFormScreen> {
         return;
       }
       _noteController.clear();
+      _studentSearchController.clear();
       setState(() => _student = null);
       _show(message, success: true);
     } catch (error) {
@@ -133,6 +140,27 @@ class _PointFormScreenState extends State<PointFormScreen> {
         backgroundColor: success ? Colors.green.shade700 : null,
       ),
     );
+  }
+
+  String _studentLabel(Student student) => student.nim == null
+      ? student.name
+      : '${student.name} · ${student.nim}';
+
+  String _studentSearchHelper() {
+    if (_assignment == null) {
+      return 'Pilih mata kuliah terlebih dahulu.';
+    }
+    if ((_students ?? const <Student>[]).isEmpty) {
+      return 'Tidak ada mahasiswa yang dapat dipilih.';
+    }
+    final query = _studentSearchController.text.trim();
+    if (query.length < 3) {
+      return 'Ketik minimal 3 huruf nama mahasiswa.';
+    }
+    if (searchStudentsByName(_students!, query).isEmpty) {
+      return 'Tidak ada nama yang cocok.';
+    }
+    return 'Pilih mahasiswa dari hasil yang muncul.';
   }
 
   @override
@@ -182,22 +210,84 @@ class _PointFormScreenState extends State<PointFormScreen> {
             if (_loadingStudents)
               const LinearProgressIndicator()
             else
-              DropdownButtonFormField<Student>(
-                initialValue: _student,
-                isExpanded: true,
-                decoration: const InputDecoration(labelText: 'Mahasiswa'),
-                items: (_students ?? const <Student>[])
-                    .map(
-                      (item) => DropdownMenuItem(
-                        value: item,
-                        child: Text(item.nim == null ? item.name : '${item.name} · ${item.nim}'),
+              RawAutocomplete<Student>(
+                textEditingController: _studentSearchController,
+                focusNode: _studentSearchFocusNode,
+                displayStringForOption: _studentLabel,
+                optionsBuilder: (textValue) => searchStudentsByName(
+                  _students ?? const <Student>[],
+                  textValue.text,
+                ),
+                onSelected: (student) => setState(() => _student = student),
+                fieldViewBuilder: (
+                  context,
+                  controller,
+                  focusNode,
+                  onFieldSubmitted,
+                ) => TextFormField(
+                  controller: controller,
+                  focusNode: focusNode,
+                  enabled: _assignment != null && !_submitting,
+                  textInputAction: TextInputAction.search,
+                  decoration: InputDecoration(
+                    labelText: 'Cari mahasiswa',
+                    hintText: 'Contoh: wil',
+                    helperText: _studentSearchHelper(),
+                    prefixIcon: const Icon(Icons.search_rounded),
+                    suffixIcon: controller.text.isEmpty
+                        ? null
+                        : IconButton(
+                            tooltip: 'Hapus pencarian',
+                            onPressed: () {
+                              controller.clear();
+                              setState(() => _student = null);
+                              focusNode.requestFocus();
+                            },
+                            icon: const Icon(Icons.close_rounded),
+                          ),
+                  ),
+                  onChanged: (_) => setState(() => _student = null),
+                  onFieldSubmitted: (_) => onFieldSubmitted(),
+                  validator: (_) => _student == null
+                      ? 'Ketik nama lalu pilih mahasiswa dari hasil pencarian'
+                      : null,
+                ),
+                optionsViewBuilder: (context, onSelected, options) {
+                  final matches = options.toList();
+                  return Align(
+                    alignment: Alignment.topLeft,
+                    child: Material(
+                      elevation: 8,
+                      borderRadius: BorderRadius.circular(14),
+                      clipBehavior: Clip.antiAlias,
+                      child: SizedBox(
+                        width: MediaQuery.sizeOf(context).width - 32,
+                        child: ConstrainedBox(
+                          constraints: const BoxConstraints(maxHeight: 280),
+                          child: ListView.separated(
+                            padding: EdgeInsets.zero,
+                            shrinkWrap: true,
+                            itemCount: matches.length,
+                            separatorBuilder: (_, _) => const Divider(height: 1),
+                            itemBuilder: (context, index) {
+                              final student = matches[index];
+                              return ListTile(
+                                leading: const CircleAvatar(
+                                  child: Icon(Icons.person_outline_rounded),
+                                ),
+                                title: Text(student.name),
+                                subtitle: student.nim == null
+                                    ? null
+                                    : Text(student.nim!),
+                                onTap: () => onSelected(student),
+                              );
+                            },
+                          ),
+                        ),
                       ),
-                    )
-                    .toList(),
-                onChanged: _assignment == null || _submitting
-                    ? null
-                    : (value) => setState(() => _student = value),
-                validator: (value) => value == null ? 'Pilih mahasiswa' : null,
+                    ),
+                  );
+                },
               ),
             const SizedBox(height: 14),
             DropdownButtonFormField<PointCategory>(

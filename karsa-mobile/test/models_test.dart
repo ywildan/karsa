@@ -1,5 +1,6 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:karsa_mobile/core/models.dart';
+import 'package:karsa_mobile/core/student_search.dart';
 
 void main() {
   test('AppUser membaca kapabilitas PJ dan mahasiswa', () {
@@ -53,5 +54,23 @@ void main() {
     expect(entry.rank, 2);
     expect(entry.points, 9);
     expect(entry.isCurrentUser, isTrue);
+  });
+
+  test('pencarian mahasiswa aktif mulai tiga huruf dan tidak peka kapital', () {
+    const students = [
+      Student(id: '1', name: 'YUSUF WILDAN AFFANDI', nim: '22001'),
+      Student(id: '2', name: 'DEWILSON', nim: '22002'),
+      Student(id: '3', name: 'BUDI SANTOSO', nim: '22003'),
+    ];
+
+    expect(searchStudentsByName(students, 'wi'), isEmpty);
+    expect(
+      searchStudentsByName(students, 'wil').map((student) => student.name),
+      ['YUSUF WILDAN AFFANDI', 'DEWILSON'],
+    );
+    expect(
+      searchStudentsByName(students, 'WIL').map((student) => student.name),
+      ['YUSUF WILDAN AFFANDI', 'DEWILSON'],
+    );
   });
 }
