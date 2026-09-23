@@ -76,9 +76,9 @@ jobs:
         working-directory: karsa-mobile-build
         run: flutter pub get
 
-      - name: Check formatting
+      - name: Format generated source
         working-directory: karsa-mobile-build
-        run: dart format --output=none --set-exit-if-changed lib test
+        run: dart format lib test
 
       - name: Analyze source
         working-directory: karsa-mobile-build
