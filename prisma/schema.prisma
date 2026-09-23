@@ -53,6 +53,8 @@ model User {
   kelasMatkulAsPj     KelasMatkul[] @relation("KelasMatkulPj")
   poinLogsAsMahasiswa PoinLog[]     @relation("PoinLogMahasiswa")
   poinLogsAsPj        PoinLog[]     @relation("PoinLogPj")
+  mobileAuthRequests  MobileAuthRequest[]
+  mobileSessions      MobileSession[]
 
   @@index([kelas_id])
 }
@@ -203,6 +205,7 @@ model PoinLog {
   kategori_id     String
   poin            Int
   catatan         String?
+  idempotency_key String?  @unique
   created_at      DateTime @default(now())
 
   kelasMatkul KelasMatkul  @relation(fields: [kelas_matkul_id], references: [id], onDelete: Cascade, onUpdate: Cascade)
@@ -216,6 +219,50 @@ model PoinLog {
   @@index([kategori_id])
   @@index([created_at])
   @@index([kelas_matkul_id, mahasiswa_id])
+}
+
+// ---------------------------------------------------------------------------
+// Sesi aplikasi native
+// ---------------------------------------------------------------------------
+
+/// Permintaan login browser → aplikasi. Authorization code hanya disimpan
+/// sebagai hash, berumur pendek, sekali pakai, dan diikat ke PKCE challenge.
+model MobileAuthRequest {
+  id             String    @id @default(cuid())
+  state          String
+  code_challenge String
+  redirect_uri   String
+  user_id        String?
+  code_hash      String?   @unique
+  expires_at     DateTime
+  consumed_at    DateTime?
+  created_at     DateTime  @default(now())
+
+  user User? @relation(fields: [user_id], references: [id], onDelete: Cascade, onUpdate: Cascade)
+
+  @@index([expires_at])
+  @@index([user_id])
+}
+
+/// Sesi bearer untuk aplikasi native. Token mentah hanya pernah diberikan ke
+/// perangkat; database menyimpan SHA-256 agar kebocoran DB tidak menjadi sesi.
+model MobileSession {
+  id                 String    @id @default(cuid())
+  user_id            String
+  access_token_hash  String    @unique
+  refresh_token_hash String    @unique
+  access_expires_at  DateTime
+  refresh_expires_at DateTime
+  revoked_at         DateTime?
+  last_used_at       DateTime  @default(now())
+  device_name        String?
+  created_at         DateTime  @default(now())
+  updated_at         DateTime  @default(now()) @updatedAt
+
+  user User @relation(fields: [user_id], references: [id], onDelete: Cascade, onUpdate: Cascade)
+
+  @@index([user_id, revoked_at])
+  @@index([refresh_expires_at])
 }
 
 /// Riwayat input/penghapusan poin dari aplikasi. Snapshot dipertahankan saat

@@ -1,85 +1,105 @@
-name: Build Karsa Mobile APK
+name: Validate and Build Karsa Mobile
 
 on:
   push:
-    branches: [main]
+    branches: [main, feat/native-karsa-mobile]
     paths:
-      - 'karsa-mobile/**'
-      - '.github/workflows/karsa-mobile-build.yml'
+      - "karsa-mobile/**"
+      - "app/api/mobile/**"
+      - "app/mobile-auth/**"
+      - "actions/mobile-auth.ts"
+      - "lib/mobile/**"
+      - "lib/services/**"
+      - "prisma/**"
+      - ".github/workflows/karsa-mobile-build.yml"
   workflow_dispatch:
+    inputs:
+      api_base_url:
+        description: URL deployment backend SiKarsa
+        required: true
+        default: https://www.sikarsa.id
+
+permissions:
+  contents: read
+
+env:
+  API_BASE_URL: ${{ inputs.api_base_url || 'https://www.sikarsa.id' }}
 
 jobs:
-  build-apk:
-    name: Build APK Release
+  validate-backend:
+    name: Validate mobile API
     runs-on: ubuntu-latest
-
     steps:
-      - name: Checkout repository
-        uses: actions/checkout@v4
+      - uses: actions/checkout@v6
+      - uses: actions/setup-node@v6
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - run: npx prisma generate
+      - run: npm run typecheck
+
+  build-apk:
+    name: Test and build APK
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
 
       - name: Setup Flutter
         uses: subosito/flutter-action@v2
         with:
-          flutter-version: '3.24.0'
-          channel: 'stable'
+          flutter-version: "3.47.0"
+          channel: stable
+          cache: true
 
-      - name: Generate Flutter project
-        run: |
-          rm -rf karsa-mobile-build
-          flutter create --org ac.id.untidar --project-name karsa_mobile karsa-mobile-build
+      - name: Generate isolated Flutter project
+        run: flutter create --org ac.id.untidar --project-name karsa_mobile karsa-mobile-build
 
-      - name: Overlay custom source files
+      - name: Overlay native application
         run: |
           cp karsa-mobile/pubspec.yaml karsa-mobile-build/pubspec.yaml
-          cp karsa-mobile/lib/main.dart karsa-mobile-build/lib/main.dart
+          cp -R karsa-mobile/lib/. karsa-mobile-build/lib/
+          cp -R karsa-mobile/test/. karsa-mobile-build/test/
           mkdir -p karsa-mobile-build/assets
           cp karsa-mobile/assets/*.png karsa-mobile-build/assets/
+          cp karsa-mobile/android/AndroidManifest.xml karsa-mobile-build/android/app/src/main/AndroidManifest.xml
 
-      - name: Patch app name (SiKarsa)
+      - name: Set Android minimum SDK
         run: |
-          sed -i 's/android:label="karsa_mobile"/android:label="SiKarsa"/' karsa-mobile-build/android/app/src/main/AndroidManifest.xml
-          grep -n 'android:label' karsa-mobile-build/android/app/src/main/AndroidManifest.xml
+          if [ -f karsa-mobile-build/android/app/build.gradle.kts ]; then
+            sed -i 's/minSdk = flutter.minSdkVersion/minSdk = 23/' karsa-mobile-build/android/app/build.gradle.kts
+          else
+            sed -i 's/minSdkVersion flutter.minSdkVersion/minSdkVersion 23/' karsa-mobile-build/android/app/build.gradle
+          fi
 
-      - name: Patch minSdkVersion for webview_flutter
-        run: |
-          sed -i 's/minSdkVersion flutter.minSdkVersion/minSdkVersion 21/' karsa-mobile-build/android/app/build.gradle
-          grep -n "minSdkVersion" karsa-mobile-build/android/app/build.gradle
+      - name: Resolve dependencies in CI
+        working-directory: karsa-mobile-build
+        run: flutter pub get
 
-      - name: Patch AndroidManifest for Internet permission
-        run: |
-          sed -i '/<application/i \    <uses-permission android:name="android.permission.INTERNET"/>\n    <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE"/>' karsa-mobile-build/android/app/src/main/AndroidManifest.xml
-          grep -n "permission" karsa-mobile-build/android/app/src/main/AndroidManifest.xml
+      - name: Check formatting
+        working-directory: karsa-mobile-build
+        run: dart format --output=none --set-exit-if-changed lib test
 
-      - name: Patch Kotlin Gradle plugin version
-        run: |
-          sed -i 's/id "org.jetbrains.kotlin.android" version ".*"/id "org.jetbrains.kotlin.android" version "1.9.23"/' karsa-mobile-build/android/settings.gradle
-          grep -n "org.jetbrains.kotlin.android" karsa-mobile-build/android/settings.gradle
+      - name: Analyze source
+        working-directory: karsa-mobile-build
+        run: flutter analyze
 
-      - name: Get dependencies
-        run: |
-          cd karsa-mobile-build
-          flutter pub get
+      - name: Run tests
+        working-directory: karsa-mobile-build
+        run: flutter test
 
       - name: Generate launcher icons
-        run: |
-          cd karsa-mobile-build
-          dart run flutter_launcher_icons
+        working-directory: karsa-mobile-build
+        run: dart run flutter_launcher_icons
 
       - name: Build release APK
-        run: |
-          cd karsa-mobile-build
-          flutter build apk --release
+        working-directory: karsa-mobile-build
+        run: flutter build apk --release --dart-define=KARSA_API_BASE_URL=${{ env.API_BASE_URL }}
 
       - name: Upload APK artifact
         uses: actions/upload-artifact@v4
         with:
-          name: karsa-mobile-apk
+          name: karsa-mobile-apk-${{ github.sha }}
           path: karsa-mobile-build/build/app/outputs/flutter-apk/app-release.apk
-
-      - name: Upload APK to release (optional)
-        if: github.event_name == 'push' && startsWith(github.ref, 'refs/tags/')
-        uses: softprops/action-gh-release@v2
-        with:
-          files: karsa-mobile-build/build/app/outputs/flutter-apk/app-release.apk
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          if-no-files-found: error
+          retention-days: 14

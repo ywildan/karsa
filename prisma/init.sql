@@ -159,8 +159,42 @@ CREATE TABLE IF NOT EXISTS "PoinLog" (
     "kategori_id"     TEXT         NOT NULL,
     "poin"            INTEGER      NOT NULL,
     "catatan"         TEXT,
+    "idempotency_key" TEXT,
     "created_at"      TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
     CONSTRAINT "PoinLog_pkey" PRIMARY KEY ("id")
+);
+
+-- Tambahkan kolom saat init.sql dijalankan pada database Karsa yang sudah ada.
+ALTER TABLE "PoinLog" ADD COLUMN IF NOT EXISTS "idempotency_key" TEXT;
+
+-- MobileAuthRequest — jembatan OAuth browser ke aplikasi native (PKCE).
+CREATE TABLE IF NOT EXISTS "MobileAuthRequest" (
+    "id"             TEXT         NOT NULL,
+    "state"          TEXT         NOT NULL,
+    "code_challenge" TEXT         NOT NULL,
+    "redirect_uri"   TEXT         NOT NULL,
+    "user_id"        TEXT,
+    "code_hash"      TEXT,
+    "expires_at"     TIMESTAMP(3) NOT NULL,
+    "consumed_at"    TIMESTAMP(3),
+    "created_at"     TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    CONSTRAINT "MobileAuthRequest_pkey" PRIMARY KEY ("id")
+);
+
+-- MobileSession — token aplikasi disimpan sebagai SHA-256, bukan plaintext.
+CREATE TABLE IF NOT EXISTS "MobileSession" (
+    "id"                 TEXT         NOT NULL,
+    "user_id"            TEXT         NOT NULL,
+    "access_token_hash"  TEXT         NOT NULL,
+    "refresh_token_hash" TEXT         NOT NULL,
+    "access_expires_at"  TIMESTAMP(3) NOT NULL,
+    "refresh_expires_at" TIMESTAMP(3) NOT NULL,
+    "revoked_at"         TIMESTAMP(3),
+    "last_used_at"       TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "device_name"        TEXT,
+    "created_at"         TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "updated_at"         TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    CONSTRAINT "MobileSession_pkey" PRIMARY KEY ("id")
 );
 
 -- AuditLog — systemic event log, mulai clean tanpa backfill.
@@ -231,6 +265,18 @@ BEGIN
     IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'KategoriPoin_name_key') THEN
         ALTER TABLE "KategoriPoin" ADD CONSTRAINT "KategoriPoin_name_key" UNIQUE ("name");
     END IF;
+    IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'PoinLog_idempotency_key_key') THEN
+        ALTER TABLE "PoinLog" ADD CONSTRAINT "PoinLog_idempotency_key_key" UNIQUE ("idempotency_key");
+    END IF;
+    IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'MobileAuthRequest_code_hash_key') THEN
+        ALTER TABLE "MobileAuthRequest" ADD CONSTRAINT "MobileAuthRequest_code_hash_key" UNIQUE ("code_hash");
+    END IF;
+    IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'MobileSession_access_token_hash_key') THEN
+        ALTER TABLE "MobileSession" ADD CONSTRAINT "MobileSession_access_token_hash_key" UNIQUE ("access_token_hash");
+    END IF;
+    IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'MobileSession_refresh_token_hash_key') THEN
+        ALTER TABLE "MobileSession" ADD CONSTRAINT "MobileSession_refresh_token_hash_key" UNIQUE ("refresh_token_hash");
+    END IF;
 END $$;
 
 -- ---------------------------------------------------------------------------
@@ -264,6 +310,20 @@ BEGIN
         ALTER TABLE "Session"
             ADD CONSTRAINT "Session_userId_fkey"
             FOREIGN KEY ("userId") REFERENCES "User" ("id")
+            ON DELETE CASCADE ON UPDATE CASCADE;
+    END IF;
+
+    -- Mobile auth/session → User
+    IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'MobileAuthRequest_user_id_fkey') THEN
+        ALTER TABLE "MobileAuthRequest"
+            ADD CONSTRAINT "MobileAuthRequest_user_id_fkey"
+            FOREIGN KEY ("user_id") REFERENCES "User" ("id")
+            ON DELETE CASCADE ON UPDATE CASCADE;
+    END IF;
+    IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'MobileSession_user_id_fkey') THEN
+        ALTER TABLE "MobileSession"
+            ADD CONSTRAINT "MobileSession_user_id_fkey"
+            FOREIGN KEY ("user_id") REFERENCES "User" ("id")
             ON DELETE CASCADE ON UPDATE CASCADE;
     END IF;
 
@@ -389,6 +449,12 @@ CREATE INDEX IF NOT EXISTS "PoinLog_pj_id_idx" ON "PoinLog" ("pj_id");
 CREATE INDEX IF NOT EXISTS "PoinLog_kategori_id_idx" ON "PoinLog" ("kategori_id");
 CREATE INDEX IF NOT EXISTS "PoinLog_created_at_idx" ON "PoinLog" ("created_at");
 CREATE INDEX IF NOT EXISTS "PoinLog_kelas_matkul_id_mahasiswa_id_idx" ON "PoinLog" ("kelas_matkul_id", "mahasiswa_id");
+
+-- Mobile auth/session
+CREATE INDEX IF NOT EXISTS "MobileAuthRequest_expires_at_idx" ON "MobileAuthRequest" ("expires_at");
+CREATE INDEX IF NOT EXISTS "MobileAuthRequest_user_id_idx" ON "MobileAuthRequest" ("user_id");
+CREATE INDEX IF NOT EXISTS "MobileSession_user_id_revoked_at_idx" ON "MobileSession" ("user_id", "revoked_at");
+CREATE INDEX IF NOT EXISTS "MobileSession_refresh_expires_at_idx" ON "MobileSession" ("refresh_expires_at");
 
 -- AuditLog
 CREATE INDEX IF NOT EXISTS "AuditLog_kelas_id_created_at_idx"
