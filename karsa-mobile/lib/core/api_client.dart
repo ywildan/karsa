@@ -29,6 +29,7 @@ class ApiClient {
   final FlutterSecureStorage _storage;
   String? _accessToken;
   String? _refreshToken;
+  Future<bool>? _refreshInFlight;
 
   Uri endpoint(String path, [Map<String, String>? query]) =>
       Uri.parse('$apiBaseUrl/api/mobile/v1$path').replace(queryParameters: query);
@@ -210,7 +211,17 @@ class ApiClient {
     return envelope['data'];
   }
 
-  Future<bool> _refresh() async {
+  Future<bool> _refresh() {
+    final activeRefresh = _refreshInFlight;
+    if (activeRefresh != null) {
+      return activeRefresh;
+    }
+    final refresh = _performRefresh();
+    _refreshInFlight = refresh;
+    return refresh.whenComplete(() => _refreshInFlight = null);
+  }
+
+  Future<bool> _performRefresh() async {
     final refreshToken = _refreshToken;
     if (refreshToken == null) {
       return false;

@@ -30,7 +30,7 @@ export async function GET(request: Request) {
     return NextResponse.redirect(retry);
   }
 
-  if (!session.user.is_pj && !session.user.kelas_id) {
+  if (session.user.is_admin || (!session.user.is_pj && !session.user.kelas_id)) {
     cookieStore.delete("karsa_mobile_auth");
     return appRedirect(authRequest.redirect_uri, {
       state: authRequest.state,
