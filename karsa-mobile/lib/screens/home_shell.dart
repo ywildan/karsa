@@ -38,7 +38,9 @@ class _HomeShellState extends State<HomeShell> {
       const NavigationDestination(icon: Icon(Icons.person_outline), selectedIcon: Icon(Icons.person), label: 'Akun'),
     ];
 
-    if (_index >= pages.length) _index = 0;
+    if (_index >= pages.length) {
+      _index = 0;
+    }
     return Scaffold(
       body: SafeArea(
         bottom: false,

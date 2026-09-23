@@ -60,7 +60,9 @@ class ApiClient {
 
   Future<void> logout() async {
     try {
-      if (_accessToken != null) await _request('POST', '/auth/logout');
+      if (_accessToken != null) {
+        await _request('POST', '/auth/logout');
+      }
     } finally {
       await clearSession();
     }
@@ -171,7 +173,9 @@ class ApiClient {
     };
     final request = http.Request(method, endpoint(path))
       ..headers.addAll(headers);
-    if (body != null) request.body = jsonEncode(body);
+    if (body != null) {
+      request.body = jsonEncode(body);
+    }
 
     final streamed = await _http.send(request).timeout(const Duration(seconds: 20));
     final response = await http.Response.fromStream(streamed);
@@ -208,7 +212,9 @@ class ApiClient {
 
   Future<bool> _refresh() async {
     final refreshToken = _refreshToken;
-    if (refreshToken == null) return false;
+    if (refreshToken == null) {
+      return false;
+    }
     try {
       final data = await _request(
         'POST',

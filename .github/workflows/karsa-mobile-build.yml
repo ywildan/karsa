@@ -58,6 +58,7 @@ jobs:
       - name: Overlay native application
         run: |
           cp karsa-mobile/pubspec.yaml karsa-mobile-build/pubspec.yaml
+          rm karsa-mobile-build/test/widget_test.dart
           cp -R karsa-mobile/lib/. karsa-mobile-build/lib/
           cp -R karsa-mobile/test/. karsa-mobile-build/test/
           mkdir -p karsa-mobile-build/assets

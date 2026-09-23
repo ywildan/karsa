@@ -38,14 +38,22 @@ class _PointHistoryScreenState extends State<PointHistoryScreen> {
         ],
       ),
     );
-    if (approved != true) return;
+    if (approved != true) {
+      return;
+    }
     try {
       final message = await widget.api.deletePoint(item.id);
-      if (!mounted) return;
+      if (!mounted) {
+        return;
+      }
       ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(message)));
       await _reload();
     } catch (error) {
-      if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(friendlyError(error))));
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(friendlyError(error))),
+        );
+      }
     }
   }
 
@@ -77,7 +85,7 @@ class _PointHistoryScreenState extends State<PointHistoryScreen> {
                   child: ListView.separated(
                     padding: const EdgeInsets.fromLTRB(16, 8, 16, 24),
                     itemCount: rows.length,
-                    separatorBuilder: (_, __) => const SizedBox(height: 10),
+                    separatorBuilder: (_, _) => const SizedBox(height: 10),
                     itemBuilder: (context, index) {
                       final item = rows[index];
                       return Card(

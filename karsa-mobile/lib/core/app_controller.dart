@@ -83,7 +83,9 @@ class AppController extends ChangeNotifier {
   }
 
   Future<void> handleAuthLink(Uri uri) async {
-    if (!_isAuthLink(uri)) return;
+    if (!_isAuthLink(uri)) {
+      return;
+    }
     state = SessionState.authenticating;
     error = null;
     notifyListeners();

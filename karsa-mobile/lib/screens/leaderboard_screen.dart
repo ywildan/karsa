@@ -38,12 +38,16 @@ class _LeaderboardScreenState extends State<LeaderboardScreen> {
     } catch (error) {
       _error = error;
     } finally {
-      if (mounted) setState(() => _loading = false);
+      if (mounted) {
+        setState(() => _loading = false);
+      }
     }
   }
 
   Future<void> _select(LeaderboardOption? option) async {
-    if (option == null) return;
+    if (option == null) {
+      return;
+    }
     setState(() {
       _selected = option;
       _loading = true;
@@ -54,7 +58,9 @@ class _LeaderboardScreenState extends State<LeaderboardScreen> {
     } catch (error) {
       _error = error;
     } finally {
-      if (mounted) setState(() => _loading = false);
+      if (mounted) {
+        setState(() => _loading = false);
+      }
     }
   }
 
@@ -70,8 +76,12 @@ class _LeaderboardScreenState extends State<LeaderboardScreen> {
       );
 
   Widget _body(BuildContext context) {
-    if (_loading) return const Center(child: CircularProgressIndicator());
-    if (_error != null) return ErrorState(message: friendlyError(_error!), onRetry: _loadOptions);
+    if (_loading) {
+      return const Center(child: CircularProgressIndicator());
+    }
+    if (_error != null) {
+      return ErrorState(message: friendlyError(_error!), onRetry: _loadOptions);
+    }
     if (_options?.isEmpty ?? true) {
       return const EmptyState(
         title: 'Belum ada mata kuliah',

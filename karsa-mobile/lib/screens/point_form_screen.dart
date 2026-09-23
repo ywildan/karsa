@@ -53,11 +53,15 @@ class _PointFormScreenState extends State<PointFormScreen> {
       ]);
       _assignments = results[0] as List<Assignment>;
       _categories = results[1] as List<PointCategory>;
-      if (_categories!.isNotEmpty) _category = _categories!.first;
+      if (_categories!.isNotEmpty) {
+        _category = _categories!.first;
+      }
     } catch (error) {
       _error = error;
     } finally {
-      if (mounted) setState(() => _loading = false);
+      if (mounted) {
+        setState(() => _loading = false);
+      }
     }
   }
 
@@ -68,14 +72,24 @@ class _PointFormScreenState extends State<PointFormScreen> {
       _students = null;
       _loadingStudents = value != null;
     });
-    if (value == null) return;
+    if (value == null) {
+      return;
+    }
     try {
       final students = await widget.api.students(value.id);
-      if (mounted) setState(() => _students = students.where((item) => !item.isSelf).toList());
+      if (mounted) {
+        setState(
+          () => _students = students.where((item) => !item.isSelf).toList(),
+        );
+      }
     } catch (error) {
-      if (mounted) _show(friendlyError(error));
+      if (mounted) {
+        _show(friendlyError(error));
+      }
     } finally {
-      if (mounted) setState(() => _loadingStudents = false);
+      if (mounted) {
+        setState(() => _loadingStudents = false);
+      }
     }
   }
 
@@ -95,14 +109,20 @@ class _PointFormScreenState extends State<PointFormScreen> {
         note: _noteController.text.trim().isEmpty ? null : _noteController.text.trim(),
         idempotencyKey: '${DateTime.now().microsecondsSinceEpoch}-$nonce-mobile',
       );
-      if (!mounted) return;
+      if (!mounted) {
+        return;
+      }
       _noteController.clear();
       setState(() => _student = null);
       _show(message, success: true);
     } catch (error) {
-      if (mounted) _show(friendlyError(error));
+      if (mounted) {
+        _show(friendlyError(error));
+      }
     } finally {
-      if (mounted) setState(() => _submitting = false);
+      if (mounted) {
+        setState(() => _submitting = false);
+      }
     }
   }
 
@@ -124,8 +144,12 @@ class _PointFormScreenState extends State<PointFormScreen> {
       );
 
   Widget _body(BuildContext context) {
-    if (_loading) return const Center(child: CircularProgressIndicator());
-    if (_error != null) return ErrorState(message: friendlyError(_error!), onRetry: _load);
+    if (_loading) {
+      return const Center(child: CircularProgressIndicator());
+    }
+    if (_error != null) {
+      return ErrorState(message: friendlyError(_error!), onRetry: _load);
+    }
     if (_assignments!.isEmpty) {
       return const EmptyState(
         title: 'Belum ada penugasan PJ',

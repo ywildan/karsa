@@ -80,6 +80,8 @@ class AccountScreen extends StatelessWidget {
         ],
       ),
     );
-    if (confirmed == true) await controller.signOut();
+    if (confirmed == true) {
+      await controller.signOut();
+    }
   }
 }
