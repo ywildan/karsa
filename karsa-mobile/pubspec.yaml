@@ -1,4 +1,5 @@
 name: karsa_mobile
+description: SiKarsa — aplikasi mobile (WebView) untuk Karsa, Sistem Poin UNTIDAR.
 publish_to: 'none'
 version: 1.0.0+1
 
@@ -10,8 +11,18 @@ dependencies:
     sdk: flutter
   webview_flutter: ^4.8.0
 
+dev_dependencies:
+  flutter_launcher_icons: ^0.13.1
+
+# Generate launcher icon via `dart run flutter_launcher_icons`
+# (dipanggil otomatis oleh workflow GitHub Actions).
+# Referensi desain: public/icon.svg di repo utama (tema #CF6A12).
+flutter_launcher_icons:
+  android: true
+  ios: true
+  image_path: "assets/icon.png"
+  adaptive_icon_background: "#FDFBF7"
+  adaptive_icon_foreground: "assets/icon_foreground.png"
+
 flutter:
   uses-material-design: true
-  # Uncomment jika ingin menambahkan launcher icon / splash screen custom.
-  # assets:
-  #   - assets/logo.png

@@ -32,6 +32,13 @@ jobs:
         run: |
           cp karsa-mobile/pubspec.yaml karsa-mobile-build/pubspec.yaml
           cp karsa-mobile/lib/main.dart karsa-mobile-build/lib/main.dart
+          mkdir -p karsa-mobile-build/assets
+          cp karsa-mobile/assets/*.png karsa-mobile-build/assets/
+
+      - name: Patch app name (SiKarsa)
+        run: |
+          sed -i 's/android:label="karsa_mobile"/android:label="SiKarsa"/' karsa-mobile-build/android/app/src/main/AndroidManifest.xml
+          grep -n 'android:label' karsa-mobile-build/android/app/src/main/AndroidManifest.xml
 
       - name: Patch minSdkVersion for webview_flutter
         run: |
@@ -52,6 +59,11 @@ jobs:
         run: |
           cd karsa-mobile-build
           flutter pub get
+
+      - name: Generate launcher icons
+        run: |
+          cd karsa-mobile-build
+          dart run flutter_launcher_icons
 
       - name: Build release APK
         run: |
