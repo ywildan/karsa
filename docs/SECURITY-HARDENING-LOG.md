@@ -715,4 +715,24 @@ pengujian lanjutan.
 - Workflow pembaruan satu-kali dihapus setelah merge agar permission
   `contents: write` tidak tertinggal sebagai workflow aktif.
 - Advisory critical Auth.js yang menjadi pemicu upgrade dinyatakan tertangani;
-  deployment production tetap harus dipantau setelah commit cleanup ini.
+  deployment production berhasil dan endpoint publik/Auth.js merespons normal.
+
+## Step 12B — Security Headers Dasar
+
+Audit header production menunjukkan Vercel sudah mengirim HSTS
+`max-age=63072000`, tetapi aplikasi belum mengirim header browser hardening
+lainnya. Branch `security/app-hardening` menambahkan:
+
+- `X-Content-Type-Options: nosniff`;
+- `X-Frame-Options: DENY`;
+- `Referrer-Policy: strict-origin-when-cross-origin`;
+- `Permissions-Policy` yang menonaktifkan kamera, geolocation, mikrofon,
+  payment, dan USB;
+- `Cross-Origin-Opener-Policy: same-origin-allow-popups` agar isolasi dasar
+  tidak memutus alur OAuth berbasis popup;
+- `Cross-Origin-Resource-Policy: same-origin`;
+- `X-Permitted-Cross-Domain-Policies: none`.
+
+CSP penuh belum dipasang karena Next.js memerlukan desain nonce/hash yang harus
+diuji pada render server, hydration, dan OAuth. Memasang CSP ketat tanpa desain
+tersebut berisiko merusak aplikasi dan bukan perubahan aman untuk tahap ini.
