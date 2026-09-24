@@ -617,3 +617,18 @@ harian belum diaktifkan sampai uji manual dan restore terisolasi berhasil.
   `NOREPLICATION`, dan `NOBYPASSRLS` dalam transaksi restore yang sama.
 - Placeholder tidak memakai atau menyalin password runtime production; role
   hanya menjadi dependency agar definisi policy dapat dipulihkan.
+
+### Koreksi Guard dan Persiapan Role
+
+- Uji berikutnya masih gagal pada role `karsa_runtime` meskipun blok persiapan
+  sudah ditambahkan.
+- Audit workflow menemukan `MARKER_SQL` dan `PREPARE_RUNTIME_ROLE_SQL` dibuat
+  sebagai shell variable tetapi diteruskan ke container tanpa nilai eksplisit;
+  container menerima string kosong.
+- Klaim bahwa guard marker telah lulus di dalam workflow dikoreksi sebagai false
+  positive. Marker tetap telah diverifikasi manual oleh pemilik project melalui
+  SQL Editor, connection string mengarah ke project ref uji, dan seluruh
+  percobaan restore gagal sudah di-rollback; production tidak terdampak.
+- Kedua variable kini diteruskan dengan nilai eksplisit. Uji berikutnya wajib
+  membuktikan marker melalui blok SQL dan membuat placeholder role sebelum
+  restore dijalankan.
