@@ -11,7 +11,7 @@ tanpa bergantung pada riwayat percakapan.
 
 - Terakhir diperbarui: 24 September 2026 (WIB)
 - Lingkungan: Supabase production + Vercel production
-- Tahap aktif: rollback Production setelah smoke test UI gagal
+- Tahap aktif: rotasi password administratif `postgres`
 - Perubahan database selama proses ini: role, grant minimum, dan policy RLS
   `karsa_runtime` sudah dibuat
 - Perubahan environment Vercel selama proses ini: Preview dan nilai untuk
@@ -116,7 +116,7 @@ RLS dan pencabutan grant publik tidak membatasi koneksi tersebut.
 - [x] Step 6 — Uji alur kritis web/native pada deployment preview dan simulasi
   transaksi admin secara rollback-only.
 - [x] Step 7 — Ganti environment production dan redeploy.
-- [ ] Step 8 — Pantau, verifikasi, lalu keluarkan `postgres` dari Vercel.
+- [x] Step 8 — Pantau, verifikasi, lalu keluarkan `postgres` dari Vercel.
 - [ ] Step 9 — Rotasi password `postgres`.
 - [ ] Step 10 — Buat role backup, backup terenkripsi, dan uji restore terisolasi.
 - [ ] Step 11 — Perbaiki dokumentasi backup Free/Pro.
@@ -337,3 +337,30 @@ role production; pengujian permission-nya diganti dengan transaksi rollback-only
   `?pgbouncer=true`. Supabase menyatakan transaction mode tidak mendukung
   prepared statements dan Prisma memerlukan parameter tersebut. Ini menjadi
   hipotesis utama error UI; koreksi koneksi harus diuji sebelum menambah grant.
+
+### Resolusi Cutover
+
+- `DATABASE_URL` Production dan Preview diperbaiki dengan menambahkan
+  `?pgbouncer=true` pada URL Transaction Pooler port 6543.
+- Tidak ada privilege `karsa_runtime` yang diperluas.
+- Commit pemicu redeploy perbaikan: `2e0afad`.
+- Deployment Vercel: berhasil.
+- Endpoint mobile-auth Production: berhasil.
+- Smoke test pengguna Production: halaman awal, login, `/catat-poin`, detail
+  mata kuliah, dan pencarian mahasiswa berhasil tanpa error.
+- Secara operasional, error hilang tepat setelah mode PgBouncer Prisma
+  diaktifkan. Penyebab disimpulkan sebagai inkompatibilitas prepared statement
+  dengan Supavisor Transaction Pooler.
+- Cutover Production ke `karsa_runtime` dinyatakan berhasil.
+
+## Hasil Step 8 — Verifikasi Role dan Secret
+
+- `pg_stat_statements` mencatat `karsa_runtime`: 247 calls pada 42 normalized
+  statements.
+- Statistik `postgres`: 20.041 calls pada 499 normalized statements; angka ini
+  bersifat kumulatif dan mencakup SQL Editor serta aktivitas administratif lama.
+- Tidak ada kredensial ber-username `postgres` yang tersisa di environment
+  Vercel Production, Preview, atau Development.
+- Kredensial runtime di Vercel hanya menggunakan `karsa_runtime`.
+- Password `postgres` tetap merupakan credential administratif dan harus
+  dirotasi pada Step 9.
