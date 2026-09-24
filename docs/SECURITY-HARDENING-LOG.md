@@ -582,3 +582,15 @@ harian belum diaktifkan sampai uji manual dan restore terisolasi berhasil.
 - Guard diperbaiki agar pemeriksaan dilakukan sepenuhnya oleh PostgreSQL melalui
   blok `DO`; PostgreSQL akan melempar exception jika baris dan nilai marker tidak
   persis cocok. Workflow tidak lagi bergantung pada format whitespace `psql`.
+
+### Uji Restore Keenam — Clean pada Target Kosong
+
+- Validasi marker di sisi PostgreSQL berhasil; target terisolasi terbukti benar.
+- `pg_restore --clean` gagal ketika mencoba menghapus policy yang tabel induknya
+  belum ada pada database uji kosong.
+- Restore menggunakan `--single-transaction`, sehingga seluruh perubahan
+  dibatalkan dan schema target tidak berubah.
+- Mekanisme diganti menjadi SQL restore atomik: archive diubah menjadi SQL,
+  lalu `psql` menghapus schema `public` dan menjalankan SQL restore dalam satu
+  transaksi dengan `ON_ERROR_STOP`.
+- Schema `restore_guard` berada di luar `public` dan tidak ikut dihapus.

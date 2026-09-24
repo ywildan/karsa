@@ -118,20 +118,25 @@ jobs:
         run: |
           set -euo pipefail
           CLEAN_RESTORE_URL="$(printf '%s' "$RESTORE_TEST_DATABASE_URL" | tr -d '\r\n')"
+          docker run --rm -i postgres:17 \
+            pg_restore \
+              --schema=public \
+              --no-owner \
+              --no-privileges \
+              --file=- \
+            < "$RUNNER_TEMP/karsa-restore.dump" \
+            > "$RUNNER_TEMP/karsa-restore.sql"
+          test -s "$RUNNER_TEMP/karsa-restore.sql"
           docker run --rm \
             -e RESTORE_TEST_DATABASE_URL="$CLEAN_RESTORE_URL" \
             -v "$RUNNER_TEMP:/restore:ro" \
             postgres:17 \
-            sh -c 'exec pg_restore \
-              --dbname="$RESTORE_TEST_DATABASE_URL" \
-              --schema=public \
-              --clean \
-              --if-exists \
-              --no-owner \
-              --no-privileges \
+            sh -c 'exec psql "$RESTORE_TEST_DATABASE_URL" \
+              --no-psqlrc \
+              --set=ON_ERROR_STOP=1 \
               --single-transaction \
-              --exit-on-error \
-              /restore/karsa-restore.dump'
+              --command="drop schema if exists public cascade" \
+              --file=/restore/karsa-restore.sql'
 
       - name: Verify restored application tables
         shell: bash
@@ -153,4 +158,5 @@ jobs:
           rm -rf \
             "$RUNNER_TEMP/encrypted-backup" \
             "$RUNNER_TEMP/karsa-restore.dump" \
-            "$RUNNER_TEMP/karsa-restore-contents.txt"
+            "$RUNNER_TEMP/karsa-restore-contents.txt" \
+            "$RUNNER_TEMP/karsa-restore.sql"
