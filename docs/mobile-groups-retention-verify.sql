@@ -26,6 +26,16 @@ SELECT
     JOIN "Kelas" AS class ON class.id = assignment.kelas_id
     JOIN "Semester" AS semester ON semester.id = class.semester_id
     WHERE semester.end_date < CURRENT_TIMESTAMP - INTERVAL '90 days'
+      AND NOT EXISTS (
+        SELECT 1
+        FROM "GroupReport" AS report
+        WHERE report.message_id = message.id
+          AND (
+            report.status = 'OPEN'
+            OR report.resolved_at IS NULL
+            OR report.resolved_at >= CURRENT_TIMESTAMP - INTERVAL '90 days'
+          )
+      )
   ) AS messages_due_for_delete,
   (
     SELECT count(*)

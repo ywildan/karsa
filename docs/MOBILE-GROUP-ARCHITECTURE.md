@@ -209,6 +209,8 @@ akses operasional dan bukan akses produk.
 - Pesan aktif: sampai semester berakhir + 90 hari.
 - Body pesan soft-deleted: purge setelah 30 hari, row tombstone tetap minimal.
 - Body yang menjadi bukti laporan: maksimal 90 hari setelah laporan selesai.
+- Pesan yang masih memiliki laporan terbuka atau laporan yang selesai dalam 90
+  hari terakhir dikecualikan dari seluruh penghapusan sampai masa bukti berakhir.
 - Audit action tidak menyimpan body pesan.
 - Purge dijalankan setiap hari pukul 03:17 WIB oleh Supabase Cron melalui
   `public.karsa_purge_group_retention()`.

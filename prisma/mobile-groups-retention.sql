@@ -27,7 +27,17 @@ BEGIN
     WHERE message.kelas_matkul_id = assignment.id
       AND assignment.kelas_id = class.id
       AND class.semester_id = semester.id
-      AND semester.end_date < execution_time - INTERVAL '90 days';
+      AND semester.end_date < execution_time - INTERVAL '90 days'
+      AND NOT EXISTS (
+          SELECT 1
+          FROM public."GroupReport" AS report
+          WHERE report.message_id = message.id
+            AND (
+                report.status = 'OPEN'
+                OR report.resolved_at IS NULL
+                OR report.resolved_at >= execution_time - INTERVAL '90 days'
+            )
+      );
     GET DIAGNOSTICS deleted_count = ROW_COUNT;
 
     -- Body tombstone dibuang setelah 30 hari, kecuali masih menjadi bukti
