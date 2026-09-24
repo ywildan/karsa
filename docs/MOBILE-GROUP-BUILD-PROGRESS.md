@@ -7,9 +7,9 @@
 ## Status Ringkas
 
 - Tanggal mulai: 24 September 2026
-- Tahap aktif: pengujian authorization/abuse dan review migrasi
+- Tahap aktif: deployment preview dan smoke test lintas role
 - Kode fitur: selesai di branch `feat/mobile-groups`, belum digabung/deploy
-- Migrasi production: berhasil dijalankan, menunggu verifikasi read-only
+- Migrasi production: berhasil dijalankan dan terverifikasi
 - Instalasi lokal: tidak ada dan tidak akan dilakukan
 - Target aplikasi: Flutter native (`karsa-mobile`)
 - Target backend: Next.js API `/api/mobile/v1`
@@ -75,7 +75,7 @@
 - [x] M9 — Implementasikan UI Flutter daftar grup dan ruang percakapan.
 - [x] M10 — Tambahkan pengujian kontrak, authorization, dan abuse cases.
 - [x] M11 — Jalankan pemeriksaan format, analyzer, test, dan build via GitHub Actions.
-- [ ] M12 — Review migrasi; minta user menjalankan langkah Supabase eksternal.
+- [x] M12 — Review migrasi; minta user menjalankan langkah Supabase eksternal.
 - [ ] M13 — Deploy preview, smoke test lintas role/kelas, lalu production.
 - [ ] M14 — Perbarui dokumentasi privacy/security dan tutup milestone.
 
@@ -229,6 +229,20 @@ dibutuhkan:
 - Supabase mengembalikan status sukses tanpa error.
 - Belum ada merge/deploy production; M12 tetap terbuka sampai seluruh query
   read-only pada `docs/mobile-groups-verify.sql` diperiksa.
+
+### 24 September 2026 — Verifikasi migrasi production
+
+- Tabel `GroupMessage`, `GroupReport`, dan `GroupBlock` tersedia, dimiliki
+  `postgres`, dan seluruhnya memiliki RLS aktif.
+- Seluruh kolom chat dan dua kolom lock `KelasMatkul` sesuai schema Prisma.
+- Grant `karsa_runtime` tepat per operasi; `anon` dan `authenticated` tidak
+  memiliki akses apa pun ke ketiga tabel.
+- Sembilan policy runtime tersedia dan terikat hanya pada `karsa_runtime`.
+- Primary key, foreign key, CHECK constraint, unique index, dan index pencarian
+  lengkap sesuai migration contract.
+- `karsa_backup` memiliki akses SELECT ke ketiga tabel, sehingga backup
+  terenkripsi berikutnya tetap mencakup data grup.
+- M12 selesai. Branch belum digabung dan backend production belum dideploy.
 
 ## Dokumen Terkait
 
