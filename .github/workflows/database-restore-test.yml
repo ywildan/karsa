@@ -92,13 +92,26 @@ jobs:
           set -euo pipefail
           CLEAN_RESTORE_URL="$(printf '%s' "$RESTORE_TEST_DATABASE_URL" | tr -d '\r\n')"
           test -n "$CLEAN_RESTORE_URL"
-          MARKER_SQL="select marker from restore_guard.target where id = true"
-          MARKER="$(docker run --rm \
+          read -r -d '' MARKER_SQL <<'SQL' || true
+          do $restore_guard$
+          begin
+            if not exists (
+              select 1
+              from restore_guard.target
+              where id = true
+                and marker = 'KARSA_RESTORE_TEST_ONLY'
+            ) then
+              raise exception 'restore target guard is missing';
+            end if;
+          end
+          $restore_guard$;
+          SQL
+          docker run --rm \
             -e RESTORE_TEST_DATABASE_URL="$CLEAN_RESTORE_URL" \
             -e MARKER_SQL \
             postgres:17 \
-            sh -c 'exec psql "$RESTORE_TEST_DATABASE_URL" --no-psqlrc --tuples-only --no-align --set=ON_ERROR_STOP=1 --command="$MARKER_SQL"')"
-          test "$MARKER" = "KARSA_RESTORE_TEST_ONLY"
+            sh -c 'exec psql "$RESTORE_TEST_DATABASE_URL" --no-psqlrc --set=ON_ERROR_STOP=1 --command="$MARKER_SQL"' \
+            > /dev/null
 
       - name: Restore public schema atomically
         shell: bash

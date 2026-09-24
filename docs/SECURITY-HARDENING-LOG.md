@@ -572,3 +572,13 @@ harian belum diaktifkan sampai uji manual dan restore terisolasi berhasil.
 - Schema `public` target belum disentuh dan file plaintext berhasil dibersihkan.
 - Marker harus dibuat melalui SQL Editor project `karsa-restore-test` sebelum
   uji berikutnya.
+
+### Uji Restore Kelima — Perbandingan Output Marker
+
+- Marker dikonfirmasi ada melalui SQL Editor pada project uji yang benar.
+- Workflow berhasil terhubung dan query marker tidak menghasilkan error, tetapi
+  pembandingan output teks shell tetap gagal sebelum restore.
+- Database target belum diubah dan file plaintext kembali dibersihkan.
+- Guard diperbaiki agar pemeriksaan dilakukan sepenuhnya oleh PostgreSQL melalui
+  blok `DO`; PostgreSQL akan melempar exception jika baris dan nilai marker tidak
+  persis cocok. Workflow tidak lagi bergantung pada format whitespace `psql`.
