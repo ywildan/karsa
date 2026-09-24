@@ -6,7 +6,7 @@ import {
   MOBILE_AUTH_REQUEST_TTL_MS,
   MOBILE_REDIRECT_URI,
 } from "@/lib/mobile/auth";
-import { mobileError } from "@/lib/mobile/http";
+import { mobileError, withMobileApiErrors } from "@/lib/mobile/http";
 import { prisma } from "@/lib/prisma";
 
 export const runtime = "nodejs";
@@ -17,7 +17,7 @@ const querySchema = z.object({
   redirect_uri: z.literal(MOBILE_REDIRECT_URI),
 });
 
-export async function GET(request: Request) {
+export const GET = withMobileApiErrors(async function GET(request: Request) {
   const url = new URL(request.url);
   const parsed = querySchema.safeParse(Object.fromEntries(url.searchParams));
   if (!parsed.success) {
@@ -49,4 +49,4 @@ export async function GET(request: Request) {
   });
 
   return NextResponse.redirect(new URL("/mobile-auth/login", url.origin));
-}
+});

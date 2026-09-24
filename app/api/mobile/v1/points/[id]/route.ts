@@ -1,10 +1,10 @@
 import { authenticateMobileRequest } from "@/lib/mobile/auth";
-import { mobileError, mobileOk } from "@/lib/mobile/http";
+import { mobileError, mobileOk, withMobileApiErrors } from "@/lib/mobile/http";
 import { deletePoint } from "@/lib/services/point-service";
 
 export const runtime = "nodejs";
 
-export async function DELETE(
+export const DELETE = withMobileApiErrors(async function DELETE(
   request: Request,
   context: { params: Promise<{ id: string }> },
 ) {
@@ -17,4 +17,4 @@ export async function DELETE(
   const result = await deletePoint(actor, id);
   if (!result.ok) return mobileError(422, "DELETE_REJECTED", result.error);
   return mobileOk({ message: result.message ?? "Poin dihapus." });
-}
+});

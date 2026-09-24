@@ -804,3 +804,29 @@ sampai build Preview dan pengujian role selesai.
 - Pemilik sistem mengonfirmasi alur aplikasi pada Preview berjalan normal.
 - Perubahan siap dipromosikan melalui pull request `#25`; deployment production
   tetap harus diverifikasi setelah merge.
+
+### Hasil Deployment Otorisasi Fail-Closed
+
+- Pull request `#25` di-merge ke `main` pada commit `3cc60c4`.
+- Deployment production Vercel selesai dengan status sukses.
+
+## Step 12E — Respons Aman Saat Database Bermasalah
+
+Branch `security/safe-database-errors` menambahkan satu error boundary pada
+seluruh route `/api/mobile/v1/*`. Tujuannya adalah mempertahankan kontrak JSON
+aplikasi native sekaligus mencegah detail exception database sampai ke client.
+
+Rancangan yang diterapkan:
+
+- kegagalan koneksi, autentikasi database, TLS, timeout pool, atau batas koneksi
+  Prisma dipetakan ke HTTP `503` dengan kode `DATABASE_UNAVAILABLE`;
+- respons `503` menyertakan `Retry-After: 5` dan `Cache-Control: no-store`;
+- exception lain dipetakan ke HTTP `500` dengan kode `INTERNAL_ERROR`;
+- pesan, stack trace, query, token, dan metadata error tidak dikirim ke client;
+- log server hanya menyimpan ID insiden serta nama/kode error, tanpa request
+  body atau pesan exception yang mungkin mengandung data pengguna;
+- callback login native membedakan akun tidak berhak (`not_eligible`) dari
+  kegagalan verifikasi sementara (`temporarily_unavailable`).
+
+Perubahan tahap ini belum masuk production sampai build dan pengujian Preview
+selesai.
