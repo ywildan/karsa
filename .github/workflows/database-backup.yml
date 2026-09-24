@@ -67,8 +67,10 @@ jobs:
             -out "$RUNNER_TEMP/karsa-backup.dump.enc" \
             -pass env:BACKUP_ENCRYPTION_PASSWORD
           test -s "$RUNNER_TEMP/karsa-backup.dump.enc"
-          sha256sum "$RUNNER_TEMP/karsa-backup.dump.enc" \
-            > "$RUNNER_TEMP/karsa-backup.dump.enc.sha256"
+          (
+            cd "$RUNNER_TEMP"
+            sha256sum karsa-backup.dump.enc > karsa-backup.dump.enc.sha256
+          )
           rm -f "$RUNNER_TEMP/karsa-backup.dump"
 
       - name: Upload encrypted backup

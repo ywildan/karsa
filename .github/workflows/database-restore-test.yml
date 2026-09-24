@@ -58,7 +58,10 @@ jobs:
         run: |
           set -euo pipefail
           cd "$RUNNER_TEMP/encrypted-backup"
-          sha256sum --check karsa-backup.dump.enc.sha256
+          EXPECTED_SHA256="$(awk 'NR == 1 { print $1 }' karsa-backup.dump.enc.sha256)"
+          ACTUAL_SHA256="$(sha256sum karsa-backup.dump.enc | awk '{ print $1 }')"
+          [[ "$EXPECTED_SHA256" =~ ^[0-9a-f]{64}$ ]]
+          test "$ACTUAL_SHA256" = "$EXPECTED_SHA256"
           openssl enc -d -aes-256-cbc \
             -pbkdf2 \
             -iter 600000 \

@@ -521,3 +521,13 @@ harian belum diaktifkan sampai uji manual dan restore terisolasi berhasil.
   `public` dalam satu transaksi.
 - Restore hanya dianggap valid jika seluruh 14 tabel aplikasi ditemukan setelah
   proses selesai. File plaintext dibersihkan dari runner pada semua kondisi.
+
+### Uji Restore Pertama
+
+- Artifact berhasil diunduh, lalu workflow berhenti sebelum koneksi ke target.
+- Checksum artifact lama memuat path absolut runner pembuat backup, sehingga
+  `sha256sum --check` mencari file pada lokasi runner lama.
+- Database uji belum disentuh dan file sementara berhasil dibersihkan.
+- Workflow backup diperbaiki agar checksum baru hanya memuat nama file.
+- Workflow restore diperbaiki agar membandingkan nilai SHA-256 tanpa bergantung
+  pada path; cara ini juga kompatibel dengan artifact pertama.
