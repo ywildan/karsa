@@ -11,7 +11,7 @@ tanpa bergantung pada riwayat percakapan.
 
 - Terakhir diperbarui: 24 September 2026 (WIB)
 - Lingkungan: Supabase production + Vercel production
-- Tahap aktif: menyiapkan backup terenkripsi untuk paket Free
+- Tahap aktif: dokumentasi backup Free/Pro dan hardening aplikasi
 - Perubahan database selama proses ini: role, grant minimum, dan policy RLS
   `karsa_runtime` sudah dibuat; role baca-saja `karsa_backup` juga sudah dibuat
 - Perubahan environment Vercel selama proses ini: Production dan Preview sudah
@@ -117,7 +117,7 @@ RLS dan pencabutan grant publik tidak membatasi koneksi tersebut.
 - [x] Step 7 — Ganti environment production dan redeploy.
 - [x] Step 8 — Pantau, verifikasi, lalu keluarkan `postgres` dari Vercel.
 - [x] Step 9 — Rotasi password `postgres`.
-- [ ] Step 10 — Buat role backup, backup terenkripsi, dan uji restore terisolasi.
+- [x] Step 10 — Buat role backup, backup terenkripsi, dan uji restore terisolasi.
 - [ ] Step 11 — Perbaiki dokumentasi backup Free/Pro.
 - [ ] Step 12 — Hardening aplikasi: rate limiting, security headers, dan perilaku
   autentikasi saat database gagal.
@@ -646,3 +646,26 @@ harian belum diaktifkan sampai uji manual dan restore terisolasi berhasil.
   14 tabel aplikasi, RLS aktif pada 14 tabel, dan 17 policy di schema `public`.
 - Uji ulang juga akan membuktikan bahwa prosedur dapat mengganti hasil restore
   sebelumnya secara aman dan berulang.
+
+### Uji Restore Final — Berhasil
+
+- Run GitHub Actions `35963049994` selesai sukses pada 24 September 2026.
+- Checksum artifact cocok, dekripsi berhasil, dan struktur dump valid.
+- Interlock `KARSA_RESTORE_TEST_ONLY` benar-benar dijalankan di PostgreSQL dan
+  berhasil memverifikasi target terisolasi.
+- Restore atomik berhasil dijalankan ulang di atas hasil restore sebelumnya.
+- Assertion pasca-restore berhasil menemukan 14 tabel aplikasi, RLS aktif pada
+  14 tabel, dan 17 policy di schema `public`.
+- Seluruh plaintext dan file sementara dibersihkan dari runner.
+- Step 10 dinyatakan selesai: backup terenkripsi terbukti dapat dipulihkan.
+
+## Operasional Backup Harian
+
+- Workflow backup dijadwalkan setiap hari pukul 18.00 UTC atau 01.00 WIB.
+- Pemicu manual tetap tersedia untuk pengujian dan backup sebelum perubahan
+  besar.
+- Setiap backup kini didekripsi kembali secara sementara dan divalidasi memakai
+  `pg_restore --list` sebelum artifact diunggah.
+- Artifact backup terenkripsi disimpan selama 30 hari.
+- Action upload/download artifact diperbarui ke rilis resmi terbaru yang
+  tersedia saat implementasi dan dipin ke commit SHA.

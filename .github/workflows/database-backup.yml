@@ -1,6 +1,9 @@
 name: Encrypted Database Backup
 
 on:
+  schedule:
+    # GitHub cron uses UTC. 18:00 UTC = 01:00 WIB the following day.
+    - cron: "0 18 * * *"
   workflow_dispatch:
 
 permissions:
@@ -73,8 +76,27 @@ jobs:
           )
           rm -f "$RUNNER_TEMP/karsa-backup.dump"
 
+      - name: Verify encrypted backup
+        shell: bash
+        run: |
+          set -euo pipefail
+          openssl enc -d -aes-256-cbc \
+            -pbkdf2 \
+            -iter 600000 \
+            -md sha256 \
+            -in "$RUNNER_TEMP/karsa-backup.dump.enc" \
+            -out "$RUNNER_TEMP/karsa-backup.verify.dump" \
+            -pass env:BACKUP_ENCRYPTION_PASSWORD
+          test -s "$RUNNER_TEMP/karsa-backup.verify.dump"
+          docker run --rm -i postgres:17 \
+            pg_restore --list \
+            < "$RUNNER_TEMP/karsa-backup.verify.dump" \
+            > "$RUNNER_TEMP/karsa-backup-verify-contents.txt"
+          test -s "$RUNNER_TEMP/karsa-backup-verify-contents.txt"
+          rm -f "$RUNNER_TEMP/karsa-backup.verify.dump"
+
       - name: Upload encrypted backup
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
           name: karsa-database-backup-${{ github.run_id }}
           path: |
@@ -91,4 +113,6 @@ jobs:
             "$RUNNER_TEMP/karsa-backup.dump" \
             "$RUNNER_TEMP/karsa-backup.dump.enc" \
             "$RUNNER_TEMP/karsa-backup.dump.enc.sha256" \
-            "$RUNNER_TEMP/karsa-backup-contents.txt"
+            "$RUNNER_TEMP/karsa-backup-contents.txt" \
+            "$RUNNER_TEMP/karsa-backup.verify.dump" \
+            "$RUNNER_TEMP/karsa-backup-verify-contents.txt"
