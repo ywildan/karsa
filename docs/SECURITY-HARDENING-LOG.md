@@ -830,3 +830,16 @@ Rancangan yang diterapkan:
 
 Perubahan tahap ini belum masuk production sampai build dan pengujian Preview
 selesai.
+
+### Hasil Pengujian Preview Respons Aman
+
+- Vercel Preview, clean install, Prisma generate, TypeScript typecheck, Flutter
+  analyze/test, dan build APK release berhasil.
+- Percobaan login Google pertama satu kali kembali ke `/login` dengan kode
+  Auth.js `Configuration`.
+- Tanpa perubahan kode, environment, atau redeploy, percobaan ulang langsung
+  berhasil login normal.
+- Kejadian dicatat sebagai gangguan callback sementara; tidak ada bukti bahwa
+  konfigurasi OAuth atau environment Preview salah secara permanen.
+- Branch dinyatakan siap dipromosikan melalui pull request `#26`, dengan
+  verifikasi production tetap wajib dilakukan setelah merge.
