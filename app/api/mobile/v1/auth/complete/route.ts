@@ -3,6 +3,7 @@ import { NextResponse } from "next/server";
 
 import { auth } from "@/auth";
 import { hashToken, randomToken } from "@/lib/mobile/auth";
+import { withMobileApiErrors } from "@/lib/mobile/http";
 import { prisma } from "@/lib/prisma";
 
 export const runtime = "nodejs";
@@ -13,7 +14,7 @@ function appRedirect(redirectUri: string, values: Record<string, string>) {
   return NextResponse.redirect(target);
 }
 
-export async function GET(request: Request) {
+export const GET = withMobileApiErrors(async function GET(request: Request) {
   const cookieStore = await cookies();
   const requestId = cookieStore.get("karsa_mobile_auth")?.value;
   const authRequest = requestId
@@ -30,11 +31,15 @@ export async function GET(request: Request) {
     return NextResponse.redirect(retry);
   }
 
-  if (
-    !session.user.authorization_verified ||
-    session.user.is_admin ||
-    (!session.user.is_pj && !session.user.kelas_id)
-  ) {
+  if (!session.user.authorization_verified) {
+    cookieStore.delete("karsa_mobile_auth");
+    return appRedirect(authRequest.redirect_uri, {
+      state: authRequest.state,
+      error: "temporarily_unavailable",
+    });
+  }
+
+  if (session.user.is_admin || (!session.user.is_pj && !session.user.kelas_id)) {
     cookieStore.delete("karsa_mobile_auth");
     return appRedirect(authRequest.redirect_uri, {
       state: authRequest.state,
@@ -56,4 +61,4 @@ export async function GET(request: Request) {
     state: authRequest.state,
     code: authorizationCode,
   });
-}
+});

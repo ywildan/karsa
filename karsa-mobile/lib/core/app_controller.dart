@@ -101,6 +101,11 @@ class AppController extends ChangeNotifier {
       _setError('Aplikasi ini hanya tersedia untuk mahasiswa dan PJ aktif.');
       return;
     }
+    if (authError == 'temporarily_unavailable') {
+      state = SessionState.signedOut;
+      _setError('Layanan data sedang tidak tersedia. Coba lagi sebentar.');
+      return;
+    }
     if (expectedState == null || verifier == null || expectedState != returnedState || code == null) {
       state = SessionState.signedOut;
       _setError('Proses masuk tidak valid atau sudah kedaluwarsa.');

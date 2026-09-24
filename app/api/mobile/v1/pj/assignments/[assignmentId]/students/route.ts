@@ -1,10 +1,10 @@
 import { authenticateMobileRequest } from "@/lib/mobile/auth";
-import { mobileError, mobileOk } from "@/lib/mobile/http";
+import { mobileError, mobileOk, withMobileApiErrors } from "@/lib/mobile/http";
 import { listAssignmentStudents } from "@/lib/services/point-service";
 
 export const runtime = "nodejs";
 
-export async function GET(
+export const GET = withMobileApiErrors(async function GET(
   request: Request,
   context: { params: Promise<{ assignmentId: string }> },
 ) {
@@ -19,4 +19,4 @@ export async function GET(
     return mobileError(404, "ASSIGNMENT_NOT_FOUND", "Penugasan tidak ditemukan.");
   }
   return mobileOk(data);
-}
+});

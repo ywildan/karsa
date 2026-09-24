@@ -1,7 +1,12 @@
 import { z } from "zod";
 
 import { hashToken, issueMobileTokens } from "@/lib/mobile/auth";
-import { mobileError, mobileOk, readJson } from "@/lib/mobile/http";
+import {
+  mobileError,
+  mobileOk,
+  readJson,
+  withMobileApiErrors,
+} from "@/lib/mobile/http";
 import { prisma } from "@/lib/prisma";
 
 export const runtime = "nodejs";
@@ -10,7 +15,7 @@ const bodySchema = z.object({
   refresh_token: z.string().regex(/^[A-Za-z0-9_-]{32,}$/),
 });
 
-export async function POST(request: Request) {
+export const POST = withMobileApiErrors(async function POST(request: Request) {
   const parsed = bodySchema.safeParse(await readJson(request));
   if (!parsed.success) {
     return mobileError(400, "INVALID_REFRESH", "Refresh token tidak valid.");
@@ -50,4 +55,4 @@ export async function POST(request: Request) {
     access_expires_at: tokens.accessExpiresAt.toISOString(),
     refresh_expires_at: tokens.refreshExpiresAt.toISOString(),
   });
-}
+});
