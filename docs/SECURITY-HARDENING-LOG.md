@@ -594,3 +594,13 @@ harian belum diaktifkan sampai uji manual dan restore terisolasi berhasil.
   lalu `psql` menghapus schema `public` dan menjalankan SQL restore dalam satu
   transaksi dengan `ON_ERROR_STOP`.
 - Schema `restore_guard` berada di luar `public` dan tidak ikut dihapus.
+
+### Uji Restore Ketujuh — Schema Public Bawaan
+
+- Interlock marker dan seluruh validasi pra-restore berhasil.
+- SQL restore gagal saat membuat tabel karena archive tidak menyertakan
+  `CREATE SCHEMA public`; PostgreSQL memperlakukan `public` sebagai schema
+  bawaan pada dump ini.
+- Transaksi rollback berhasil sehingga penghapusan schema tidak menetap.
+- Workflow diperbaiki untuk menjalankan `DROP SCHEMA public`, `CREATE SCHEMA
+  public`, dan seluruh SQL restore dalam transaksi tunggal yang sama.
