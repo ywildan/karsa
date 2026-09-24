@@ -851,3 +851,5 @@ selesai.
 - Pipeline commit production berhasil menjalankan clean install, Prisma
   generate, TypeScript typecheck, Flutter analyze/test, dan build APK release.
 - GitHub Actions run production: `35973267082`.
+- Pemilik sistem mengonfirmasi smoke test aplikasi production berjalan normal
+  setelah deployment. Step 12D dan Step 12E dinyatakan selesai.
