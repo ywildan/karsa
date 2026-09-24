@@ -764,3 +764,16 @@ perlindungan publik utama, keputusan awalnya:
 Konfigurasi firewall adalah perubahan dashboard eksternal dan harus diterapkan
 oleh pemilik project Vercel, lalu diverifikasi melalui observability sebelum
 mode blocking diaktifkan.
+
+### Hasil Penerapan WAF
+
+- Rule `Karsa Mobile Auth Rate Limit` sudah published dan aktif pada project
+  Vercel Karsa.
+- Kondisi: request path dimulai dengan `/api/mobile/v1/auth/`.
+- Fixed window: 200 request per 60 detik per IP address.
+- Action awal: `Log`, sehingga belum ada request pengguna yang diblokir.
+- DDoS mitigation bawaan Vercel tetap aktif.
+- Bot Protection, AI Bots, OWASP Enterprise ruleset, IP Blocking, dan Attack
+  Mode tidak diubah pada tahap ini.
+- Rule harus diamati melalui Firewall Traffic/Audit Log sebelum action diubah
+  menjadi respons 429.
