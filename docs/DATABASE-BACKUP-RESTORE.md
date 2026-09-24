@@ -25,10 +25,10 @@ Workflow:
 
 Backup mencakup seluruh objek dan data aplikasi di schema `public`, termasuk:
 
-- 14 tabel aplikasi;
+- 17 tabel aplikasi;
 - primary key, foreign key, indeks, dan constraint;
 - konfigurasi RLS;
-- 17 policy `karsa_runtime`.
+- 26 policy `karsa_runtime`.
 
 Backup tidak mencakup schema internal Supabase seperti `auth`, `storage`, dan
 `realtime`. Karsa saat ini memakai tabel autentikasi aplikasinya sendiri di
@@ -133,9 +133,9 @@ target dalam satu transaksi. Jika ada satu error, perubahan restore di-rollback.
 
 Hasil akhir wajib menunjukkan:
 
-- 14 tabel aplikasi;
-- RLS aktif pada 14 tabel;
-- 17 policy;
+- 17 tabel aplikasi;
+- RLS aktif pada 17 tabel;
+- 26 policy;
 - seluruh langkah cleanup berhasil.
 
 Uji restore harus diulang setidaknya setelah perubahan schema besar, perubahan

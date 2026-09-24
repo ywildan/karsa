@@ -244,6 +244,13 @@ dibutuhkan:
   terenkripsi berikutnya tetap mencakup data grup.
 - M12 selesai. Branch belum digabung dan backend production belum dideploy.
 
+### 24 September 2026 — Integrasi backup schema grup
+
+- Assertion restore diperbarui dari 14 menjadi 17 tabel dan secara eksplisit
+  mencakup `GroupMessage`, `GroupReport`, serta `GroupBlock`.
+- Assertion RLS diperbarui menjadi 17 tabel dan policy runtime menjadi 26.
+- Dokumentasi backup/restore diselaraskan dengan schema production terbaru.
+
 ## Dokumen Terkait
 
 - `DEEP_RESEARCH_MOBILE_GROUP_PRIVACY.md`
