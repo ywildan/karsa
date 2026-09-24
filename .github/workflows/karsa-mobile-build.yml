@@ -29,6 +29,28 @@ jobs:
   validate-backend:
     name: Validate mobile API
     runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:17
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: karsa
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres -d karsa"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+    env:
+      DATABASE_URL: postgresql://postgres:postgres@127.0.0.1:5432/karsa
+      DIRECT_URL: postgresql://postgres:postgres@127.0.0.1:5432/karsa
+      AUTH_SECRET: ci-mobile-group-smoke-secret
+      AUTH_GOOGLE_ID: ci-placeholder
+      AUTH_GOOGLE_SECRET: ci-placeholder
+      AUTH_URL: http://127.0.0.1:3100
+      SEED_TEST_DATA: "true"
     steps:
       - uses: actions/checkout@v6
       - uses: actions/setup-node@v6
@@ -39,6 +61,32 @@ jobs:
       - run: npx prisma generate
       - run: npm run typecheck
       - run: npm run test:groups
+      - name: Prepare isolated smoke database
+        run: |
+          npx prisma db push --skip-generate
+          npm run db:seed
+      - name: Run mobile group API smoke tests
+        shell: bash
+        run: |
+          set -euo pipefail
+          npm run dev -- --hostname 127.0.0.1 --port 3100 > "$RUNNER_TEMP/karsa-next.log" 2>&1 &
+          server_pid=$!
+          trap 'kill "$server_pid" 2>/dev/null || true' EXIT
+
+          ready=false
+          for _ in {1..60}; do
+            if [ "$(curl --silent --output /dev/null --write-out '%{http_code}' http://127.0.0.1:3100/api/mobile/v1/groups)" = "401" ]; then
+              ready=true
+              break
+            fi
+            sleep 1
+          done
+          if [ "$ready" != true ]; then
+            tail -n 200 "$RUNNER_TEMP/karsa-next.log"
+            exit 1
+          fi
+
+          npm run test:groups:integration
 
   build-apk:
     name: Test and build APK

@@ -16,6 +16,7 @@
     "lint": "next lint",
     "typecheck": "tsc --noEmit",
     "test:groups": "tsx --test tests/group-policy.test.ts",
+    "test:groups:integration": "tsx --test tests/group-api.integration.ts",
     "db:generate": "prisma generate",
     "db:push": "prisma db push",
     "db:seed": "prisma db seed",
