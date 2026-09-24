@@ -560,3 +560,15 @@ harian belum diaktifkan sampai uji manual dan restore terisolasi berhasil.
   pooler, dan password alfanumerik 48–64 karakter.
 - Connection URI berikutnya harus disalin dari menu Connect → Session pooler
   milik project `karsa-restore-test`, bukan disusun dari template.
+
+### Uji Restore Keempat — Marker Belum Tersedia
+
+- Secret diperbarui memakai Session Pooler project uji pada region Tokyo,
+  port 5432, dan SSL wajib.
+- Validasi URL, download artifact, checksum, dekripsi, validasi struktur dump,
+  koneksi, dan autentikasi database seluruhnya berhasil.
+- Query interlock tidak menemukan nilai `KARSA_RESTORE_TEST_ONLY`; workflow
+  berhenti sebelum menjalankan `pg_restore`.
+- Schema `public` target belum disentuh dan file plaintext berhasil dibersihkan.
+- Marker harus dibuat melalui SQL Editor project `karsa-restore-test` sebelum
+  uji berikutnya.
