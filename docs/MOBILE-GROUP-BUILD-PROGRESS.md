@@ -251,6 +251,17 @@ dibutuhkan:
 - Assertion RLS diperbarui menjadi 17 tabel dan policy runtime menjadi 26.
 - Dokumentasi backup/restore diselaraskan dengan schema production terbaru.
 
+### 24 September 2026 — Backup pasca-migrasi
+
+- Workflow `Encrypted Database Backup` run `36013841613` pada branch
+  `feat/mobile-groups` selesai sukses di commit `6082951`.
+- Artifact: `karsa-database-backup-36013841613`, ID `10813621797`, ukuran
+  tampilan 65,2 KB.
+- Digest artifact:
+  `sha256:d8a9b023a19a068ae2d59b5b5614d13b2dd81a2fc42c263ab800c91e3cb57850`.
+- Backup ini dibuat setelah ketiga tabel grup terverifikasi di production dan
+  selanjutnya harus diuji restore ke project `karsa-restore-test`.
+
 ## Dokumen Terkait
 
 - `DEEP_RESEARCH_MOBILE_GROUP_PRIVACY.md`
