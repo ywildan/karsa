@@ -21,6 +21,7 @@ class _GroupChatScreenState extends State<GroupChatScreen> {
   final _composer = TextEditingController();
   final _scroll = ScrollController();
   final List<GroupMessageItem> _messages = [];
+  List<GroupMessageItem> _pinnedMessages = [];
   Timer? _pollTimer;
   String? _nextCursor;
   GroupMessageItem? _replyTo;
@@ -63,6 +64,7 @@ class _GroupChatScreenState extends State<GroupChatScreen> {
         _messages
           ..clear()
           ..addAll(page.messages);
+        _pinnedMessages = page.pinnedMessages;
         _nextCursor = page.nextCursor;
         _isManager = page.isManager;
         _isLocked = page.isLocked;
@@ -90,6 +92,7 @@ class _GroupChatScreenState extends State<GroupChatScreen> {
         _messages
           ..clear()
           ..addAll(merged);
+        _pinnedMessages = page.pinnedMessages;
         _isManager = page.isManager;
         _isLocked = page.isLocked;
       });
@@ -165,7 +168,16 @@ class _GroupChatScreenState extends State<GroupChatScreen> {
 
   void _replace(GroupMessageItem message) {
     final index = _messages.indexWhere((item) => item.id == message.id);
-    if (index >= 0) setState(() => _messages[index] = message);
+    setState(() {
+      if (index >= 0) _messages[index] = message;
+      _pinnedMessages.removeWhere((item) => item.id == message.id);
+      if (message.isPinned && message.state == 'active') {
+        _pinnedMessages.insert(0, message);
+        if (_pinnedMessages.length > 10) {
+          _pinnedMessages = _pinnedMessages.take(10).toList();
+        }
+      }
+    });
   }
 
   void _jumpToBottom() {
@@ -415,7 +427,7 @@ class _GroupChatScreenState extends State<GroupChatScreen> {
                   _delete(message);
                 },
               ),
-            if (_isManager && !message.isOwn) ...[
+            if (_isManager)
               ListTile(
                 leading: Icon(message.isPinned ? Icons.push_pin : Icons.push_pin_outlined),
                 title: Text(message.isPinned ? 'Lepas pin' : 'Pin pesan'),
@@ -424,6 +436,7 @@ class _GroupChatScreenState extends State<GroupChatScreen> {
                   _togglePin(message);
                 },
               ),
+            if (_isManager && !message.isOwn)
               ListTile(
                 leading: const Icon(Icons.visibility_off_outlined),
                 title: const Text('Sembunyikan sebagai PJ'),
@@ -494,6 +507,13 @@ class _GroupChatScreenState extends State<GroupChatScreen> {
         ),
         body: Column(
           children: [
+            if (_pinnedMessages.isNotEmpty)
+              _PinnedMessagesStrip(messages: _pinnedMessages),
+            if (_isManager &&
+                !_loading &&
+                _messages.isNotEmpty &&
+                _pinnedMessages.isEmpty)
+              const _PinHint(),
             Expanded(child: _body()),
             if (_replyTo != null) _ReplyComposer(message: _replyTo!, onClose: () => setState(() => _replyTo = null)),
             _composerBar(),
@@ -601,6 +621,106 @@ class _ReplyComposer extends StatelessWidget {
           ],
         ),
       );
+}
+
+class _PinnedMessagesStrip extends StatelessWidget {
+  const _PinnedMessagesStrip({required this.messages});
+  final List<GroupMessageItem> messages;
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = Theme.of(context).colorScheme;
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(12, 6, 12, 0),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Icon(Icons.push_pin_rounded, size: 15, color: colors.primary),
+              const SizedBox(width: 6),
+              Text(
+                'Pesan disematkan',
+                style: Theme.of(context).textTheme.labelMedium?.copyWith(
+                      fontWeight: FontWeight.w800,
+                      color: colors.primary,
+                    ),
+              ),
+              const SizedBox(width: 6),
+              Text('${messages.length}', style: Theme.of(context).textTheme.labelSmall),
+            ],
+          ),
+          const SizedBox(height: 4),
+          SizedBox(
+            height: 66,
+            child: ListView.separated(
+              scrollDirection: Axis.horizontal,
+              itemCount: messages.length,
+              separatorBuilder: (_, _) => const SizedBox(width: 8),
+              itemBuilder: (context, index) {
+                final message = messages[index];
+                final preview = message.state == 'active'
+                    ? message.text ?? ''
+                    : 'Pesan dari pengguna yang diblokir';
+                return SizedBox(
+                  width: 250,
+                  child: Card(
+                    margin: EdgeInsets.zero,
+                    color: colors.surfaceContainerLow,
+                    child: Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            message.author.name,
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: const TextStyle(fontWeight: FontWeight.w800),
+                          ),
+                          const SizedBox(height: 3),
+                          Text(
+                            preview,
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: Theme.of(context).textTheme.bodySmall,
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                );
+              },
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _PinHint extends StatelessWidget {
+  const _PinHint();
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = Theme.of(context).colorScheme;
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(16, 8, 16, 2),
+      child: Row(
+        children: [
+          Icon(Icons.push_pin_outlined, size: 16, color: colors.onSurfaceVariant),
+          const SizedBox(width: 8),
+          Text(
+            'Tekan lama pesan untuk menyematkannya.',
+            style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                  color: colors.onSurfaceVariant,
+                ),
+          ),
+        ],
+      ),
+    );
+  }
 }
 
 class _MessageBubble extends StatelessWidget {

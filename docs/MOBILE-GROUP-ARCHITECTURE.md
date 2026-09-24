@@ -123,6 +123,8 @@ Semua endpoint berada di `/api/mobile/v1/groups`, memakai bearer session native,
 - Memverifikasi membership sebelum query pesan.
 - Default 30 dan maksimum 50 pesan.
 - Urutan query terbaru ke lama; respons client disusun kronologis.
+- Mengembalikan hingga 10 pesan aktif paling baru yang di-pin dalam field
+  `pinned_messages`, agar strip pin tidak bergantung pada halaman cursor saat ini.
 - Cursor hanya berlaku di grup yang sama.
 - Pesan deleted/hidden dikirim sebagai tombstone tanpa body.
 - Reply preview tidak membocorkan body deleted/hidden/blocked.
@@ -152,6 +154,10 @@ DELETE mengisi `deleted_at` dan `updated_at`, bukan menghapus row.
 
 Keduanya memerlukan `actor.id = KelasMatkul.pj_id`. PJ mata kuliah lain menerima
 403 walaupun `capabilities.record_points = true`.
+
+Di native app, PJ membuka menu tindakan dengan menekan lama pesan. PJ dapat
+menyematkan pesan anggota maupun pesannya sendiri; strip pesan tersemat tampil
+di atas percakapan untuk semua anggota grup.
 
 ### Hide, report, block
 

@@ -300,6 +300,18 @@ dibutuhkan:
   smoke, serta APK build; job backend selesai sukses.
 - Pengujian percakapan dari APK pada HP pengguna masih menunggu.
 
+### 24 September 2026 — Perbaikan discoverability pin
+
+- Smoke test di HP memastikan grup tampil, lalu user melaporkan fitur pin tidak
+  tampak.
+- Ditemukan UI hanya menawarkan pin pada pesan anggota lain dan tidak
+  menampilkan kumpulan pesan pin.
+- UI diubah agar PJ dapat pin pesan sendiri maupun anggota; percakapan
+  menampilkan strip pesan pin di atas timeline.
+- API pesan kini menyertakan hingga 10 pesan aktif yang dipin agar banner tetap
+  tampil meski pesannya lebih lama daripada halaman cursor pertama.
+- APK dengan perubahan UI belum dibangun/dipasang; menunggu CI dan uji ulang.
+
 ### 24 September 2026 — Retention implementation
 
 - Supabase Cron dipilih sebagai scheduler internal database; tidak ada layanan

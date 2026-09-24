@@ -336,13 +336,24 @@ export async function listGroupMessages(
     }
   }
 
-  const [rows, blocks] = await Promise.all([
+  const [rows, pinnedRows, blocks] = await Promise.all([
     prisma.groupMessage.findMany({
       where: { kelas_matkul_id: group.id },
       select: messageSelect,
       orderBy: [{ created_at: "desc" }, { id: "desc" }],
       take: parsed.data.limit + 1,
       ...(parsed.data.cursor ? { cursor: { id: parsed.data.cursor }, skip: 1 } : {}),
+    }),
+    prisma.groupMessage.findMany({
+      where: {
+        kelas_matkul_id: group.id,
+        pinned_at: { not: null },
+        deleted_at: null,
+        hidden_at: null,
+      },
+      select: messageSelect,
+      orderBy: { pinned_at: "desc" },
+      take: 10,
     }),
     prisma.groupBlock.findMany({
       where: { blocker_id: actor.id },
@@ -368,6 +379,9 @@ export async function listGroupMessages(
       messages: page
         .map((row) => serializeMessage(row, actor.id, group.pj_id, blockedIds))
         .reverse(),
+      pinned_messages: (pinnedRows as MessageRow[]).map((row) =>
+        serializeMessage(row, actor.id, group.pj_id, blockedIds),
+      ),
       next_cursor: hasMore ? page[page.length - 1]?.id ?? null : null,
     },
   };

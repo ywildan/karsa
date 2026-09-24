@@ -460,11 +460,13 @@ class GroupMessageItem {
 class GroupMessagePage {
   const GroupMessagePage({
     required this.messages,
+    required this.pinnedMessages,
     required this.isManager,
     required this.isLocked,
     this.nextCursor,
   });
   final List<GroupMessageItem> messages;
+  final List<GroupMessageItem> pinnedMessages;
   final bool isManager;
   final bool isLocked;
   final String? nextCursor;
@@ -473,6 +475,10 @@ class GroupMessagePage {
     final group = json['group'] as Map<String, dynamic>? ?? const {};
     return GroupMessagePage(
       messages: (json['messages'] as List)
+          .map((item) =>
+              GroupMessageItem.fromJson(item as Map<String, dynamic>))
+          .toList(),
+      pinnedMessages: ((json['pinned_messages'] as List?) ?? const [])
           .map((item) =>
               GroupMessageItem.fromJson(item as Map<String, dynamic>))
           .toList(),
