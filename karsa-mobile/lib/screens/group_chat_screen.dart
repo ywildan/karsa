@@ -445,7 +445,6 @@ class _GroupChatScreenState extends State<GroupChatScreen> {
                   _hide(message);
                 },
               ),
-            ],
             if (!message.isOwn) ...[
               ListTile(
                 leading: const Icon(Icons.flag_outlined),
