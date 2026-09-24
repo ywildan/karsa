@@ -208,6 +208,10 @@ dibutuhkan:
   tepat 15 menit, ambang auto-hide tiga laporan, dan larangan self-moderation.
 - `npm run test:groups` dan TypeScript typecheck berhasil tanpa instalasi lokal.
 - Test tersebut ditambahkan ke job `Validate mobile API` di GitHub Actions.
+- Final test/build run `36011022654` selesai sukses untuk commit `779c2dc`.
+- Artifact final: `karsa-mobile-apk-779c2dcabc49dc654d7ff306c2ebc079131dd016`,
+  ID `10812702790`, ukuran tampilan 23,3 MB, digest
+  `sha256:85f85e9bad9afbffbc2516462adb0fd872dcd601cef1c50d4e3f50bfea8f5df1`.
 
 ### 24 September 2026 — Persiapan review migrasi
 
