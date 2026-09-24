@@ -9,7 +9,7 @@
 - Tanggal mulai: 24 September 2026
 - Tahap aktif: pengujian authorization/abuse dan review migrasi
 - Kode fitur: selesai di branch `feat/mobile-groups`, belum digabung/deploy
-- Migrasi production: belum dijalankan
+- Migrasi production: berhasil dijalankan, menunggu verifikasi read-only
 - Instalasi lokal: tidak ada dan tidak akan dilakukan
 - Target aplikasi: Flutter native (`karsa-mobile`)
 - Target backend: Next.js API `/api/mobile/v1`
@@ -219,8 +219,16 @@ dibutuhkan:
 - Dibuat `docs/mobile-groups-verify.sql` yang sepenuhnya read-only untuk
   memeriksa tabel, kolom lock, RLS, grants runtime/public, sembilan policy,
   constraint, dan index setelah migrasi.
-- Migrasi masih belum dijalankan; M12 tetap terbuka sampai output verifikasi
-  Supabase diperiksa.
+- Pada checkpoint ini migrasi belum dijalankan; M12 tetap terbuka sampai output
+  verifikasi Supabase diperiksa.
+
+### 24 September 2026 — Eksekusi migrasi production
+
+- User menjalankan seluruh `prisma/mobile-groups.sql` melalui SQL Editor pada
+  project Supabase production.
+- Supabase mengembalikan status sukses tanpa error.
+- Belum ada merge/deploy production; M12 tetap terbuka sampai seluruh query
+  read-only pada `docs/mobile-groups-verify.sql` diperiksa.
 
 ## Dokumen Terkait
 
