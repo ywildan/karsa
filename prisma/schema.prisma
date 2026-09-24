@@ -47,14 +47,22 @@ model User {
   created_at    DateTime  @default(now())
   updated_at    DateTime  @default(now()) @updatedAt
 
-  kelas               Kelas?        @relation(fields: [kelas_id], references: [id], onDelete: SetNull, onUpdate: Cascade)
-  accounts            Account[]
-  sessions            Session[]
-  kelasMatkulAsPj     KelasMatkul[] @relation("KelasMatkulPj")
-  poinLogsAsMahasiswa PoinLog[]     @relation("PoinLogMahasiswa")
-  poinLogsAsPj        PoinLog[]     @relation("PoinLogPj")
-  mobileAuthRequests  MobileAuthRequest[]
-  mobileSessions      MobileSession[]
+  kelas                Kelas?              @relation(fields: [kelas_id], references: [id], onDelete: SetNull, onUpdate: Cascade)
+  accounts             Account[]
+  sessions             Session[]
+  kelasMatkulAsPj      KelasMatkul[]       @relation("KelasMatkulPj")
+  poinLogsAsMahasiswa  PoinLog[]           @relation("PoinLogMahasiswa")
+  poinLogsAsPj         PoinLog[]           @relation("PoinLogPj")
+  mobileAuthRequests   MobileAuthRequest[]
+  mobileSessions       MobileSession[]
+  groupMessages        GroupMessage[]      @relation("GroupMessageAuthor")
+  groupMessagesHidden  GroupMessage[]      @relation("GroupMessageHiddenBy")
+  groupMessagesPinned  GroupMessage[]      @relation("GroupMessagePinnedBy")
+  groupReports         GroupReport[]       @relation("GroupReportReporter")
+  groupReportsResolved GroupReport[]       @relation("GroupReportResolver")
+  groupBlocksCreated   GroupBlock[]        @relation("GroupBlocker")
+  groupBlocksReceived  GroupBlock[]        @relation("GroupBlocked")
+  groupsLocked         KelasMatkul[]       @relation("KelasMatkulGroupLocker")
 
   @@index([kelas_id])
 }
@@ -149,8 +157,8 @@ model Kelas {
   created_at  DateTime @default(now())
   updated_at  DateTime @default(now()) @updatedAt
 
-  prodi       Prodi        @relation(fields: [prodi_id], references: [id], onDelete: Restrict, onUpdate: Cascade)
-  semester    Semester     @relation(fields: [semester_id], references: [id], onDelete: Restrict, onUpdate: Cascade)
+  prodi       Prodi         @relation(fields: [prodi_id], references: [id], onDelete: Restrict, onUpdate: Cascade)
+  semester    Semester      @relation(fields: [semester_id], references: [id], onDelete: Restrict, onUpdate: Cascade)
   users       User[]
   kelasMatkul KelasMatkul[]
 
@@ -166,22 +174,27 @@ model Kelas {
 /// KelasMatkul — satu matkul yang diajarkan di satu kelas, dipegang 1 PJ.
 /// Unique (kelas_id, matkul_id) sesuai PRD §3.
 model KelasMatkul {
-  id         String   @id @default(cuid())
-  kelas_id   String
-  matkul_id  String
-  pj_id      String
-  created_at DateTime @default(now())
-  updated_at DateTime @default(now()) @updatedAt
+  id                 String    @id @default(cuid())
+  kelas_id           String
+  matkul_id          String
+  pj_id              String
+  group_locked_at    DateTime?
+  group_locked_by_id String?
+  created_at         DateTime  @default(now())
+  updated_at         DateTime  @default(now()) @updatedAt
 
-  kelas    Kelas    @relation(fields: [kelas_id], references: [id], onDelete: Cascade, onUpdate: Cascade)
-  matkul   Matkul   @relation(fields: [matkul_id], references: [id], onDelete: Restrict, onUpdate: Cascade)
-  pj       User     @relation("KelasMatkulPj", fields: [pj_id], references: [id], onDelete: Restrict, onUpdate: Cascade)
-  poinLogs PoinLog[]
+  kelas         Kelas          @relation(fields: [kelas_id], references: [id], onDelete: Cascade, onUpdate: Cascade)
+  matkul        Matkul         @relation(fields: [matkul_id], references: [id], onDelete: Restrict, onUpdate: Cascade)
+  pj            User           @relation("KelasMatkulPj", fields: [pj_id], references: [id], onDelete: Restrict, onUpdate: Cascade)
+  groupLockedBy User?          @relation("KelasMatkulGroupLocker", fields: [group_locked_by_id], references: [id], onDelete: SetNull, onUpdate: Cascade)
+  poinLogs      PoinLog[]
+  groupMessages GroupMessage[]
 
   @@unique([kelas_id, matkul_id])
   @@index([kelas_id])
   @@index([matkul_id])
   @@index([pj_id])
+  @@index([group_locked_by_id])
 }
 
 /// KategoriPoin — Bertanya · Menjawab · Presentasi · Lainnya (di-seed).
@@ -265,15 +278,89 @@ model MobileSession {
   @@index([refresh_expires_at])
 }
 
+// ---------------------------------------------------------------------------
+// Grup percakapan mobile-only
+// ---------------------------------------------------------------------------
+
+/// Satu pesan teks di grup yang direpresentasikan oleh KelasMatkul.
+/// Body menjadi NULL hanya setelah pesan yang sudah deleted/hidden dipurge.
+model GroupMessage {
+  id              String    @id @default(cuid())
+  kelas_matkul_id String
+  author_id       String
+  reply_to_id     String?
+  body            String?   @db.Text
+  idempotency_key String    @unique
+  edited_at       DateTime?
+  deleted_at      DateTime?
+  hidden_at       DateTime?
+  hidden_by_id    String?
+  hidden_reason   String?
+  pinned_at       DateTime?
+  pinned_by_id    String?
+  created_at      DateTime  @default(now())
+  updated_at      DateTime  @default(now()) @updatedAt
+
+  kelasMatkul KelasMatkul    @relation(fields: [kelas_matkul_id], references: [id], onDelete: Cascade, onUpdate: Cascade)
+  author      User           @relation("GroupMessageAuthor", fields: [author_id], references: [id], onDelete: Restrict, onUpdate: Cascade)
+  replyTo     GroupMessage?  @relation("GroupMessageReplies", fields: [reply_to_id], references: [id], onDelete: SetNull, onUpdate: Cascade)
+  replies     GroupMessage[] @relation("GroupMessageReplies")
+  hiddenBy    User?          @relation("GroupMessageHiddenBy", fields: [hidden_by_id], references: [id], onDelete: SetNull, onUpdate: Cascade)
+  pinnedBy    User?          @relation("GroupMessagePinnedBy", fields: [pinned_by_id], references: [id], onDelete: SetNull, onUpdate: Cascade)
+  reports     GroupReport[]
+
+  @@index([kelas_matkul_id, created_at(sort: Desc), id(sort: Desc)])
+  @@index([kelas_matkul_id, updated_at(sort: Desc)])
+  @@index([author_id])
+  @@index([reply_to_id])
+  @@index([kelas_matkul_id, pinned_at(sort: Desc)])
+}
+
+/// Laporan eksplisit dari anggota grup terhadap satu pesan.
+model GroupReport {
+  id             String    @id @default(cuid())
+  message_id     String
+  reporter_id    String
+  reason         String
+  details        String?   @db.Text
+  status         String    @default("OPEN")
+  resolved_at    DateTime?
+  resolved_by_id String?
+  created_at     DateTime  @default(now())
+  updated_at     DateTime  @default(now()) @updatedAt
+
+  message    GroupMessage @relation(fields: [message_id], references: [id], onDelete: Cascade, onUpdate: Cascade)
+  reporter   User         @relation("GroupReportReporter", fields: [reporter_id], references: [id], onDelete: Restrict, onUpdate: Cascade)
+  resolvedBy User?        @relation("GroupReportResolver", fields: [resolved_by_id], references: [id], onDelete: SetNull, onUpdate: Cascade)
+
+  @@unique([message_id, reporter_id])
+  @@index([message_id, status])
+  @@index([reporter_id, created_at(sort: Desc)])
+  @@index([resolved_by_id])
+}
+
+/// Preferensi block milik pengguna; tidak menghapus pesan dari anggota lain.
+model GroupBlock {
+  blocker_id String
+  blocked_id String
+  created_at DateTime @default(now())
+
+  blocker User @relation("GroupBlocker", fields: [blocker_id], references: [id], onDelete: Cascade, onUpdate: Cascade)
+  blocked User @relation("GroupBlocked", fields: [blocked_id], references: [id], onDelete: Cascade, onUpdate: Cascade)
+
+  @@id([blocker_id, blocked_id])
+  @@index([blocked_id])
+}
+
 /// Riwayat input/penghapusan poin dari aplikasi. Snapshot dipertahankan saat
 /// PoinLog dihapus; tidak ada FK agar retensi data akademik dapat diatur terpisah.
 model AuditLog {
-  id           String   @id @default(cuid())
+  id String @id @default(cuid())
 
   // Siapa yang melakukan
-  actor_id     String
-  actor_name   String
-  actor_role   String
+  actor_id   String
+  actor_name String
+  actor_role String
 
   // Apa yang dilakukan
   action       String
@@ -288,11 +375,11 @@ model AuditLog {
   matkul_label String?
 
   // Perubahan
-  before       Json?
-  after        Json?
-  metadata     Json?
+  before   Json?
+  after    Json?
+  metadata Json?
 
-  created_at   DateTime @default(now())
+  created_at DateTime @default(now())
 
   @@index([kelas_id, created_at(sort: Desc)])
   @@index([action, created_at(sort: Desc)])

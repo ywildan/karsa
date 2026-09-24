@@ -132,14 +132,20 @@ CREATE TABLE IF NOT EXISTS "Kelas" (
 
 -- KelasMatkul — matkul yang diajarkan di satu kelas, dipegang satu PJ.
 CREATE TABLE IF NOT EXISTS "KelasMatkul" (
-    "id"         TEXT         NOT NULL,
-    "kelas_id"   TEXT         NOT NULL,
-    "matkul_id"  TEXT         NOT NULL,
-    "pj_id"      TEXT         NOT NULL,
-    "created_at" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    "updated_at" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "id"                   TEXT         NOT NULL,
+    "kelas_id"             TEXT         NOT NULL,
+    "matkul_id"            TEXT         NOT NULL,
+    "pj_id"                TEXT         NOT NULL,
+    "group_locked_at"      TIMESTAMP(3),
+    "group_locked_by_id"   TEXT,
+    "created_at"           TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "updated_at"           TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
     CONSTRAINT "KelasMatkul_pkey" PRIMARY KEY ("id")
 );
+
+ALTER TABLE "KelasMatkul"
+    ADD COLUMN IF NOT EXISTS "group_locked_at" TIMESTAMP(3),
+    ADD COLUMN IF NOT EXISTS "group_locked_by_id" TEXT;
 
 -- KategoriPoin — Bertanya · Menjawab · Presentasi · Lainnya.
 CREATE TABLE IF NOT EXISTS "KategoriPoin" (
@@ -196,6 +202,55 @@ CREATE TABLE IF NOT EXISTS "MobileSession" (
     "updated_at"         TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
     CONSTRAINT "MobileSession_pkey" PRIMARY KEY ("id")
 );
+
+-- GroupMessage — pesan teks mobile-only; KelasMatkul bertindak sebagai grup.
+CREATE TABLE IF NOT EXISTS "GroupMessage" (
+    "id"                TEXT         NOT NULL,
+    "kelas_matkul_id"   TEXT         NOT NULL,
+    "author_id"         TEXT         NOT NULL,
+    "reply_to_id"       TEXT,
+    "body"              TEXT,
+    "idempotency_key"   TEXT         NOT NULL,
+    "edited_at"         TIMESTAMP(3),
+    "deleted_at"        TIMESTAMP(3),
+    "hidden_at"         TIMESTAMP(3),
+    "hidden_by_id"      TEXT,
+    "hidden_reason"     TEXT,
+    "pinned_at"         TIMESTAMP(3),
+    "pinned_by_id"      TEXT,
+    "created_at"        TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "updated_at"        TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    CONSTRAINT "GroupMessage_pkey" PRIMARY KEY ("id")
+);
+
+-- GroupReport — laporan eksplisit terhadap satu pesan.
+CREATE TABLE IF NOT EXISTS "GroupReport" (
+    "id"             TEXT         NOT NULL,
+    "message_id"     TEXT         NOT NULL,
+    "reporter_id"    TEXT         NOT NULL,
+    "reason"         TEXT         NOT NULL,
+    "details"        TEXT,
+    "status"         TEXT         NOT NULL DEFAULT 'OPEN',
+    "resolved_at"    TIMESTAMP(3),
+    "resolved_by_id" TEXT,
+    "created_at"     TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "updated_at"     TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    CONSTRAINT "GroupReport_pkey" PRIMARY KEY ("id")
+);
+
+-- GroupBlock — preferensi block per pengguna.
+CREATE TABLE IF NOT EXISTS "GroupBlock" (
+    "blocker_id" TEXT         NOT NULL,
+    "blocked_id" TEXT         NOT NULL,
+    "created_at" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    CONSTRAINT "GroupBlock_pkey" PRIMARY KEY ("blocker_id", "blocked_id")
+);
+
+ALTER TABLE "GroupMessage" ENABLE ROW LEVEL SECURITY;
+ALTER TABLE "GroupReport" ENABLE ROW LEVEL SECURITY;
+ALTER TABLE "GroupBlock" ENABLE ROW LEVEL SECURITY;
+REVOKE ALL ON "GroupMessage", "GroupReport", "GroupBlock"
+    FROM PUBLIC, anon, authenticated;
 
 -- AuditLog — systemic event log, mulai clean tanpa backfill.
 DROP TABLE IF EXISTS "PoinAuditLog";
@@ -276,6 +331,12 @@ BEGIN
     END IF;
     IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'MobileSession_refresh_token_hash_key') THEN
         ALTER TABLE "MobileSession" ADD CONSTRAINT "MobileSession_refresh_token_hash_key" UNIQUE ("refresh_token_hash");
+    END IF;
+    IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'GroupMessage_idempotency_key_key') THEN
+        ALTER TABLE "GroupMessage" ADD CONSTRAINT "GroupMessage_idempotency_key_key" UNIQUE ("idempotency_key");
+    END IF;
+    IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'GroupReport_message_id_reporter_id_key') THEN
+        ALTER TABLE "GroupReport" ADD CONSTRAINT "GroupReport_message_id_reporter_id_key" UNIQUE ("message_id", "reporter_id");
     END IF;
 END $$;
 
@@ -367,6 +428,14 @@ BEGIN
             ON DELETE RESTRICT ON UPDATE CASCADE;
     END IF;
 
+    -- KelasMatkul group locker → User
+    IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'KelasMatkul_group_locked_by_id_fkey') THEN
+        ALTER TABLE "KelasMatkul"
+            ADD CONSTRAINT "KelasMatkul_group_locked_by_id_fkey"
+            FOREIGN KEY ("group_locked_by_id") REFERENCES "User" ("id")
+            ON DELETE SET NULL ON UPDATE CASCADE;
+    END IF;
+
     -- PoinLog → KelasMatkul
     IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'PoinLog_kelas_matkul_id_fkey') THEN
         ALTER TABLE "PoinLog"
@@ -398,6 +467,58 @@ BEGIN
             FOREIGN KEY ("kategori_id") REFERENCES "KategoriPoin" ("id")
             ON DELETE RESTRICT ON UPDATE CASCADE;
     END IF;
+
+    -- Mobile group relations
+    IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'GroupMessage_kelas_matkul_id_fkey') THEN
+        ALTER TABLE "GroupMessage" ADD CONSTRAINT "GroupMessage_kelas_matkul_id_fkey"
+            FOREIGN KEY ("kelas_matkul_id") REFERENCES "KelasMatkul" ("id")
+            ON DELETE CASCADE ON UPDATE CASCADE;
+    END IF;
+    IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'GroupMessage_author_id_fkey') THEN
+        ALTER TABLE "GroupMessage" ADD CONSTRAINT "GroupMessage_author_id_fkey"
+            FOREIGN KEY ("author_id") REFERENCES "User" ("id")
+            ON DELETE RESTRICT ON UPDATE CASCADE;
+    END IF;
+    IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'GroupMessage_reply_to_id_fkey') THEN
+        ALTER TABLE "GroupMessage" ADD CONSTRAINT "GroupMessage_reply_to_id_fkey"
+            FOREIGN KEY ("reply_to_id") REFERENCES "GroupMessage" ("id")
+            ON DELETE SET NULL ON UPDATE CASCADE;
+    END IF;
+    IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'GroupMessage_hidden_by_id_fkey') THEN
+        ALTER TABLE "GroupMessage" ADD CONSTRAINT "GroupMessage_hidden_by_id_fkey"
+            FOREIGN KEY ("hidden_by_id") REFERENCES "User" ("id")
+            ON DELETE SET NULL ON UPDATE CASCADE;
+    END IF;
+    IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'GroupMessage_pinned_by_id_fkey') THEN
+        ALTER TABLE "GroupMessage" ADD CONSTRAINT "GroupMessage_pinned_by_id_fkey"
+            FOREIGN KEY ("pinned_by_id") REFERENCES "User" ("id")
+            ON DELETE SET NULL ON UPDATE CASCADE;
+    END IF;
+    IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'GroupReport_message_id_fkey') THEN
+        ALTER TABLE "GroupReport" ADD CONSTRAINT "GroupReport_message_id_fkey"
+            FOREIGN KEY ("message_id") REFERENCES "GroupMessage" ("id")
+            ON DELETE CASCADE ON UPDATE CASCADE;
+    END IF;
+    IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'GroupReport_reporter_id_fkey') THEN
+        ALTER TABLE "GroupReport" ADD CONSTRAINT "GroupReport_reporter_id_fkey"
+            FOREIGN KEY ("reporter_id") REFERENCES "User" ("id")
+            ON DELETE RESTRICT ON UPDATE CASCADE;
+    END IF;
+    IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'GroupReport_resolved_by_id_fkey') THEN
+        ALTER TABLE "GroupReport" ADD CONSTRAINT "GroupReport_resolved_by_id_fkey"
+            FOREIGN KEY ("resolved_by_id") REFERENCES "User" ("id")
+            ON DELETE SET NULL ON UPDATE CASCADE;
+    END IF;
+    IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'GroupBlock_blocker_id_fkey') THEN
+        ALTER TABLE "GroupBlock" ADD CONSTRAINT "GroupBlock_blocker_id_fkey"
+            FOREIGN KEY ("blocker_id") REFERENCES "User" ("id")
+            ON DELETE CASCADE ON UPDATE CASCADE;
+    END IF;
+    IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'GroupBlock_blocked_id_fkey') THEN
+        ALTER TABLE "GroupBlock" ADD CONSTRAINT "GroupBlock_blocked_id_fkey"
+            FOREIGN KEY ("blocked_id") REFERENCES "User" ("id")
+            ON DELETE CASCADE ON UPDATE CASCADE;
+    END IF;
 END $$;
 
 -- ---------------------------------------------------------------------------
@@ -415,6 +536,37 @@ BEGIN
     IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'Semester_rentang_check') THEN
         ALTER TABLE "Semester"
             ADD CONSTRAINT "Semester_rentang_check" CHECK ("end_date" > "start_date");
+    END IF;
+    IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'GroupMessage_body_check') THEN
+        ALTER TABLE "GroupMessage" ADD CONSTRAINT "GroupMessage_body_check" CHECK (
+            ("body" IS NOT NULL AND char_length(btrim("body")) BETWEEN 1 AND 2000)
+            OR ("body" IS NULL AND ("deleted_at" IS NOT NULL OR "hidden_at" IS NOT NULL))
+        );
+    END IF;
+    IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'GroupMessage_hidden_reason_check') THEN
+        ALTER TABLE "GroupMessage" ADD CONSTRAINT "GroupMessage_hidden_reason_check" CHECK (
+            "hidden_reason" IS NULL OR char_length(btrim("hidden_reason")) BETWEEN 1 AND 120
+        );
+    END IF;
+    IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'GroupReport_reason_check') THEN
+        ALTER TABLE "GroupReport" ADD CONSTRAINT "GroupReport_reason_check" CHECK (
+            "reason" IN ('SPAM', 'HARASSMENT', 'INAPPROPRIATE', 'MISINFORMATION', 'OTHER')
+        );
+    END IF;
+    IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'GroupReport_details_check') THEN
+        ALTER TABLE "GroupReport" ADD CONSTRAINT "GroupReport_details_check" CHECK (
+            "details" IS NULL OR char_length("details") <= 500
+        );
+    END IF;
+    IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'GroupReport_status_check') THEN
+        ALTER TABLE "GroupReport" ADD CONSTRAINT "GroupReport_status_check" CHECK (
+            "status" IN ('OPEN', 'DISMISSED', 'ACTIONED')
+        );
+    END IF;
+    IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'GroupBlock_not_self_check') THEN
+        ALTER TABLE "GroupBlock" ADD CONSTRAINT "GroupBlock_not_self_check" CHECK (
+            "blocker_id" <> "blocked_id"
+        );
     END IF;
 END $$;
 
@@ -441,6 +593,7 @@ CREATE INDEX IF NOT EXISTS "Kelas_semester_id_idx" ON "Kelas" ("semester_id");
 CREATE INDEX IF NOT EXISTS "KelasMatkul_kelas_id_idx" ON "KelasMatkul" ("kelas_id");
 CREATE INDEX IF NOT EXISTS "KelasMatkul_matkul_id_idx" ON "KelasMatkul" ("matkul_id");
 CREATE INDEX IF NOT EXISTS "KelasMatkul_pj_id_idx" ON "KelasMatkul" ("pj_id");
+CREATE INDEX IF NOT EXISTS "KelasMatkul_group_locked_by_id_idx" ON "KelasMatkul" ("group_locked_by_id");
 
 -- PoinLog
 CREATE INDEX IF NOT EXISTS "PoinLog_kelas_matkul_id_idx" ON "PoinLog" ("kelas_matkul_id");
@@ -455,6 +608,21 @@ CREATE INDEX IF NOT EXISTS "MobileAuthRequest_expires_at_idx" ON "MobileAuthRequ
 CREATE INDEX IF NOT EXISTS "MobileAuthRequest_user_id_idx" ON "MobileAuthRequest" ("user_id");
 CREATE INDEX IF NOT EXISTS "MobileSession_user_id_revoked_at_idx" ON "MobileSession" ("user_id", "revoked_at");
 CREATE INDEX IF NOT EXISTS "MobileSession_refresh_expires_at_idx" ON "MobileSession" ("refresh_expires_at");
+
+-- Mobile group
+CREATE INDEX IF NOT EXISTS "GroupMessage_kelas_matkul_id_created_at_id_idx"
+    ON "GroupMessage" ("kelas_matkul_id", "created_at" DESC, "id" DESC);
+CREATE INDEX IF NOT EXISTS "GroupMessage_kelas_matkul_id_updated_at_idx"
+    ON "GroupMessage" ("kelas_matkul_id", "updated_at" DESC);
+CREATE INDEX IF NOT EXISTS "GroupMessage_author_id_idx" ON "GroupMessage" ("author_id");
+CREATE INDEX IF NOT EXISTS "GroupMessage_reply_to_id_idx" ON "GroupMessage" ("reply_to_id");
+CREATE INDEX IF NOT EXISTS "GroupMessage_kelas_matkul_id_pinned_at_idx"
+    ON "GroupMessage" ("kelas_matkul_id", "pinned_at" DESC);
+CREATE INDEX IF NOT EXISTS "GroupReport_message_id_status_idx" ON "GroupReport" ("message_id", "status");
+CREATE INDEX IF NOT EXISTS "GroupReport_reporter_id_created_at_idx"
+    ON "GroupReport" ("reporter_id", "created_at" DESC);
+CREATE INDEX IF NOT EXISTS "GroupReport_resolved_by_id_idx" ON "GroupReport" ("resolved_by_id");
+CREATE INDEX IF NOT EXISTS "GroupBlock_blocked_id_idx" ON "GroupBlock" ("blocked_id");
 
 -- AuditLog
 CREATE INDEX IF NOT EXISTS "AuditLog_kelas_id_created_at_idx"
@@ -573,8 +741,8 @@ ON CONFLICT ("name", "prodi_id", "semester_id") DO NOTHING;
 --  Nama             Email                                  NIM          Peran
 --  ------------------------------------------------------------------------
 --  Admin Karsa      admin@students.untidar.ac.id           NULL         admin
---  Budi Santoso     pj.budi@students.untidar.ac.id         2310501001   PJ
---  Siti Aminah      siti.aminah@students.untidar.ac.id     2310501002   mahasiswa
+--  Budi Santoso     pj.budi@students.untidar.ac.id         2310501001   PJ Algoritma
+--  Siti Aminah      siti.aminah@students.untidar.ac.id     2310501002   PJ Pemrograman Web
 --  Agus Santoso     agus.santoso@students.untidar.ac.id    2310501003   mahasiswa
 --  User Baru        user.baru@students.untidar.ac.id       2310501099   tanpa kelas
 --
@@ -589,11 +757,11 @@ VALUES
     ('usr_user_baru', 'User Baru',    '2310501099', 'user.baru@students.untidar.ac.id',   false, NULL,         CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
 ON CONFLICT ("email") DO NOTHING;
 
--- --- KelasMatkul: Budi sebagai PJ untuk 2 matkul di TI-01 -------------------
+-- --- KelasMatkul: satu PJ berbeda untuk setiap matkul di TI-01 --------------
 INSERT INTO "KelasMatkul" ("id", "kelas_id", "matkul_id", "pj_id", "created_at", "updated_at")
 VALUES
     ('km_algo_ti01', 'kelas_ti01', 'matkul_algo', 'usr_pj_budi', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP),
-    ('km_pweb_ti01', 'kelas_ti01', 'matkul_pweb', 'usr_pj_budi', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
+    ('km_pweb_ti01', 'kelas_ti01', 'matkul_pweb', 'usr_siti', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
 ON CONFLICT ("kelas_id", "matkul_id") DO NOTHING;
 
 -- --- 2 sample PoinLog (agar Fase 4A punya data hidup) -----------------------
@@ -603,7 +771,7 @@ INSERT INTO "PoinLog" ("id", "kelas_matkul_id", "mahasiswa_id", "pj_id", "katego
 VALUES
     ('pl_sample_001', 'km_algo_ti01', 'usr_siti', 'usr_pj_budi', 'kat_bertanya',
      3, 'Bertanya soal kompleksitas waktu algoritma sorting.', CURRENT_TIMESTAMP - INTERVAL '2 days'),
-    ('pl_sample_002', 'km_pweb_ti01', 'usr_agus', 'usr_pj_budi', 'kat_presentasi',
+    ('pl_sample_002', 'km_pweb_ti01', 'usr_agus', 'usr_siti', 'kat_presentasi',
      4, 'Presentasi demo CRUD sederhana dengan Next.js.',       CURRENT_TIMESTAMP - INTERVAL '1 day')
 ON CONFLICT ("id") DO NOTHING;
 

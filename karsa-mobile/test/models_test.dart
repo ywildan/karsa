@@ -73,4 +73,53 @@ void main() {
       ['YUSUF WILDAN AFFANDI', 'DEWILSON'],
     );
   });
+
+  test('GroupSummary membaca hak PJ hanya pada grup terkait', () {
+    final group = GroupSummary.fromJson({
+      'id': 'assignment-1',
+      'matkul': {'name': 'Basis Data', 'code': 'IF201'},
+      'kelas': {'name': 'A'},
+      'pj': {'id': 'pj-1', 'name': 'PJ Basis Data', 'image': null},
+      'member_count': 50,
+      'is_manager': true,
+      'is_locked': false,
+      'last_message': null,
+    });
+    expect(group.courseName, 'Basis Data');
+    expect(group.memberCount, 50);
+    expect(group.isManager, isTrue);
+  });
+
+  test('GroupMessagePage mempertahankan tombstone tanpa body', () {
+    final page = GroupMessagePage.fromJson({
+      'group': {'is_manager': false, 'is_locked': false},
+      'messages': [
+        {
+          'id': 'message-1',
+          'state': 'deleted',
+          'text': null,
+          'hidden_reason': null,
+          'edited_at': null,
+          'created_at': '2026-09-24T10:00:00.000Z',
+          'updated_at': '2026-09-24T10:01:00.000Z',
+          'is_pinned': false,
+          'is_own': true,
+          'can_edit': false,
+          'can_delete': false,
+          'can_manage': false,
+          'author': {
+            'id': 'user-1',
+            'name': 'Mahasiswa',
+            'image': null,
+            'is_group_manager': false,
+          },
+          'reply_to': null,
+        },
+      ],
+      'next_cursor': null,
+    });
+    expect(page.messages.single.state, 'deleted');
+    expect(page.messages.single.text, isNull);
+    expect(page.messages.single.canEdit, isFalse);
+  });
 }

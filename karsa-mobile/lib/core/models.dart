@@ -280,3 +280,242 @@ class LeaderboardEntry {
         isCurrentUser: json['isCurrentUser'] == true,
       );
 }
+
+class GroupPerson {
+  const GroupPerson({required this.id, required this.name, this.image});
+  final String id;
+  final String name;
+  final String? image;
+
+  factory GroupPerson.fromJson(Map<String, dynamic> json) => GroupPerson(
+        id: json['id'] as String,
+        name: json['name'] as String? ?? 'Tanpa nama',
+        image: json['image'] as String?,
+      );
+}
+
+class GroupSummary {
+  const GroupSummary({
+    required this.id,
+    required this.courseName,
+    required this.courseCode,
+    required this.className,
+    required this.manager,
+    required this.memberCount,
+    required this.isManager,
+    required this.isLocked,
+    this.lastMessage,
+  });
+  final String id;
+  final String courseName;
+  final String courseCode;
+  final String className;
+  final GroupPerson manager;
+  final int memberCount;
+  final bool isManager;
+  final bool isLocked;
+  final GroupMessagePreview? lastMessage;
+
+  factory GroupSummary.fromJson(Map<String, dynamic> json) {
+    final course = json['matkul'] as Map<String, dynamic>? ?? const {};
+    final classData = json['kelas'] as Map<String, dynamic>? ?? const {};
+    final last = json['last_message'] as Map<String, dynamic>?;
+    return GroupSummary(
+      id: json['id'] as String,
+      courseName: course['name'] as String? ?? 'Mata kuliah',
+      courseCode: course['code'] as String? ?? '',
+      className: classData['name'] as String? ?? 'Kelas',
+      manager: GroupPerson.fromJson(json['pj'] as Map<String, dynamic>),
+      memberCount: (json['member_count'] as num?)?.toInt() ?? 0,
+      isManager: json['is_manager'] == true,
+      isLocked: json['is_locked'] == true,
+      lastMessage: last == null ? null : GroupMessagePreview.fromJson(last),
+    );
+  }
+}
+
+class GroupMessagePreview {
+  const GroupMessagePreview({
+    required this.id,
+    required this.state,
+    required this.authorName,
+    required this.createdAt,
+    this.text,
+  });
+  final String id;
+  final String state;
+  final String authorName;
+  final DateTime createdAt;
+  final String? text;
+
+  factory GroupMessagePreview.fromJson(Map<String, dynamic> json) =>
+      GroupMessagePreview(
+        id: json['id'] as String,
+        state: json['state'] as String? ?? 'active',
+        text: json['text'] as String?,
+        authorName:
+            (json['author'] as Map<String, dynamic>?)?['name'] as String? ??
+                'Tanpa nama',
+        createdAt: DateTime.parse(json['created_at'] as String).toLocal(),
+      );
+}
+
+class GroupMessageAuthor extends GroupPerson {
+  const GroupMessageAuthor({
+    required super.id,
+    required super.name,
+    required this.isGroupManager,
+    super.image,
+  });
+  final bool isGroupManager;
+
+  factory GroupMessageAuthor.fromJson(Map<String, dynamic> json) =>
+      GroupMessageAuthor(
+        id: json['id'] as String,
+        name: json['name'] as String? ?? 'Tanpa nama',
+        image: json['image'] as String?,
+        isGroupManager: json['is_group_manager'] == true,
+      );
+}
+
+class GroupReply {
+  const GroupReply({
+    required this.id,
+    required this.state,
+    required this.author,
+    this.text,
+  });
+  final String id;
+  final String state;
+  final String? text;
+  final GroupMessageAuthor author;
+
+  factory GroupReply.fromJson(Map<String, dynamic> json) => GroupReply(
+        id: json['id'] as String,
+        state: json['state'] as String? ?? 'active',
+        text: json['text'] as String?,
+        author: GroupMessageAuthor.fromJson(
+          json['author'] as Map<String, dynamic>,
+        ),
+      );
+}
+
+class GroupMessageItem {
+  const GroupMessageItem({
+    required this.id,
+    required this.state,
+    required this.author,
+    required this.createdAt,
+    required this.updatedAt,
+    required this.isPinned,
+    required this.isOwn,
+    required this.canEdit,
+    required this.canDelete,
+    required this.canManage,
+    this.text,
+    this.hiddenReason,
+    this.editedAt,
+    this.replyTo,
+  });
+  final String id;
+  final String state;
+  final String? text;
+  final String? hiddenReason;
+  final DateTime? editedAt;
+  final DateTime createdAt;
+  final DateTime updatedAt;
+  final bool isPinned;
+  final bool isOwn;
+  final bool canEdit;
+  final bool canDelete;
+  final bool canManage;
+  final GroupMessageAuthor author;
+  final GroupReply? replyTo;
+
+  factory GroupMessageItem.fromJson(Map<String, dynamic> json) {
+    final reply = json['reply_to'] as Map<String, dynamic>?;
+    return GroupMessageItem(
+      id: json['id'] as String,
+      state: json['state'] as String? ?? 'active',
+      text: json['text'] as String?,
+      hiddenReason: json['hidden_reason'] as String?,
+      editedAt: json['edited_at'] == null
+          ? null
+          : DateTime.parse(json['edited_at'] as String).toLocal(),
+      createdAt: DateTime.parse(json['created_at'] as String).toLocal(),
+      updatedAt: DateTime.parse(json['updated_at'] as String).toLocal(),
+      isPinned: json['is_pinned'] == true,
+      isOwn: json['is_own'] == true,
+      canEdit: json['can_edit'] == true,
+      canDelete: json['can_delete'] == true,
+      canManage: json['can_manage'] == true,
+      author: GroupMessageAuthor.fromJson(
+        json['author'] as Map<String, dynamic>,
+      ),
+      replyTo: reply == null ? null : GroupReply.fromJson(reply),
+    );
+  }
+}
+
+class GroupMessagePage {
+  const GroupMessagePage({
+    required this.messages,
+    required this.isManager,
+    required this.isLocked,
+    this.nextCursor,
+  });
+  final List<GroupMessageItem> messages;
+  final bool isManager;
+  final bool isLocked;
+  final String? nextCursor;
+
+  factory GroupMessagePage.fromJson(Map<String, dynamic> json) {
+    final group = json['group'] as Map<String, dynamic>? ?? const {};
+    return GroupMessagePage(
+      messages: (json['messages'] as List)
+          .map((item) =>
+              GroupMessageItem.fromJson(item as Map<String, dynamic>))
+          .toList(),
+      isManager: group['is_manager'] == true,
+      isLocked: group['is_locked'] == true,
+      nextCursor: json['next_cursor'] as String?,
+    );
+  }
+}
+
+class GroupReportItem {
+  const GroupReportItem({
+    required this.id,
+    required this.reason,
+    required this.createdAt,
+    required this.reporterName,
+    required this.messageId,
+    required this.authorName,
+    this.details,
+    this.messageText,
+  });
+  final String id;
+  final String reason;
+  final String? details;
+  final DateTime createdAt;
+  final String reporterName;
+  final String messageId;
+  final String authorName;
+  final String? messageText;
+
+  factory GroupReportItem.fromJson(Map<String, dynamic> json) {
+    final reporter = json['reporter'] as Map<String, dynamic>? ?? const {};
+    final message = json['message'] as Map<String, dynamic>? ?? const {};
+    final author = message['author'] as Map<String, dynamic>? ?? const {};
+    return GroupReportItem(
+      id: json['id'] as String,
+      reason: json['reason'] as String? ?? 'OTHER',
+      details: json['details'] as String?,
+      createdAt: DateTime.parse(json['created_at'] as String).toLocal(),
+      reporterName: reporter['name'] as String? ?? 'Tanpa nama',
+      messageId: message['id'] as String,
+      authorName: author['name'] as String? ?? 'Tanpa nama',
+      messageText: message['body'] as String?,
+    );
+  }
+}

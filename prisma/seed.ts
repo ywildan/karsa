@@ -9,9 +9,9 @@
  *
  *   B. DATA UJI (test users) — dijalankan kecuali SEED_TEST_DATA=false
  *      · 1 Prodi TI · 2 Matkul · 1 Kelas TI-01
- *      · 5 test user @students.untidar.ac.id (admin, PJ, 2 mahasiswa,
+ *      · 5 test user @students.untidar.ac.id (admin, 2 PJ, 1 mahasiswa,
  *        1 user tanpa kelas)
- *      · 2 KelasMatkul (Budi sebagai PJ) · 2 sample PoinLog
+ *      · 2 KelasMatkul (PJ berbeda) · 2 sample PoinLog
  *
  *      Data uji ini dipakai Dev Quick Login (Fase 1) supaya bisa ganti role
  *      tanpa akun Google asli. JANGAN dijalankan di database produksi —
@@ -276,11 +276,11 @@ async function seedTestUsers(): Promise<void> {
   }
 }
 
-/** Budi sebagai PJ untuk 2 matkul di TI-01. */
+/** Satu PJ berbeda untuk setiap matkul di TI-01. */
 async function seedKelasMatkul(): Promise<void> {
   const daftar = [
-    { id: KM_ALGO_TI01_ID, matkul_id: MATKUL_ALGO_ID },
-    { id: KM_PWEB_TI01_ID, matkul_id: MATKUL_PWEB_ID },
+    { id: KM_ALGO_TI01_ID, matkul_id: MATKUL_ALGO_ID, pj_id: "usr_pj_budi" },
+    { id: KM_PWEB_TI01_ID, matkul_id: MATKUL_PWEB_ID, pj_id: "usr_siti" },
   ];
 
   for (const item of daftar) {
@@ -289,16 +289,16 @@ async function seedKelasMatkul(): Promise<void> {
       update: {
         kelas_id: KELAS_TI01_ID,
         matkul_id: item.matkul_id,
-        pj_id: "usr_pj_budi",
+        pj_id: item.pj_id,
       },
       create: {
         id: item.id,
         kelas_id: KELAS_TI01_ID,
         matkul_id: item.matkul_id,
-        pj_id: "usr_pj_budi",
+        pj_id: item.pj_id,
       },
     });
-    console.log(`  · KelasMatkul: ${hasil.id} — PJ usr_pj_budi`);
+    console.log(`  · KelasMatkul: ${hasil.id} — PJ ${item.pj_id}`);
   }
 }
 
@@ -314,6 +314,7 @@ async function seedSamplePoinLog(): Promise<void> {
       kelas_matkul_id: KM_ALGO_TI01_ID,
       mahasiswa_id: "usr_siti",
       kategori_id: "kat_bertanya",
+      pj_id: "usr_pj_budi",
       poin: 3,
       catatan: "Bertanya soal kompleksitas waktu algoritma sorting.",
       created_at: daysAgo(2),
@@ -323,6 +324,7 @@ async function seedSamplePoinLog(): Promise<void> {
       kelas_matkul_id: KM_PWEB_TI01_ID,
       mahasiswa_id: "usr_agus",
       kategori_id: "kat_presentasi",
+      pj_id: "usr_siti",
       poin: 4,
       catatan: "Presentasi demo CRUD sederhana dengan Next.js.",
       created_at: daysAgo(1),
@@ -333,7 +335,7 @@ async function seedSamplePoinLog(): Promise<void> {
     const hasil = await prisma.poinLog.upsert({
       where: { id: log.id },
       update: {},
-      create: { ...log, pj_id: "usr_pj_budi" },
+      create: log,
     });
     console.log(`  · PoinLog: ${hasil.id} — ${hasil.poin} poin`);
   }

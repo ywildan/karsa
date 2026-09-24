@@ -157,6 +157,135 @@ class ApiClient {
         .toList();
   }
 
+  Future<List<GroupSummary>> groups() async {
+    final data = await _request('GET', '/groups') as List;
+    return data
+        .map((item) => GroupSummary.fromJson(item as Map<String, dynamic>))
+        .toList();
+  }
+
+  Future<GroupMessagePage> groupMessages(
+    String assignmentId, {
+    String? cursor,
+  }) async {
+    final data = await _request(
+      'GET',
+      '/groups/$assignmentId/messages${cursor == null ? '' : '?cursor=${Uri.encodeQueryComponent(cursor)}'}',
+    ) as Map<String, dynamic>;
+    return GroupMessagePage.fromJson(data);
+  }
+
+  Future<GroupMessageItem> sendGroupMessage({
+    required String assignmentId,
+    required String text,
+    required String idempotencyKey,
+    String? replyToId,
+  }) async {
+    final data = await _request(
+      'POST',
+      '/groups/$assignmentId/messages',
+      extraHeaders: {'Idempotency-Key': idempotencyKey},
+      body: {'text': text, 'reply_to_id': replyToId},
+    ) as Map<String, dynamic>;
+    return GroupMessageItem.fromJson(data);
+  }
+
+  Future<GroupMessageItem> editGroupMessage(
+    String assignmentId,
+    String messageId,
+    String text,
+  ) async {
+    final data = await _request(
+      'PATCH',
+      '/groups/$assignmentId/messages/$messageId',
+      body: {'text': text},
+    ) as Map<String, dynamic>;
+    return GroupMessageItem.fromJson(data);
+  }
+
+  Future<GroupMessageItem> deleteGroupMessage(
+    String assignmentId,
+    String messageId,
+  ) async {
+    final data = await _request(
+      'DELETE',
+      '/groups/$assignmentId/messages/$messageId',
+    ) as Map<String, dynamic>;
+    return GroupMessageItem.fromJson(data);
+  }
+
+  Future<GroupMessageItem> pinGroupMessage(
+    String assignmentId,
+    String messageId,
+    bool pinned,
+  ) async {
+    final data = await _request(
+      'POST',
+      '/groups/$assignmentId/messages/$messageId/pin',
+      body: {'pinned': pinned},
+    ) as Map<String, dynamic>;
+    return GroupMessageItem.fromJson(data);
+  }
+
+  Future<void> lockGroup(String assignmentId, bool locked) async {
+    await _request(
+      'POST',
+      '/groups/$assignmentId/lock',
+      body: {'locked': locked},
+    );
+  }
+
+  Future<GroupMessageItem> hideGroupMessage(
+    String assignmentId,
+    String messageId, {
+    required bool hidden,
+    String? reason,
+  }) async {
+    final data = await _request(
+      'POST',
+      '/groups/$assignmentId/messages/$messageId/hide',
+      body: {'hidden': hidden, 'reason': reason},
+    ) as Map<String, dynamic>;
+    return GroupMessageItem.fromJson(data);
+  }
+
+  Future<bool> reportGroupMessage(
+    String assignmentId,
+    String messageId, {
+    required String reason,
+    String? details,
+  }) async {
+    final data = await _request(
+      'POST',
+      '/groups/$assignmentId/messages/$messageId/reports',
+      body: {'reason': reason, 'details': details},
+    ) as Map<String, dynamic>;
+    return data['auto_hidden'] == true;
+  }
+
+  Future<void> setGroupBlock(String userId, bool blocked) async {
+    await _request(blocked ? 'PUT' : 'DELETE', '/groups/blocks/$userId');
+  }
+
+  Future<List<GroupReportItem>> groupReports(String assignmentId) async {
+    final data = await _request('GET', '/groups/$assignmentId/reports') as List;
+    return data
+        .map((item) => GroupReportItem.fromJson(item as Map<String, dynamic>))
+        .toList();
+  }
+
+  Future<void> resolveGroupReport(
+    String assignmentId,
+    String reportId,
+    String action,
+  ) async {
+    await _request(
+      'POST',
+      '/groups/$assignmentId/reports/$reportId/resolve',
+      body: {'action': action},
+    );
+  }
+
   Future<dynamic> _request(
     String method,
     String path, {

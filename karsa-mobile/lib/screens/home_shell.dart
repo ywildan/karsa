@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../core/app_controller.dart';
 import 'account_screen.dart';
+import 'group_list_screen.dart';
 import 'leaderboard_screen.dart';
 import 'point_form_screen.dart';
 import 'point_history_screen.dart';
@@ -22,6 +23,7 @@ class _HomeShellState extends State<HomeShell> {
   Widget build(BuildContext context) {
     final isPj = widget.controller.user!.capabilities.recordPoints;
     final pages = <Widget>[
+      GroupListScreen(api: widget.controller.api),
       if (isPj) PointFormScreen(api: widget.controller.api),
       if (isPj) PointHistoryScreen(api: widget.controller.api),
       ReportScreen(api: widget.controller.api),
@@ -29,6 +31,7 @@ class _HomeShellState extends State<HomeShell> {
       AccountScreen(controller: widget.controller),
     ];
     final destinations = <NavigationDestination>[
+      const NavigationDestination(icon: Icon(Icons.forum_outlined), selectedIcon: Icon(Icons.forum), label: 'Grup'),
       if (isPj)
         const NavigationDestination(icon: Icon(Icons.add_circle_outline), selectedIcon: Icon(Icons.add_circle), label: 'Poin'),
       if (isPj)

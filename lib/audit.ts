@@ -15,6 +15,7 @@ export type AuditActor = {
   id: string;
   name: string;
   is_admin: boolean;
+  role?: "ADMIN" | "PJ" | "MAHASISWA";
 };
 
 export type AuditInput = {
@@ -56,7 +57,7 @@ export async function logAudit(
     data: {
       actor_id: input.actor.id,
       actor_name: input.actor.name,
-      actor_role: input.actor.is_admin ? "ADMIN" : "PJ",
+      actor_role: input.actor.role ?? (input.actor.is_admin ? "ADMIN" : "PJ"),
       action: input.action,
       entity_type: input.entity.type,
       entity_id: input.entity.id,
