@@ -531,3 +531,18 @@ harian belum diaktifkan sampai uji manual dan restore terisolasi berhasil.
 - Workflow backup diperbaiki agar checksum baru hanya memuat nama file.
 - Workflow restore diperbaiki agar membandingkan nilai SHA-256 tanpa bergantung
   pada path; cara ini juga kompatibel dengan artifact pertama.
+
+### Uji Restore Kedua — Credential Target Dirotasi
+
+- Verifikasi checksum, dekripsi, dan validasi struktur dump berhasil.
+- Pemeriksaan marker gagal sebelum restore karena password pada connection URI
+  target mengandung karakter khusus yang belum di-encode; parser menempatkan
+  sebagian credential pada hostname dan pesan error memasukkannya ke log.
+- Run GitHub Actions beserta log terkait segera dihapus. Schema `public` target
+  belum disentuh dan production tidak terlibat.
+- Password database project uji dinyatakan terpapar sebagian dan wajib dirotasi;
+  nilai credential tidak dicatat di dokumen ini.
+- Validasi awal diperketat: URL restore hanya menerima bentuk Session Pooler
+  yang diharapkan dan password acak alfanumerik sepanjang 48–64 karakter.
+- Uji restore tidak boleh dilanjutkan sebelum password project uji direset dan
+  repository secret `RESTORE_TEST_DATABASE_URL` diperbarui.
