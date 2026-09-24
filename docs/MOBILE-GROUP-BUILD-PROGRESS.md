@@ -273,6 +273,22 @@ dibutuhkan:
   26 policy berhasil.
 - File dump plaintext sementara dihapus oleh cleanup job.
 
+### 24 September 2026 — Smoke test API terisolasi
+
+- GitHub Actions run `36015498388` selesai sukses pada commit `d0b3205`.
+- PostgreSQL 17 sementara dibuat oleh runner; schema Prisma dan seed uji dimuat
+  tanpa menyentuh production maupun restore-test.
+- Endpoint Next.js asli lolos skenario unauthenticated, admin/no-class,
+  membership lintas kelas, hak PJ per-grup, idempotency, reply lintas grup,
+  lock, pin, edit lewat 15 menit, tombstone delete, report tiga pengguna,
+  self-report/self-moderation, block lintas kelas, dan token revoke.
+- Fresh-database smoke menemukan dan memperbaiki seed lama yang memakai ID
+  kategori hardcoded; seed sekarang mengambil ID kategori aktual berdasarkan nama.
+- Regresi Flutter analyzer, test, release APK, dan upload artifact tetap sukses.
+- Artifact APK: `karsa-mobile-apk-d0b3205d194b88d225ccf6f02d54ec870d029743`,
+  ID `10813639746`, digest
+  `sha256:b16ebd84eaf1fb01e2a955e6d93f42be3281963b8813fcb3cab9619531f8349f`.
+
 ## Dokumen Terkait
 
 - `DEEP_RESEARCH_MOBILE_GROUP_PRIVACY.md`
