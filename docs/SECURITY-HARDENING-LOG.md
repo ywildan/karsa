@@ -736,3 +736,31 @@ lainnya. Branch `security/app-hardening` menambahkan:
 CSP penuh belum dipasang karena Next.js memerlukan desain nonce/hash yang harus
 diuji pada render server, hydration, dan OAuth. Memasang CSP ketat tanpa desain
 tersebut berisiko merusak aplikasi dan bukan perubahan aman untuk tahap ini.
+
+### Hasil Security Headers
+
+- Vercel Preview berhasil dan pemilik sistem mengonfirmasi login Google,
+  halaman PJ, catat poin, foto/UI, mata kuliah, pencarian mahasiswa, dan logout
+  tetap normal.
+- Pull request `#24` di-merge ke `main` dan deployment production berhasil.
+- Pemeriksaan langsung pada landing, login, dan endpoint Auth.js membuktikan
+  ketujuh header aplikasi aktif bersama HSTS Vercel.
+
+## Step 12C — Desain Rate Limiting
+
+Dokumentasi Vercel yang diperiksa pada 24 September 2026 menyatakan paket Hobby
+menyediakan satu WAF rate limiting rule per project, fixed-window 10 detik sampai
+10 menit, dengan counting key IP atau JA4. Karena Karsa hanya memerlukan satu
+perlindungan publik utama, keputusan awalnya:
+
+- gunakan WAF Vercel, bukan write tambahan ke database;
+- lindungi prefix `/api/mobile/v1/auth/` yang mencakup pembuatan permintaan
+  login, pertukaran authorization code, refresh token, dan logout;
+- gunakan source key IP dan fixed window;
+- mulai pada mode Log untuk observasi sebelum respons 429 diaktifkan;
+- angka awal yang disarankan adalah 200 request per IP per 1 menit agar satu
+  jaringan kampus tidak mudah memblokir login kelas secara kolektif.
+
+Konfigurasi firewall adalah perubahan dashboard eksternal dan harus diterapkan
+oleh pemilik project Vercel, lalu diverifikasi melalui observability sebelum
+mode blocking diaktifkan.
