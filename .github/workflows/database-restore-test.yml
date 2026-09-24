@@ -1,0 +1,135 @@
+name: Verify Database Restore
+
+on:
+  workflow_dispatch:
+    inputs:
+      backup_run_id:
+        description: GitHub Actions run ID that produced the encrypted backup
+        required: true
+        type: string
+      confirm_target:
+        description: Type karsa-restore-test to confirm the isolated target
+        required: true
+        type: string
+
+permissions:
+  actions: read
+  contents: read
+
+concurrency:
+  group: karsa-database-restore-test
+  cancel-in-progress: false
+
+jobs:
+  restore:
+    name: Restore into isolated database
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    env:
+      RESTORE_TEST_DATABASE_URL: ${{ secrets.RESTORE_TEST_DATABASE_URL }}
+      BACKUP_ENCRYPTION_PASSWORD: ${{ secrets.BACKUP_ENCRYPTION_PASSWORD }}
+      RESTORE_CONFIRMATION: ${{ inputs.confirm_target }}
+      BACKUP_RUN_ID: ${{ inputs.backup_run_id }}
+
+    steps:
+      - name: Validate request and secrets
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$RESTORE_CONFIRMATION" = "karsa-restore-test"
+          [[ "$BACKUP_RUN_ID" =~ ^[0-9]+$ ]]
+          test -n "$RESTORE_TEST_DATABASE_URL"
+          test -n "$BACKUP_ENCRYPTION_PASSWORD"
+          if [[ "$BACKUP_ENCRYPTION_PASSWORD" == *$'\n'* || "$BACKUP_ENCRYPTION_PASSWORD" == *$'\r'* ]]; then
+            echo "::error::BACKUP_ENCRYPTION_PASSWORD must be a single line without CR/LF characters."
+            exit 1
+          fi
+
+      - name: Download encrypted backup
+        uses: actions/download-artifact@v4
+        with:
+          name: karsa-database-backup-${{ inputs.backup_run_id }}
+          path: ${{ runner.temp }}/encrypted-backup
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          run-id: ${{ inputs.backup_run_id }}
+
+      - name: Verify checksum and decrypt backup
+        shell: bash
+        run: |
+          set -euo pipefail
+          cd "$RUNNER_TEMP/encrypted-backup"
+          sha256sum --check karsa-backup.dump.enc.sha256
+          openssl enc -d -aes-256-cbc \
+            -pbkdf2 \
+            -iter 600000 \
+            -md sha256 \
+            -in karsa-backup.dump.enc \
+            -out "$RUNNER_TEMP/karsa-restore.dump" \
+            -pass env:BACKUP_ENCRYPTION_PASSWORD
+          test -s "$RUNNER_TEMP/karsa-restore.dump"
+
+      - name: Validate decrypted backup structure
+        shell: bash
+        run: |
+          set -euo pipefail
+          docker run --rm -i postgres:17 \
+            pg_restore --list \
+            < "$RUNNER_TEMP/karsa-restore.dump" \
+            > "$RUNNER_TEMP/karsa-restore-contents.txt"
+          test -s "$RUNNER_TEMP/karsa-restore-contents.txt"
+
+      - name: Verify isolated restore target
+        shell: bash
+        run: |
+          set -euo pipefail
+          CLEAN_RESTORE_URL="$(printf '%s' "$RESTORE_TEST_DATABASE_URL" | tr -d '\r\n')"
+          test -n "$CLEAN_RESTORE_URL"
+          MARKER_SQL="select marker from restore_guard.target where id = true"
+          MARKER="$(docker run --rm \
+            -e RESTORE_TEST_DATABASE_URL="$CLEAN_RESTORE_URL" \
+            -e MARKER_SQL \
+            postgres:17 \
+            sh -c 'exec psql "$RESTORE_TEST_DATABASE_URL" --no-psqlrc --tuples-only --no-align --set=ON_ERROR_STOP=1 --command="$MARKER_SQL"')"
+          test "$MARKER" = "KARSA_RESTORE_TEST_ONLY"
+
+      - name: Restore public schema atomically
+        shell: bash
+        run: |
+          set -euo pipefail
+          CLEAN_RESTORE_URL="$(printf '%s' "$RESTORE_TEST_DATABASE_URL" | tr -d '\r\n')"
+          docker run --rm \
+            -e RESTORE_TEST_DATABASE_URL="$CLEAN_RESTORE_URL" \
+            -v "$RUNNER_TEMP:/restore:ro" \
+            postgres:17 \
+            sh -c 'exec pg_restore \
+              --dbname="$RESTORE_TEST_DATABASE_URL" \
+              --schema=public \
+              --clean \
+              --if-exists \
+              --no-owner \
+              --no-privileges \
+              --single-transaction \
+              --exit-on-error \
+              /restore/karsa-restore.dump'
+
+      - name: Verify restored application tables
+        shell: bash
+        run: |
+          set -euo pipefail
+          CLEAN_RESTORE_URL="$(printf '%s' "$RESTORE_TEST_DATABASE_URL" | tr -d '\r\n')"
+          VERIFY_SQL="select count(*) from information_schema.tables where table_schema = 'public' and table_name in ('Account', 'AuditLog', 'KategoriPoin', 'Kelas', 'KelasMatkul', 'Matkul', 'MobileAuthRequest', 'MobileSession', 'PoinLog', 'Prodi', 'Semester', 'Session', 'User', 'VerificationToken')"
+          TABLE_COUNT="$(docker run --rm \
+            -e RESTORE_TEST_DATABASE_URL="$CLEAN_RESTORE_URL" \
+            -e VERIFY_SQL \
+            postgres:17 \
+            sh -c 'exec psql "$RESTORE_TEST_DATABASE_URL" --no-psqlrc --tuples-only --no-align --set=ON_ERROR_STOP=1 --command="$VERIFY_SQL"')"
+          test "$TABLE_COUNT" = "14"
+
+      - name: Remove temporary restore files
+        if: always()
+        shell: bash
+        run: |
+          rm -rf \
+            "$RUNNER_TEMP/encrypted-backup" \
+            "$RUNNER_TEMP/karsa-restore.dump" \
+            "$RUNNER_TEMP/karsa-restore-contents.txt"

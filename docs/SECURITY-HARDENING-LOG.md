@@ -504,3 +504,20 @@ harian belum diaktifkan sampai uji manual dan restore terisolasi berhasil.
 - Seluruh file dump sementara, termasuk plaintext, dibersihkan dari runner.
 - Step 10 belum dinyatakan selesai sampai dekripsi diverifikasi dan dump diuji
   restore pada database terisolasi yang bukan production.
+
+## Step 10D — Persiapan Restore Terisolasi
+
+- Project Supabase Free terpisah bernama `karsa-restore-test` dibuat khusus
+  untuk uji pemulihan dan tidak dihubungkan ke Vercel.
+- Target restore memakai password database project uji, bukan credential
+  production, `karsa_backup`, `karsa_runtime`, atau password enkripsi.
+- Connection string target disimpan sebagai repository secret
+  `RESTORE_TEST_DATABASE_URL`.
+- Schema `restore_guard` dan marker `KARSA_RESTORE_TEST_ONLY` digunakan sebagai
+  interlock; workflow dilarang menjalankan restore jika marker tidak ditemukan.
+- Workflow restore manual `.github/workflows/database-restore-test.yml`
+  mengunduh artifact berdasarkan run ID, memverifikasi checksum, mendekripsi,
+  memvalidasi struktur dump, memeriksa marker target, lalu memulihkan schema
+  `public` dalam satu transaksi.
+- Restore hanya dianggap valid jika seluruh 14 tabel aplikasi ditemukan setelah
+  proses selesai. File plaintext dibersihkan dari runner pada semua kondisi.
