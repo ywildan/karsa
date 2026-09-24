@@ -310,7 +310,14 @@ dibutuhkan:
   menampilkan strip pesan pin di atas timeline.
 - API pesan kini menyertakan hingga 10 pesan aktif yang dipin agar banner tetap
   tampil meski pesannya lebih lama daripada halaman cursor pertama.
-- APK dengan perubahan UI belum dibangun/dipasang; menunggu CI dan uji ulang.
+- CI GitHub Actions run `36027585054` sukses: typecheck/test API, format,
+  analyzer, test Flutter, release APK, dan upload artifact.
+- Artifact APK: `karsa-mobile-apk-302341c8aacd71dc11416c2e2354ca6335c27d42`,
+  ID `10819847706`, digest
+  `sha256:bad27949bd66d77f8b66e8fdc8428471a6ea9dde7453537af51238a177e872fb`.
+- Commit `302341c` beserta API pinned messages sudah di-fast-forward ke `main`
+  agar deployment production menyajikan data untuk strip pin.
+- Menunggu user memasang APK artifact dan menguji pin/unpin di HP.
 
 ### 24 September 2026 — Retention implementation
 
