@@ -86,7 +86,7 @@ jobs:
         shell: bash
         run: |
           set +e
-          flutter analyze --machine 2>&1 | tee flutter-analyze.log
+          dart analyze --format=machine . 2>&1 | tee flutter-analyze.log
           analyze_status=${PIPESTATUS[0]}
           set -e
 
