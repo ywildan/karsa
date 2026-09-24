@@ -701,3 +701,18 @@ tidak boleh diinstal lokal, workflow satu-kali
 
 Production tidak menerima upgrade sampai branch tersebut ditinjau dan lulus
 pengujian lanjutan.
+
+### Hasil Upgrade Auth.js
+
+- Workflow GitHub Actions run `35963764700` berhasil membuat lockfile,
+  menjalankan clean install, Prisma generate, typecheck, dan audit pada level
+  critical tanpa instalasi lokal.
+- Vercel Preview berhasil dibangun dan pemilik sistem mengonfirmasi login Google,
+  halaman PJ, catat poin, pemuatan mata kuliah, pencarian mahasiswa, riwayat,
+  dan logout bekerja normal.
+- Pull request `#23` di-merge ke `main`; `next-auth` sekarang berada pada
+  `5.0.0-beta.32` dan dependency transitif `@auth/core` pada `0.41.3`.
+- Workflow pembaruan satu-kali dihapus setelah merge agar permission
+  `contents: write` tidak tertinggal sebagai workflow aktif.
+- Advisory critical Auth.js yang menjadi pemicu upgrade dinyatakan tertangani;
+  deployment production tetap harus dipantau setelah commit cleanup ini.
