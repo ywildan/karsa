@@ -26,6 +26,14 @@ jobs:
           set -euo pipefail
           test -n "$BACKUP_DATABASE_URL"
           test -n "$BACKUP_ENCRYPTION_PASSWORD"
+          if [[ "$BACKUP_DATABASE_URL" == *$'\n'* || "$BACKUP_DATABASE_URL" == *$'\r'* ]]; then
+            echo "::error::BACKUP_DATABASE_URL must be a single line without CR/LF characters."
+            exit 1
+          fi
+          if [[ "$BACKUP_ENCRYPTION_PASSWORD" == *$'\n'* || "$BACKUP_ENCRYPTION_PASSWORD" == *$'\r'* ]]; then
+            echo "::error::BACKUP_ENCRYPTION_PASSWORD must be a single line without CR/LF characters."
+            exit 1
+          fi
 
       - name: Create logical backup with PostgreSQL 17
         shell: bash

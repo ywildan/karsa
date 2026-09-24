@@ -455,5 +455,17 @@ karakteristik berikut:
 - eksekusi paralel backup dicegah melalui concurrency group.
 
 Workflow memerlukan repository secrets `BACKUP_DATABASE_URL` dan
-`BACKUP_ENCRYPTION_PASSWORD`. Workflow belum didorong ke GitHub dan jadwal
-harian belum diaktifkan sampai kedua secret siap.
+`BACKUP_ENCRYPTION_PASSWORD`. Workflow sudah didorong ke GitHub, tetapi jadwal
+harian belum diaktifkan sampai uji manual dan restore terisolasi berhasil.
+
+### Uji Manual Pertama
+
+- Workflow dikenali GitHub dan dipicu manual pada 24 September 2026.
+- Validasi keberadaan kedua secret berhasil.
+- `pg_dump` berhenti sebelum mengekspor data karena
+  `BACKUP_DATABASE_URL` mengandung karakter baris baru setelah nilai
+  `sslmode=require`.
+- Tidak ada dump atau artefak yang diunggah; cleanup runner berhasil.
+- Validasi CR/LF ditambahkan untuk kedua secret agar kesalahan serupa gagal
+  lebih awal tanpa mencoba koneksi database.
+- Secret URL harus diperbarui menjadi tepat satu baris sebelum uji ulang.
