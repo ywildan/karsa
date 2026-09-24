@@ -226,3 +226,12 @@ dapat beralih menjadi atau mewarisi `karsa_runtime`. Tidak perlu dilakukan
 
 Jalankan Step 5B untuk menguji password dan pooler lewat Preview Deployment
 Vercel yang terisolasi dari environment Production.
+
+### Persiapan Step 5B
+
+- Branch uji: `security/runtime-role-test`
+- Commit awal jurnal: `180a629`
+- Branch sudah dipush ke GitHub pada 24 September 2026.
+- Branch tidak digabung ke `main` dan tidak mengubah Production.
+- Override `DATABASE_URL` dan `DIRECT_URL` khusus branch Preview masih harus
+  dipasang sebelum deployment uji role baru dijalankan ulang.
