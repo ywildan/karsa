@@ -479,3 +479,14 @@ harian belum diaktifkan sampai uji manual dan restore terisolasi berhasil.
   sebelum memanggil `pg_dump`; URL dan hasil normalisasi tidak dicetak.
 - Password enkripsi tetap wajib benar-benar satu baris dan tidak dinormalisasi
   agar selalu identik dengan salinan yang disimpan di password manager.
+
+### Uji Manual Ketiga
+
+- Normalisasi URL berhasil dan autentikasi `karsa_backup` diterima database.
+- `pg_dump` kemudian ditolak saat mencoba mengunci schema internal Supabase
+  (`auth`, `storage`, dan `realtime`) yang memang tidak diberikan kepada role
+  backup aplikasi.
+- Tidak ada artefak yang dibuat dan cleanup runner berhasil.
+- Dump dibatasi secara eksplisit ke schema `public`, tempat seluruh 14 tabel
+  Karsa berada. Schema internal yang dikelola Supabase tidak termasuk cakupan
+  backup logis aplikasi ini.
