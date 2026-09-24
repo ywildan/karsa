@@ -11,12 +11,11 @@ tanpa bergantung pada riwayat percakapan.
 
 - Terakhir diperbarui: 24 September 2026 (WIB)
 - Lingkungan: Supabase production + Vercel production
-- Tahap aktif: rotasi password administratif `postgres`
+- Tahap aktif: menyiapkan backup terenkripsi untuk paket Free
 - Perubahan database selama proses ini: role, grant minimum, dan policy RLS
-  `karsa_runtime` sudah dibuat
-- Perubahan environment Vercel selama proses ini: Preview dan nilai untuk
-  deployment Production berikutnya memakai `karsa_runtime`; deployment
-  Production aktif belum diredeploy pada saat catatan ini dibuat
+  `karsa_runtime` sudah dibuat; role baca-saja `karsa_backup` juga sudah dibuat
+- Perubahan environment Vercel selama proses ini: Production dan Preview sudah
+  memakai `karsa_runtime`; tidak ada credential `postgres` di Vercel
 - Perubahan kode aplikasi: belum ada
 
 ## Sasaran
@@ -117,7 +116,7 @@ RLS dan pencabutan grant publik tidak membatasi koneksi tersebut.
   transaksi admin secara rollback-only.
 - [x] Step 7 — Ganti environment production dan redeploy.
 - [x] Step 8 — Pantau, verifikasi, lalu keluarkan `postgres` dari Vercel.
-- [ ] Step 9 — Rotasi password `postgres`.
+- [x] Step 9 — Rotasi password `postgres`.
 - [ ] Step 10 — Buat role backup, backup terenkripsi, dan uji restore terisolasi.
 - [ ] Step 11 — Perbaiki dokumentasi backup Free/Pro.
 - [ ] Step 12 — Hardening aplikasi: rate limiting, security headers, dan perilaku
@@ -364,3 +363,97 @@ role production; pengujian permission-nya diganti dengan transaksi rollback-only
 - Kredensial runtime di Vercel hanya menggunakan `karsa_runtime`.
 - Password `postgres` tetap merupakan credential administratif dan harus
   dirotasi pada Step 9.
+
+## Hasil Step 9 — Rotasi Password Administrator
+
+- Project database password untuk role `postgres` telah direset satu kali pada
+  24 September 2026.
+- Password akun Supabase, password role `postgres`, dan password
+  `karsa_runtime` diperlakukan sebagai tiga credential yang berbeda.
+- Password lama `postgres` tidak lagi berlaku.
+- Karsa tidak memerlukan pembaruan environment setelah rotasi karena Production
+  dan Preview memakai password `karsa_runtime`.
+- Deployment Production dan smoke test tetap sehat setelah rotasi.
+
+## Step 10A — Inventaris Backup
+
+- PostgreSQL: 17.6.
+- Ukuran database: 12 MB.
+- Jumlah estimasi baris schema `public`: 29.
+- Tabel terbesar berdasarkan estimasi saat audit: `AuditLog` dan `Matkul`,
+  masing-masing 8 baris.
+- `MobileAuthRequest`, `Session`, dan `VerificationToken` kosong.
+- Backup harian penuh layak dilakukan karena ukuran masih sangat kecil.
+- Workflow harus memakai `pg_dump` major version 17.
+
+## Step 10B — Role Backup Read-only
+
+Role `karsa_backup` dibuat pada 24 September 2026 khusus untuk proses backup
+logis lengkap.
+
+| Atribut | Nilai |
+| --- | --- |
+| Login | Ya |
+| Superuser | Tidak |
+| Create role | Tidak |
+| Create database | Tidak |
+| Inherit | Tidak |
+| Replication | Tidak |
+| Bypass RLS | Ya |
+| Connection limit | 2 |
+
+- Role memperoleh `CONNECT` ke database `postgres` dan `USAGE` pada schema
+  `public`, tetapi tidak memperoleh `CREATE` pada schema.
+- Role hanya memperoleh `SELECT` pada seluruh tabel dan sequence di schema
+  `public`, termasuk default privilege untuk objek baru yang dibuat oleh
+  `postgres`.
+- `BYPASSRLS` sengaja diberikan agar backup memuat seluruh baris tanpa membuka
+  kemampuan menulis, menghapus, atau mengubah struktur database.
+- Role ini tidak boleh digunakan oleh Vercel dan credential-nya hanya boleh
+  disimpan sebagai secret pada workflow backup.
+
+### Remediasi Password Placeholder
+
+Pada pembuatan awal, placeholder password belum diganti. Role segera diamankan
+dengan `NOLOGIN`, lalu password diganti dengan password acak baru dan akses
+login diaktifkan kembali. Password lama maupun password baru tidak dicatat.
+
+Verifikasi setelah remediasi:
+
+- `rolcanlogin = true`;
+- `rolbypassrls = true`;
+- `rolconnlimit = 2`;
+- tidak ada sesi aktif untuk `karsa_backup`;
+- `pg_stat_statements` menunjukkan `total_calls = 0` untuk `karsa_backup`.
+- audit efektif pada ke-14 tabel menunjukkan `SELECT = true`, sedangkan
+  `INSERT`, `UPDATE`, `DELETE`, dan `TRUNCATE` seluruhnya `false`.
+- audit database/schema menunjukkan `CONNECT = true`, database `CREATE = false`,
+  schema `USAGE = true`, dan schema `CREATE = false`.
+- privilege `TEMP = true` pada database diterima sebagai privilege bawaan dan
+  tidak memberikan akses tulis ke tabel production.
+- schema `public` tidak memiliki sequence saat audit; query sequence selesai
+  tanpa mengembalikan baris.
+
+Kesimpulan: tidak ditemukan indikasi bahwa credential placeholder pernah
+digunakan. Role siap dipakai untuk workflow backup, tetapi Step 10 belum selesai
+sampai backup terenkripsi berhasil dibuat dan diuji restore secara terisolasi.
+
+## Step 10C — Workflow Backup Manual
+
+Workflow `.github/workflows/database-backup.yml` disiapkan secara lokal dengan
+karakteristik berikut:
+
+- hanya dapat dipicu manual melalui `workflow_dispatch` selama tahap uji;
+- memakai image resmi `postgres:17` sehingga tidak memerlukan instalasi lokal;
+- membuat logical backup dalam custom format memakai role `karsa_backup`;
+- memvalidasi struktur dump dengan `pg_restore --list`;
+- mengenkripsi dump memakai AES-256-CBC, PBKDF2-SHA256, salt, dan 600.000
+  iterasi sebelum artefak diunggah;
+- hanya dump terenkripsi dan checksum SHA-256 yang menjadi GitHub Artifact;
+- artefak disimpan 30 hari dan file sementara dibersihkan dari runner;
+- permission workflow dibatasi menjadi `contents: read`;
+- eksekusi paralel backup dicegah melalui concurrency group.
+
+Workflow memerlukan repository secrets `BACKUP_DATABASE_URL` dan
+`BACKUP_ENCRYPTION_PASSWORD`. Workflow belum didorong ke GitHub dan jadwal
+harian belum diaktifkan sampai kedua secret siap.

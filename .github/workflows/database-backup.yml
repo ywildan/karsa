@@ -1,0 +1,86 @@
+name: Encrypted Database Backup
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: karsa-database-backup
+  cancel-in-progress: false
+
+jobs:
+  backup:
+    name: Backup PostgreSQL 17
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    env:
+      BACKUP_DATABASE_URL: ${{ secrets.BACKUP_DATABASE_URL }}
+      BACKUP_ENCRYPTION_PASSWORD: ${{ secrets.BACKUP_ENCRYPTION_PASSWORD }}
+
+    steps:
+      - name: Validate required secrets
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -n "$BACKUP_DATABASE_URL"
+          test -n "$BACKUP_ENCRYPTION_PASSWORD"
+
+      - name: Create logical backup with PostgreSQL 17
+        shell: bash
+        run: |
+          set -euo pipefail
+          docker run --rm \
+            -e BACKUP_DATABASE_URL \
+            postgres:17 \
+            sh -c 'exec pg_dump "$BACKUP_DATABASE_URL" --format=custom --no-owner --no-privileges' \
+            > "$RUNNER_TEMP/karsa-backup.dump"
+          test -s "$RUNNER_TEMP/karsa-backup.dump"
+
+      - name: Validate backup structure
+        shell: bash
+        run: |
+          set -euo pipefail
+          docker run --rm -i postgres:17 \
+            pg_restore --list \
+            < "$RUNNER_TEMP/karsa-backup.dump" \
+            > "$RUNNER_TEMP/karsa-backup-contents.txt"
+          test -s "$RUNNER_TEMP/karsa-backup-contents.txt"
+
+      - name: Encrypt backup
+        shell: bash
+        run: |
+          set -euo pipefail
+          openssl enc -aes-256-cbc \
+            -salt \
+            -pbkdf2 \
+            -iter 600000 \
+            -md sha256 \
+            -in "$RUNNER_TEMP/karsa-backup.dump" \
+            -out "$RUNNER_TEMP/karsa-backup.dump.enc" \
+            -pass env:BACKUP_ENCRYPTION_PASSWORD
+          test -s "$RUNNER_TEMP/karsa-backup.dump.enc"
+          sha256sum "$RUNNER_TEMP/karsa-backup.dump.enc" \
+            > "$RUNNER_TEMP/karsa-backup.dump.enc.sha256"
+          rm -f "$RUNNER_TEMP/karsa-backup.dump"
+
+      - name: Upload encrypted backup
+        uses: actions/upload-artifact@v4
+        with:
+          name: karsa-database-backup-${{ github.run_id }}
+          path: |
+            ${{ runner.temp }}/karsa-backup.dump.enc
+            ${{ runner.temp }}/karsa-backup.dump.enc.sha256
+          if-no-files-found: error
+          retention-days: 30
+
+      - name: Remove temporary backup files
+        if: always()
+        shell: bash
+        run: |
+          rm -f \
+            "$RUNNER_TEMP/karsa-backup.dump" \
+            "$RUNNER_TEMP/karsa-backup.dump.enc" \
+            "$RUNNER_TEMP/karsa-backup.dump.enc.sha256" \
+            "$RUNNER_TEMP/karsa-backup-contents.txt"
