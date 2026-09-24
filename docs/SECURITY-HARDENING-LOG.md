@@ -546,3 +546,17 @@ harian belum diaktifkan sampai uji manual dan restore terisolasi berhasil.
   yang diharapkan dan password acak alfanumerik sepanjang 48–64 karakter.
 - Uji restore tidak boleh dilanjutkan sebelum password project uji direset dan
   repository secret `RESTORE_TEST_DATABASE_URL` diperbarui.
+
+### Uji Restore Ketiga — Host Pooler Tidak Sesuai
+
+- Password project uji sudah dirotasi dan URL baru lulus validasi keamanan.
+- Checksum, dekripsi, dan validasi struktur dump kembali berhasil.
+- Koneksi target ditolak dengan status tenant/user tidak ditemukan sebelum
+  pemeriksaan marker dan sebelum restore.
+- Penyebabnya adalah kombinasi project ref dan host pooler yang tidak sesuai;
+  host tidak boleh diasumsikan dari region atau project production.
+- Validasi URL diperbarui agar menerima variasi cluster/region pada hostname
+  Session Pooler resmi Supabase, dengan tetap mewajibkan port 5432, SSL, username
+  pooler, dan password alfanumerik 48–64 karakter.
+- Connection URI berikutnya harus disalin dari menu Connect → Session pooler
+  milik project `karsa-restore-test`, bukan disusun dari template.

@@ -41,7 +41,7 @@ jobs:
           test -n "$RESTORE_TEST_DATABASE_URL"
           test -n "$BACKUP_ENCRYPTION_PASSWORD"
           CLEAN_RESTORE_URL="$(printf '%s' "$RESTORE_TEST_DATABASE_URL" | tr -d '\r\n')"
-          if [[ ! "$CLEAN_RESTORE_URL" =~ ^postgresql://postgres\.[a-z0-9]+:[A-Za-z0-9]{48,64}@aws-0-ap-southeast-1\.pooler\.supabase\.com:5432/postgres\?sslmode=require$ ]]; then
+          if [[ ! "$CLEAN_RESTORE_URL" =~ ^postgresql://postgres\.[a-z0-9]+:[A-Za-z0-9]{48,64}@aws-[0-9]+-[a-z0-9-]+\.pooler\.supabase\.com:5432/postgres\?sslmode=require$ ]]; then
             echo "::error::RESTORE_TEST_DATABASE_URL has an unsafe or unexpected format."
             exit 1
           fi
