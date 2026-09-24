@@ -308,12 +308,20 @@ async function seedKelasMatkul(): Promise<void> {
  * pemilik KelasMatkul tersebut.
  */
 async function seedSamplePoinLog(): Promise<void> {
+  const [bertanya, presentasi] = await Promise.all([
+    prisma.kategoriPoin.findUnique({ where: { name: "Bertanya" }, select: { id: true } }),
+    prisma.kategoriPoin.findUnique({ where: { name: "Presentasi" }, select: { id: true } }),
+  ]);
+  if (!bertanya || !presentasi) {
+    throw new Error("Kategori poin untuk data uji belum tersedia.");
+  }
+
   const daftar = [
     {
       id: "pl_sample_001",
       kelas_matkul_id: KM_ALGO_TI01_ID,
       mahasiswa_id: "usr_siti",
-      kategori_id: "kat_bertanya",
+      kategori_id: bertanya.id,
       pj_id: "usr_pj_budi",
       poin: 3,
       catatan: "Bertanya soal kompleksitas waktu algoritma sorting.",
@@ -323,7 +331,7 @@ async function seedSamplePoinLog(): Promise<void> {
       id: "pl_sample_002",
       kelas_matkul_id: KM_PWEB_TI01_ID,
       mahasiswa_id: "usr_agus",
-      kategori_id: "kat_presentasi",
+      kategori_id: presentasi.id,
       pj_id: "usr_siti",
       poin: 4,
       catatan: "Presentasi demo CRUD sederhana dengan Next.js.",
