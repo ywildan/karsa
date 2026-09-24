@@ -10,6 +10,8 @@
  * me-refresh klaim (id, nim, is_admin, kelas_id, is_pj) dari database pada
  * request itu juga. Jadi helper di sini TIDAK perlu query DB lagi (tidak ada
  * query ganda); kecuali `getCurrentUser()` yang memang meminta data penuh.
+ * Jika refresh gagal, `authorization_verified` bernilai false dan guard role
+ * menolak akses (fail-closed).
  *
  * Jangan pakai helper ini di middleware (Edge Runtime) — lihat `lib/roles.ts`
  * untuk logika peran yang bebas Prisma.
@@ -78,7 +80,7 @@ export async function requireUser(): Promise<SessionUser> {
  */
 export async function requireAdmin(): Promise<SessionUser> {
   const user = await requireUser();
-  if (!user.is_admin) {
+  if (!user.authorization_verified || !user.is_admin) {
     redirect(HOME_DEFAULT);
   }
   return user;
@@ -90,7 +92,7 @@ export async function requireAdmin(): Promise<SessionUser> {
  */
 export async function requirePj(): Promise<SessionUser> {
   const user = await requireUser();
-  if (!user.is_pj) {
+  if (!user.authorization_verified || !user.is_pj) {
     redirect(HOME_DEFAULT);
   }
   return user;

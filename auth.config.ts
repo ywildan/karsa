@@ -12,7 +12,7 @@
  *       refresh klaim dari DB di `callbacks.jwt`.
  *   Dipakai berdua supaya aturan (filter domain, bentuk session) konsisten.
  *
- * Catatan versi: `next-auth@5.0.0-beta.25` + `@auth/prisma-adapter@2.11.3`.
+ * Catatan versi: lihat `package.json` dan lockfile sebagai sumber versi aktif.
  */
 import type { NextAuthConfig } from "next-auth";
 import Google from "next-auth/providers/google";
@@ -87,6 +87,8 @@ export const authConfig = {
         session.user.is_admin = token.is_admin ?? false;
         session.user.kelas_id = token.kelas_id ?? null;
         session.user.is_pj = token.is_pj ?? false;
+        session.user.authorization_verified =
+          token.authorization_verified === true;
       }
       return session;
     },

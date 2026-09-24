@@ -7,10 +7,11 @@
  *   Adapter    : PrismaAdapter → user & account OAuth dipersist ke tabel
  *                `User` / `Account` (session tetap JWT, bukan tabel `Session`)
  *   Strategy   : JWT
- *   Klaim JWT  : id, nim, is_admin, kelas_id, is_pj (+ name/email/picture)
+ *   Klaim JWT  : id, nim, is_admin, kelas_id, is_pj,
+ *                authorization_verified (+ name/email/picture)
  *
  * Klaim di-refresh dari DB pada SETIAP pembacaan session. Ini terverifikasi di
- * source `@auth/core/lib/actions/session.js` (beta.25): untuk strategy `jwt`,
+ * source `@auth/core/lib/actions/session.js`: untuk strategy `jwt`,
  * `callbacks.jwt({ token })` dipanggil lebih dulu, lalu `callbacks.session`,
  * sebelum cookie di-sign ulang — jadi `auth()` di Server Component, setiap
  * Server Action, dan `GET /api/auth/session` selalu membaca kondisi DB terbaru.
@@ -86,8 +87,9 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
      * `user` kosong, `token` berisi payload JWT yang berlaku. Karena itu query
      * DB di sini = "session refresh dari DB setiap request" (permintaan Fase 1).
      *
-     * Perilaku galat (trade-off yang disetujui):
-     *  · DB tidak terjangkau → klaim terakhir dipertahankan (tidak logout massal)
+     * Perilaku galat (fail-closed):
+     *  · DB tidak terjangkau → identitas sesi dipertahankan, tetapi seluruh
+     *    klaim otorisasi dicabut sementara sampai refresh DB berikutnya sukses
      *  · user benar-benar sudah dihapus → token `null` → cookie session dibersihkan
      */
     async jwt({ token, user }) {
@@ -106,14 +108,22 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
         token.is_admin = snapshot.is_admin;
         token.kelas_id = snapshot.kelas_id;
         token.is_pj = snapshot.is_pj;
+        token.authorization_verified = true;
         // Profil dasar mengikuti DB (admin boleh memperbaiki nama di fase
         // berikutnya); kalau NULL, pertahankan nilai dari OAuth.
         token.name = snapshot.name ?? token.name;
         token.email = snapshot.email ?? token.email;
         token.picture = snapshot.image ?? token.picture;
       } catch (error) {
+        // Jangan pernah memakai role/kelas yang tersimpan dari request lama.
+        // Identitas (`sub`) tetap dipertahankan agar gangguan DB sementara tidak
+        // memaksa logout, tetapi tidak dapat dipakai untuk akses terlindungi.
+        token.is_admin = false;
+        token.kelas_id = null;
+        token.is_pj = false;
+        token.authorization_verified = false;
         console.error(
-          "[auth] refresh klaim dari DB gagal — memakai klaim JWT terakhir.",
+          "[auth] refresh klaim dari DB gagal — klaim otorisasi dicabut sementara.",
           error,
         );
       }
