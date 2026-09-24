@@ -73,7 +73,7 @@
 - [x] M7 — Implementasikan edit, soft delete, reply, pin, dan lock.
 - [x] M8 — Implementasikan report/block serta konflik laporan terhadap PJ.
 - [x] M9 — Implementasikan UI Flutter daftar grup dan ruang percakapan.
-- [ ] M10 — Tambahkan pengujian kontrak, authorization, dan abuse cases.
+- [x] M10 — Tambahkan pengujian kontrak, authorization, dan abuse cases.
 - [x] M11 — Jalankan pemeriksaan format, analyzer, test, dan build via GitHub Actions.
 - [ ] M12 — Review migrasi; minta user menjalankan langkah Supabase eksternal.
 - [ ] M13 — Deploy preview, smoke test lintas role/kelas, lalu production.
@@ -198,6 +198,16 @@ dibutuhkan:
 - Digest artifact: `sha256:225826409611bd041e1020e250cfe8e628563000e0a19b4e24949b4e23937acf`.
 - Artifact kedaluwarsa: 8 Oktober 2026 pukul 14:08:30 UTC.
 - Tidak ada dependency atau software yang dipasang secara lokal.
+
+### 24 September 2026 — Authorization dan abuse policy tests
+
+- Policy keamanan grup dipisahkan menjadi fungsi murni yang juga dipakai oleh
+  service API, sehingga test menguji aturan yang benar-benar dieksekusi aplikasi.
+- Enam test otomatis mencakup fail-closed untuk admin/user tanpa kelas,
+  otoritas PJ per-grup, lock bypass hanya oleh PJ grup tersebut, batas edit
+  tepat 15 menit, ambang auto-hide tiga laporan, dan larangan self-moderation.
+- `npm run test:groups` dan TypeScript typecheck berhasil tanpa instalasi lokal.
+- Test tersebut ditambahkan ke job `Validate mobile API` di GitHub Actions.
 
 ## Dokumen Terkait
 

@@ -3,6 +3,14 @@ import "server-only";
 import { z } from "zod";
 
 import { logAudit } from "@/lib/audit";
+import {
+  canEditGroupMessage,
+  canResolveGroupReport,
+  canSendToGroup,
+  canUseMobileGroups as canUseGroups,
+  isGroupManager,
+  shouldAutoHideReportedMessage,
+} from "@/lib/mobile/group-policy";
 import type { MobileActor } from "@/lib/mobile/auth";
 import { prisma } from "@/lib/prisma";
 
@@ -68,10 +76,6 @@ export type GroupResult<T> = GroupSuccess<T> | GroupFailure;
 
 function failure(status: number, code: string, message: string): GroupFailure {
   return { ok: false, status, code, message };
-}
-
-function canUseGroups(actor: MobileActor): actor is MobileActor & { kelas_id: string } {
-  return !actor.is_admin && actor.kelas_id !== null;
 }
 
 async function resolveGroup(actor: MobileActor, assignmentId: string) {
@@ -154,7 +158,7 @@ function auditActor(actor: MobileActor, managerId: string) {
     id: actor.id,
     name: displayName(actor.name) || actor.email,
     is_admin: false,
-    role: managerId === actor.id ? ("PJ" as const) : ("MAHASISWA" as const),
+    role: isGroupManager(actor.id, managerId) ? ("PJ" as const) : ("MAHASISWA" as const),
   };
 }
 
@@ -178,8 +182,6 @@ function serializeMessage(
       : row.replyTo && blockedIds.has(row.replyTo.author_id)
         ? "blocked"
         : "active";
-  const editDeadline = new Date(row.created_at.getTime() + 15 * 60 * 1000);
-
   return {
     id: row.id,
     state,
@@ -190,8 +192,14 @@ function serializeMessage(
     updated_at: row.updated_at,
     is_pinned: row.pinned_at !== null,
     is_own: row.author_id === actorId,
-    can_edit:
-      state === "active" && row.author_id === actorId && editDeadline > new Date(),
+    can_edit: canEditGroupMessage({
+      actorId,
+      authorId: row.author_id,
+      createdAt: row.created_at,
+      deletedAt: row.deleted_at,
+      hiddenAt: row.hidden_at,
+      now: new Date(),
+    }),
     can_delete: state === "active" && row.author_id === actorId,
     can_manage: managerId === actorId,
     author: {
@@ -280,7 +288,7 @@ export async function listGroups(actor: MobileActor): Promise<GroupResult<unknow
           image: row.pj.image,
         },
         member_count: memberCount,
-        is_manager: row.pj_id === actor.id,
+        is_manager: isGroupManager(actor.id, row.pj_id),
         is_locked: row.group_locked_at !== null,
         last_message: latest
           ? {
@@ -354,7 +362,7 @@ export async function listGroupMessages(
         matkul: group.matkul,
         kelas: group.kelas,
         pj: { ...group.pj, name: displayName(group.pj.name) },
-        is_manager: group.pj_id === actor.id,
+        is_manager: isGroupManager(actor.id, group.pj_id),
         is_locked: group.group_locked_at !== null,
       },
       messages: page
@@ -388,7 +396,7 @@ export async function createGroupMessage(
   if (!group) {
     return failure(404, "GROUP_NOT_FOUND", "Grup tidak tersedia untuk kelasmu.");
   }
-  if (group.group_locked_at && group.pj_id !== actor.id) {
+  if (!canSendToGroup(actor.id, group.pj_id, group.group_locked_at)) {
     return failure(409, "GROUP_LOCKED", "Grup sedang dikunci oleh PJ mata kuliah.");
   }
 
@@ -499,7 +507,16 @@ export async function editGroupMessage(
   }
 
   const now = new Date();
-  if (message.created_at.getTime() + 15 * 60 * 1000 <= now.getTime()) {
+  if (
+    !canEditGroupMessage({
+      actorId: actor.id,
+      authorId: message.author_id,
+      createdAt: message.created_at,
+      deletedAt: message.deleted_at,
+      hiddenAt: message.hidden_at,
+      now,
+    })
+  ) {
     return failure(409, "EDIT_WINDOW_EXPIRED", "Batas edit 15 menit sudah lewat.");
   }
 
@@ -630,7 +647,7 @@ export async function setGroupMessagePinned(
   if (!group) {
     return failure(404, "GROUP_NOT_FOUND", "Grup tidak tersedia untuk kelasmu.");
   }
-  if (group.pj_id !== actor.id) {
+  if (!isGroupManager(actor.id, group.pj_id)) {
     return failure(
       403,
       "GROUP_MANAGER_REQUIRED",
@@ -695,7 +712,7 @@ export async function setGroupLocked(
   if (!group) {
     return failure(404, "GROUP_NOT_FOUND", "Grup tidak tersedia untuk kelasmu.");
   }
-  if (group.pj_id !== actor.id) {
+  if (!isGroupManager(actor.id, group.pj_id)) {
     return failure(
       403,
       "GROUP_MANAGER_REQUIRED",
@@ -766,7 +783,7 @@ export async function setGroupMessageHidden(
   if (!group) {
     return failure(404, "GROUP_NOT_FOUND", "Grup tidak tersedia untuk kelasmu.");
   }
-  if (group.pj_id !== actor.id) {
+  if (!isGroupManager(actor.id, group.pj_id)) {
     return failure(
       403,
       "GROUP_MANAGER_REQUIRED",
@@ -874,7 +891,7 @@ export async function reportGroupMessage(
     const reportCount = await tx.groupReport.count({
       where: { message_id: message.id, status: "OPEN" },
     });
-    const autoHidden = reportCount >= 3 && message.hidden_at === null;
+    const autoHidden = shouldAutoHideReportedMessage(reportCount, message.hidden_at);
     if (autoHidden) {
       await tx.groupMessage.updateMany({
         where: { id: message.id, deleted_at: null, hidden_at: null },
@@ -925,7 +942,7 @@ export async function listGroupReports(
   if (!group) {
     return failure(404, "GROUP_NOT_FOUND", "Grup tidak tersedia untuk kelasmu.");
   }
-  if (group.pj_id !== actor.id) {
+  if (!isGroupManager(actor.id, group.pj_id)) {
     return failure(
       403,
       "GROUP_MANAGER_REQUIRED",
@@ -977,7 +994,7 @@ export async function resolveGroupReport(
   if (!group) {
     return failure(404, "GROUP_NOT_FOUND", "Grup tidak tersedia untuk kelasmu.");
   }
-  if (group.pj_id !== actor.id) {
+  if (!isGroupManager(actor.id, group.pj_id)) {
     return failure(
       403,
       "GROUP_MANAGER_REQUIRED",
@@ -990,7 +1007,7 @@ export async function resolveGroupReport(
     select: { id: true, message_id: true, message: { select: { author_id: true } } },
   });
   if (!report) return failure(404, "REPORT_NOT_FOUND", "Laporan tidak ditemukan.");
-  if (report.message.author_id === actor.id) {
+  if (!canResolveGroupReport(actor.id, group.pj_id, report.message.author_id)) {
     return failure(
       403,
       "SELF_MODERATION_FORBIDDEN",
