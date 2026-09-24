@@ -210,8 +210,10 @@ akses operasional dan bukan akses produk.
 - Body pesan soft-deleted: purge setelah 30 hari, row tombstone tetap minimal.
 - Body yang menjadi bukti laporan: maksimal 90 hari setelah laporan selesai.
 - Audit action tidak menyimpan body pesan.
-- Job purge belum dijalankan pada MVP awal; query dan prosedur retensi harus
-  selesai sebelum pilot dinyatakan production-ready.
+- Purge dijalankan setiap hari pukul 03:17 WIB oleh Supabase Cron melalui
+  `public.karsa_purge_group_retention()`.
+- Hak EXECUTE fungsi dicabut dari public, role API, dan role backup. Job
+  dijadwalkan oleh database owner dan tidak melewati backend/web aplikasi.
 
 ## 7. Test Matrix Wajib
 

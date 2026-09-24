@@ -289,12 +289,27 @@ dibutuhkan:
   ID `10813639746`, digest
   `sha256:b16ebd84eaf1fb01e2a955e6d93f42be3281963b8813fcb3cab9619531f8349f`.
 
+### 24 September 2026 — Retention implementation
+
+- Supabase Cron dipilih sebagai scheduler internal database; tidak ada layanan
+  pihak ketiga, webhook, atau body pesan yang keluar dari PostgreSQL.
+- `karsa_purge_group_retention()` menghapus seluruh pesan setelah semester
+  berakhir + 90 hari dan memusnahkan body tombstone setelah 30 hari.
+- Body yang masih menjadi bukti laporan terbuka atau laporan yang selesai dalam
+  90 hari terakhir tidak dipurge lebih awal.
+- Hak EXECUTE dicabut dari public, `anon`, `authenticated`, `karsa_runtime`, dan
+  `karsa_backup`; hanya job yang dibuat database owner yang menjalankannya.
+- Scheduler dirancang berjalan setiap hari pukul 03:17 WIB dan idempotent saat
+  dipasang ulang. Aktivasi Cron dan SQL production masih menunggu langkah user.
+
 ## Dokumen Terkait
 
 - `DEEP_RESEARCH_MOBILE_GROUP_PRIVACY.md`
 - `docs/SECURITY-HARDENING-LOG.md`
 - `docs/MOBILE-GROUP-ARCHITECTURE.md`
+- `docs/mobile-groups-retention-verify.sql`
 - `docs/DATABASE-BACKUP-RESTORE.md`
 - `docs/architecture.md`
 - `prisma/schema.prisma`
 - `prisma/mobile-native.sql`
+- `prisma/mobile-groups-retention.sql`
