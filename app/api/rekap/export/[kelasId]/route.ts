@@ -19,7 +19,7 @@ export async function GET(
     return Response.json({ error: "Belum login." }, { status: 401 });
   }
 
-  if (!session.user.is_admin) {
+  if (!session.user.authorization_verified || !session.user.is_admin) {
     return Response.json(
       { error: "Akses admin diperlukan." },
       { status: 403 },

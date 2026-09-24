@@ -10,6 +10,7 @@
  *   · is_admin  → satu-satunya penanda hak akses admin
  *   · kelas_id  → kelas mahasiswa (nullable → empty state PRD §7.4)
  *   · is_pj     → punya ≥1 KelasMatkul dengan pj_id = dirinya
+ *   · authorization_verified → klaim akses berhasil di-refresh dari DB
  *   · name / email / image → field bawaan Auth.js (dipakai header & avatar)
  *
  * File ini murni deklarasi tipe (tidak menghasilkan runtime code), tapi tetap
@@ -30,6 +31,8 @@ interface KarsaUserFields {
   kelas_id: string | null;
   /** Punya ≥1 `KelasMatkul` dengan `pj_id = dirinya`. */
   is_pj: boolean;
+  /** True hanya setelah klaim akses berhasil di-refresh dari database. */
+  authorization_verified: boolean;
 }
 
 declare module "next-auth" {
@@ -53,6 +56,7 @@ declare module "next-auth/jwt" {
     is_admin: boolean;
     kelas_id: string | null;
     is_pj: boolean;
+    authorization_verified?: boolean;
   }
 }
 

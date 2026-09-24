@@ -777,3 +777,30 @@ mode blocking diaktifkan.
   Mode tidak diubah pada tahap ini.
 - Rule harus diamati melalui Firewall Traffic/Audit Log sebelum action diubah
   menjadi respons 429.
+
+## Step 12D — Otorisasi Fail-Closed
+
+Branch `security/fail-closed-authz` mengubah refresh klaim session agar kegagalan
+database tidak lagi mempertahankan hak akses dari JWT lama. Jika snapshot user
+tidak dapat diverifikasi:
+
+- identitas session (`sub`) dipertahankan agar gangguan sementara tidak memaksa
+  logout massal;
+- `is_admin` dan `is_pj` diubah menjadi `false`;
+- `kelas_id` diubah menjadi `null`;
+- `authorization_verified` diubah menjadi `false`;
+- guard admin/PJ dan endpoint export menolak klaim yang belum terverifikasi;
+- penyelesaian login aplikasi native tidak menerbitkan authorization code dari
+  session yang klaim aksesnya belum terverifikasi.
+
+Refresh berikutnya yang berhasil akan memulihkan klaim langsung dari database
+dan menandai `authorization_verified=true`. Perubahan belum masuk production
+sampai build Preview dan pengujian role selesai.
+
+### Hasil Pengujian Otorisasi Fail-Closed
+
+- Vercel Preview berhasil dibangun dari commit `fff0c3b` tanpa instalasi atau
+  regenerasi dependency di mesin lokal.
+- Pemilik sistem mengonfirmasi alur aplikasi pada Preview berjalan normal.
+- Perubahan siap dipromosikan melalui pull request `#25`; deployment production
+  tetap harus diverifikasi setelah merge.
