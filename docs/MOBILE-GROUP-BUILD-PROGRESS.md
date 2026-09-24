@@ -262,6 +262,17 @@ dibutuhkan:
 - Backup ini dibuat setelah ketiga tabel grup terverifikasi di production dan
   selanjutnya harus diuji restore ke project `karsa-restore-test`.
 
+### 24 September 2026 — Restore pasca-migrasi
+
+- Workflow `Verify Database Restore` run `36014635130` pada branch
+  `feat/mobile-groups` selesai sukses di commit `8cb0ed8`.
+- Artifact backup run `36013841613` berhasil diunduh, checksum diverifikasi,
+  didekripsi, dan struktur dump PostgreSQL 17 dinyatakan valid.
+- Guard memastikan target adalah project terisolasi `karsa-restore-test`.
+- Restore schema public berjalan atomik dan assertion 17 tabel, 17 RLS, serta
+  26 policy berhasil.
+- File dump plaintext sementara dihapus oleh cleanup job.
+
 ## Dokumen Terkait
 
 - `DEEP_RESEARCH_MOBILE_GROUP_PRIVACY.md`
