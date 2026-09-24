@@ -11,10 +11,12 @@ tanpa bergantung pada riwayat percakapan.
 
 - Terakhir diperbarui: 24 September 2026 (WIB)
 - Lingkungan: Supabase production + Vercel production
-- Tahap aktif: persiapan perpindahan environment Production
+- Tahap aktif: redeploy dan smoke test Production dengan `karsa_runtime`
 - Perubahan database selama proses ini: role, grant minimum, dan policy RLS
   `karsa_runtime` sudah dibuat
-- Perubahan environment Vercel selama proses ini: belum ada
+- Perubahan environment Vercel selama proses ini: Preview dan nilai untuk
+  deployment Production berikutnya memakai `karsa_runtime`; deployment
+  Production aktif belum diredeploy pada saat catatan ini dibuat
 - Perubahan kode aplikasi: belum ada
 
 ## Sasaran
@@ -287,3 +289,15 @@ Kesimpulan Step 6: kemampuan database yang dibutuhkan login, channel PJ,
 pencarian mahasiswa, data master admin, pencatatan/penghapusan poin, mobile auth,
 dan audit log telah tervalidasi. UI admin/mahasiswa tidak diuji dengan perubahan
 role production; pengujian permission-nya diganti dengan transaksi rollback-only.
+
+## Persiapan Step 7 — Production
+
+- URL lama `postgres` untuk rollback telah disimpan oleh pemilik sistem.
+- `DATABASE_URL` target Production telah diganti ke `karsa_runtime` melalui
+  Transaction Pooler port 6543.
+- `DIRECT_URL` target Production telah diganti ke `karsa_runtime` melalui direct
+  connection port 5432.
+- Override branch Preview tetap dipertahankan sebagai pembanding.
+- Perubahan environment baru berlaku setelah deployment Production berikutnya.
+- Pemicu deployment direncanakan berupa commit dokumentasi ini; tidak ada
+  perubahan kode aplikasi.
