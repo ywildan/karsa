@@ -11,7 +11,7 @@ tanpa bergantung pada riwayat percakapan.
 
 - Terakhir diperbarui: 24 September 2026 (WIB)
 - Lingkungan: Supabase production + Vercel production
-- Tahap aktif: pengujian password dan pooler melalui Vercel Preview
+- Tahap aktif: persiapan perpindahan environment Production
 - Perubahan database selama proses ini: role, grant minimum, dan policy RLS
   `karsa_runtime` sudah dibuat
 - Perubahan environment Vercel selama proses ini: belum ada
@@ -110,9 +110,9 @@ RLS dan pencabutan grant publik tidak membatasi koneksi tersebut.
 - [x] Step 2 — Buat role login `karsa_runtime` tanpa privilege administratif.
 - [x] Step 3 — Berikan grant objek minimum dan policy khusus runtime.
 - [x] Step 4 — Audit efektif privilege `karsa_runtime` secara read-only.
-- [ ] Step 5 — Uji koneksi role baru tanpa mengganti production. (5A selesai;
-  5B koneksi eksternal/pooler belum)
-- [ ] Step 6 — Uji seluruh alur web dan native pada deployment preview.
+- [x] Step 5 — Uji koneksi role baru tanpa mengganti production.
+- [x] Step 6 — Uji alur kritis web/native pada deployment preview dan simulasi
+  transaksi admin secara rollback-only.
 - [ ] Step 7 — Ganti environment production dan redeploy.
 - [ ] Step 8 — Pantau, verifikasi, lalu keluarkan `postgres` dari Vercel.
 - [ ] Step 9 — Rotasi password `postgres`.
@@ -224,8 +224,8 @@ dapat beralih menjadi atau mewarisi `karsa_runtime`. Tidak perlu dilakukan
 
 ## Langkah Berikutnya
 
-Jalankan Step 5B untuk menguji password dan pooler lewat Preview Deployment
-Vercel yang terisolasi dari environment Production.
+Jalankan Step 6 untuk smoke test autentikasi dan alur utama web/native pada
+Preview Deployment sebelum mengganti environment Production.
 
 ### Persiapan Step 5B
 
@@ -235,3 +235,55 @@ Vercel yang terisolasi dari environment Production.
 - Branch tidak digabung ke `main` dan tidak mengubah Production.
 - Override `DATABASE_URL` dan `DIRECT_URL` khusus branch Preview masih harus
   dipasang sebelum deployment uji role baru dijalankan ulang.
+
+### Hasil Step 5B
+
+- Commit pemicu Preview: `53a259d`.
+- Vercel Preview Deployment: berhasil.
+- Deployment Protection/SSO: aktif dan menahan request anonim.
+- Password `karsa_runtime` dan koneksi Transaction Pooler port 6543: berhasil.
+- Endpoint `GET /api/mobile/v1/auth/start` berhasil membaca request lama dan
+  membuat `MobileAuthRequest` melalui role baru.
+- Redirect berhasil mencapai `/mobile-auth/login`.
+- Dua baris uji ditemukan karena endpoint tercapai dua kali; keduanya sudah
+  dihapus dan tidak ada data uji yang tersisa.
+- Production masih memakai role `postgres` dan belum diubah.
+
+### Hasil Step 6A — Login Web Preview
+
+- Login Google/Auth.js: berhasil.
+- User: Yusuf Wildan Affandi.
+- Role efektif: PJ.
+- JWT dan pemuatan snapshot user: berhasil.
+- Halaman tujuan: `/catat-poin`.
+- Query penugasan PJ berhasil menampilkan satu mata kuliah Bahasa Indonesia,
+  Kelas K1, Akuntansi Perpajakan, Semester Ganjil 2026/2027.
+- Tidak ada perubahan data akademik pada pengujian ini.
+
+### Hasil Step 6B — Pembacaan Alur PJ
+
+- Halaman detail mata kuliah: berhasil.
+- Kategori poin: berhasil dimuat.
+- Pencarian mahasiswa tiga huruf: berhasil.
+- Riwayat poin: berhasil dimuat/tidak menghasilkan error.
+- Tidak ada poin yang disimpan atau dihapus selama pengujian.
+
+### Hasil Step 6C — Simulasi Admin dan Poin
+
+Pengujian dilakukan sebagai `karsa_runtime` dalam satu transaksi yang kemudian
+di-rollback karena akun PJ production tidak boleh diubah menjadi admin/mahasiswa
+hanya untuk pengujian.
+
+- INSERT/UPDATE/DELETE data master `Prodi`: berhasil.
+- INSERT `PoinLog` dengan relasi production yang valid: berhasil.
+- INSERT `AuditLog` untuk aksi PJ dan admin: berhasil.
+- DELETE `PoinLog`: berhasil.
+- Foreign key dan policy RLS: berhasil.
+- Sebelum rollback: prodi uji 0, poin uji 0, audit uji 2.
+- Sesudah rollback: seluruh prodi, poin, dan audit uji 0.
+- Role aplikasi milik user production tidak diubah.
+
+Kesimpulan Step 6: kemampuan database yang dibutuhkan login, channel PJ,
+pencarian mahasiswa, data master admin, pencatatan/penghapusan poin, mobile auth,
+dan audit log telah tervalidasi. UI admin/mahasiswa tidak diuji dengan perubahan
+role production; pengujian permission-nya diganti dengan transaksi rollback-only.
