@@ -11,7 +11,7 @@ tanpa bergantung pada riwayat percakapan.
 
 - Terakhir diperbarui: 24 September 2026 (WIB)
 - Lingkungan: Supabase production + Vercel production
-- Tahap aktif: redeploy dan smoke test Production dengan `karsa_runtime`
+- Tahap aktif: rollback Production setelah smoke test UI gagal
 - Perubahan database selama proses ini: role, grant minimum, dan policy RLS
   `karsa_runtime` sudah dibuat
 - Perubahan environment Vercel selama proses ini: Preview dan nilai untuk
@@ -115,7 +115,7 @@ RLS dan pencabutan grant publik tidak membatasi koneksi tersebut.
 - [x] Step 5 — Uji koneksi role baru tanpa mengganti production.
 - [x] Step 6 — Uji alur kritis web/native pada deployment preview dan simulasi
   transaksi admin secara rollback-only.
-- [ ] Step 7 — Ganti environment production dan redeploy.
+- [x] Step 7 — Ganti environment production dan redeploy.
 - [ ] Step 8 — Pantau, verifikasi, lalu keluarkan `postgres` dari Vercel.
 - [ ] Step 9 — Rotasi password `postgres`.
 - [ ] Step 10 — Buat role backup, backup terenkripsi, dan uji restore terisolasi.
@@ -301,3 +301,39 @@ role production; pengujian permission-nya diganti dengan transaksi rollback-only
 - Perubahan environment baru berlaku setelah deployment Production berikutnya.
 - Pemicu deployment direncanakan berupa commit dokumentasi ini; tidak ada
   perubahan kode aplikasi.
+
+## Hasil Step 7 — Cutover Production
+
+- Commit Production: `1e68e26`.
+- Perubahan repository hanya dokumentasi jurnal keamanan.
+- Deployment Vercel Production: berhasil.
+- `DATABASE_URL` Production memakai `karsa_runtime` melalui Transaction Pooler.
+- `DIRECT_URL` Production tidak lagi membawa kredensial `postgres`.
+- Request uji `GET /api/mobile/v1/auth/start` pada `www.sikarsa.id` berhasil
+  dengan HTTP 307 menuju `/mobile-auth/login` dan menghasilkan cookie auth
+  berumur 10 menit.
+- Hasil tersebut membuktikan runtime Production dapat melakukan operasi database
+  melalui role baru.
+- Baris `MobileAuthRequest` uji berhasil ditemukan dan dihapus.
+- Verifikasi setelah cleanup: `remaining_test_rows = 0`.
+- Tidak ada data uji runtime yang tersisa di Production.
+
+### Kegagalan Smoke Test dan Rollback
+
+- Sesudah cutover, endpoint mobile-auth Production berhasil, tetapi halaman awal
+  pengguna menampilkan global error boundary: "Terjadi kesalahan — Kami tidak
+  dapat memuat halaman ini".
+- Build/deployment sukses tidak cukup membuktikan seluruh query UI berfungsi.
+- Keputusan: rollback `DATABASE_URL` dan `DIRECT_URL` Production ke kredensial
+  `postgres` lama, lalu redeploy sebelum diagnosis lanjutan.
+- Jangan memperluas privilege `karsa_runtime` tanpa bukti error dari log.
+- Percobaan rollback awal terhambat karena password lama role `postgres` tidak
+  dapat dipakai. Password akun Supabase dan password `karsa_runtime` bukan
+  password role database `postgres`. Jika kredensial lama tidak tersedia,
+  prosedur pemulihan adalah reset project database password, perbarui kedua URL
+  Production, lalu redeploy.
+- Ditemukan perbedaan penting pada URL: `DATABASE_URL` `karsa_runtime` memakai
+  Supavisor Transaction Pooler port 6543 tetapi tidak menyertakan
+  `?pgbouncer=true`. Supabase menyatakan transaction mode tidak mendukung
+  prepared statements dan Prisma memerlukan parameter tersebut. Ini menjadi
+  hipotesis utama error UI; koreksi koneksi harus diuji sebelum menambah grant.
