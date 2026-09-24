@@ -118,7 +118,7 @@ RLS dan pencabutan grant publik tidak membatasi koneksi tersebut.
 - [x] Step 8 — Pantau, verifikasi, lalu keluarkan `postgres` dari Vercel.
 - [x] Step 9 — Rotasi password `postgres`.
 - [x] Step 10 — Buat role backup, backup terenkripsi, dan uji restore terisolasi.
-- [ ] Step 11 — Perbaiki dokumentasi backup Free/Pro.
+- [x] Step 11 — Perbaiki dokumentasi backup Free/Pro.
 - [ ] Step 12 — Hardening aplikasi: rate limiting, security headers, dan perilaku
   autentikasi saat database gagal.
 
@@ -669,3 +669,9 @@ harian belum diaktifkan sampai uji manual dan restore terisolasi berhasil.
 - Artifact backup terenkripsi disimpan selama 30 hari.
 - Action upload/download artifact diperbarui ke rilis resmi terbaru yang
   tersedia saat implementasi dan dipin ke commit SHA.
+- Run final `35963282880` berhasil menguji konfigurasi terjadwal, termasuk
+  dekripsi dan validasi ciphertext sebelum upload.
+- Artifact final bernama `karsa-database-backup-35963282880`, berukuran 48.108
+  byte, dan berlaku sampai 24 Oktober 2026.
+- Runbook operasional dibuat pada `docs/DATABASE-BACKUP-RESTORE.md`; Step 11
+  dinyatakan selesai.
