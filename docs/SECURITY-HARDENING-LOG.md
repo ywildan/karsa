@@ -490,3 +490,17 @@ harian belum diaktifkan sampai uji manual dan restore terisolasi berhasil.
 - Dump dibatasi secara eksplisit ke schema `public`, tempat seluruh 14 tabel
   Karsa berada. Schema internal yang dikelola Supabase tidak termasuk cakupan
   backup logis aplikasi ini.
+
+### Uji Manual Keempat — Berhasil
+
+- Run GitHub Actions `35959626013` selesai sukses pada 24 September 2026.
+- `pg_dump` PostgreSQL 17 berhasil membaca schema `public` melalui
+  `karsa_backup`.
+- Struktur custom-format dump berhasil divalidasi memakai `pg_restore --list`.
+- Dump berhasil dienkripsi sebelum upload.
+- Artifact `karsa-database-backup-35959626013` berhasil dibuat dengan ukuran
+  arsip 48.129 byte dan masa simpan sampai 24 Oktober 2026.
+- Hanya dump terenkripsi dan checksum SHA-256 yang diunggah.
+- Seluruh file dump sementara, termasuk plaintext, dibersihkan dari runner.
+- Step 10 belum dinyatakan selesai sampai dekripsi diverifikasi dan dump diuji
+  restore pada database terisolasi yang bukan production.
