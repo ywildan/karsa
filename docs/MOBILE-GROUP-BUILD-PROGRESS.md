@@ -7,8 +7,8 @@
 ## Status Ringkas
 
 - Tanggal mulai: 24 September 2026
-- Tahap aktif: deployment preview dan smoke test lintas role
-- Kode fitur: selesai di branch `feat/mobile-groups`, belum digabung/deploy
+- Tahap aktif: smoke test chat pada perangkat pengguna
+- Kode fitur: deployed ke production dari `main` pada commit `eb3b485`
 - Migrasi production: berhasil dijalankan dan terverifikasi
 - Instalasi lokal: tidak ada dan tidak akan dilakukan
 - Target aplikasi: Flutter native (`karsa-mobile`)
@@ -76,7 +76,7 @@
 - [x] M10 — Tambahkan pengujian kontrak, authorization, dan abuse cases.
 - [x] M11 — Jalankan pemeriksaan format, analyzer, test, dan build via GitHub Actions.
 - [x] M12 — Review migrasi; minta user menjalankan langkah Supabase eksternal.
-- [ ] M13 — Deploy preview, smoke test lintas role/kelas, lalu production.
+- [ ] M13 — Smoke test perangkat pengguna dan role/kelas; API production sudah deploy.
 - [ ] M14 — Perbarui dokumentasi privacy/security dan tutup milestone.
 
 ## Bukti Backup Pra-Fitur
@@ -288,6 +288,17 @@ dibutuhkan:
 - Artifact APK: `karsa-mobile-apk-d0b3205d194b88d225ccf6f02d54ec870d029743`,
   ID `10813639746`, digest
   `sha256:b16ebd84eaf1fb01e2a955e6d93f42be3281963b8813fcb3cab9619531f8349f`.
+
+### 24 September 2026 — Deployment backend production
+
+- Setelah persetujuan eksplisit user, branch `feat/mobile-groups` di-fast-forward
+  ke `main`; production menunjuk commit `eb3b4856c98abb3de0356d8b032c116e2f1a93f2`.
+- Vercel production mengaktifkan endpoint `/api/mobile/v1/groups`.
+- Probe tanpa bearer token menerima HTTP 401 `application/json` dengan envelope
+  `UNAUTHENTICATED`, bukan 404 HTML; ini memastikan route production tersedia.
+- Run ulang CI pada main menjalankan backend typecheck, policy tests, database
+  smoke, serta APK build; job backend selesai sukses.
+- Pengujian percakapan dari APK pada HP pengguna masih menunggu.
 
 ### 24 September 2026 — Retention implementation
 
