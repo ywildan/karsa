@@ -469,3 +469,13 @@ harian belum diaktifkan sampai uji manual dan restore terisolasi berhasil.
 - Validasi CR/LF ditambahkan untuk kedua secret agar kesalahan serupa gagal
   lebih awal tanpa mencoba koneksi database.
 - Secret URL harus diperbarui menjadi tepat satu baris sebelum uji ulang.
+
+### Uji Manual Kedua
+
+- Secret URL diperbarui, tetapi GitHub masih mendeteksi karakter CR/LF sehingga
+  workflow berhenti pada tahap validasi sebelum mencoba koneksi.
+- Tidak ada dump atau artefak yang dibuat.
+- Workflow diperkuat untuk menghapus CR/LF dari URL hanya di memori runner
+  sebelum memanggil `pg_dump`; URL dan hasil normalisasi tidak dicetak.
+- Password enkripsi tetap wajib benar-benar satu baris dan tidak dinormalisasi
+  agar selalu identik dengan salinan yang disimpan di password manager.
