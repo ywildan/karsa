@@ -632,3 +632,17 @@ harian belum diaktifkan sampai uji manual dan restore terisolasi berhasil.
 - Kedua variable kini diteruskan dengan nilai eksplisit. Uji berikutnya wajib
   membuktikan marker melalui blok SQL dan membuat placeholder role sebelum
   restore dijalankan.
+
+### Uji Restore Kesembilan — Restore Berhasil, Verifikasi Belum Jalan
+
+- Guard marker benar-benar dieksekusi dan berhasil.
+- Placeholder role dibuat, lalu schema, data, indeks, constraint, RLS, dan
+  policy berhasil dipulihkan; transaksi restore berhasil commit.
+- Langkah verifikasi akhir gagal karena `VERIFY_SQL` memiliki kesalahan
+  penerusan variable yang sama dan masuk ke container sebagai string kosong.
+- Target uji sudah berisi hasil restore yang berhasil; kegagalan hanya pada
+  assertion pasca-restore.
+- Penerusan `VERIFY_SQL` diperbaiki secara eksplisit. Assertion diperkuat menjadi
+  14 tabel aplikasi, RLS aktif pada 14 tabel, dan 17 policy di schema `public`.
+- Uji ulang juga akan membuktikan bahwa prosedur dapat mengganti hasil restore
+  sebelumnya secara aman dan berulang.
