@@ -83,7 +83,28 @@ jobs:
 
       - name: Analyze source
         working-directory: karsa-mobile-build
-        run: flutter analyze
+        shell: bash
+        run: |
+          set +e
+          flutter analyze --machine | tee flutter-analyze.log
+          analyze_status=${PIPESTATUS[0]}
+          set -e
+
+          while IFS='|' read -r severity _type code file line column _length message; do
+            case "$severity" in
+              ERROR)
+                echo "::error file=$file,line=$line,col=$column::$code: $message"
+                ;;
+              WARNING)
+                echo "::warning file=$file,line=$line,col=$column::$code: $message"
+                ;;
+              INFO)
+                echo "::notice file=$file,line=$line,col=$column::$code: $message"
+                ;;
+            esac
+          done < flutter-analyze.log
+
+          exit "$analyze_status"
 
       - name: Run tests
         working-directory: karsa-mobile-build
