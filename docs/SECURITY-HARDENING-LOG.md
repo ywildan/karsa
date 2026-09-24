@@ -796,3 +796,11 @@ tidak dapat diverifikasi:
 Refresh berikutnya yang berhasil akan memulihkan klaim langsung dari database
 dan menandai `authorization_verified=true`. Perubahan belum masuk production
 sampai build Preview dan pengujian role selesai.
+
+### Hasil Pengujian Otorisasi Fail-Closed
+
+- Vercel Preview berhasil dibangun dari commit `fff0c3b` tanpa instalasi atau
+  regenerasi dependency di mesin lokal.
+- Pemilik sistem mengonfirmasi alur aplikasi pada Preview berjalan normal.
+- Perubahan siap dipromosikan melalui pull request `#25`; deployment production
+  tetap harus diverifikasi setelah merge.
