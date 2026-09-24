@@ -127,14 +127,34 @@ jobs:
             < "$RUNNER_TEMP/karsa-restore.dump" \
             > "$RUNNER_TEMP/karsa-restore.sql"
           test -s "$RUNNER_TEMP/karsa-restore.sql"
+          read -r -d '' PREPARE_RUNTIME_ROLE_SQL <<'SQL' || true
+          do $runtime_role$
+          begin
+            if not exists (
+              select 1 from pg_roles where rolname = 'karsa_runtime'
+            ) then
+              create role karsa_runtime
+                nologin
+                nosuperuser
+                nocreatedb
+                nocreaterole
+                noinherit
+                noreplication
+                nobypassrls;
+            end if;
+          end
+          $runtime_role$;
+          SQL
           docker run --rm \
             -e RESTORE_TEST_DATABASE_URL="$CLEAN_RESTORE_URL" \
+            -e PREPARE_RUNTIME_ROLE_SQL \
             -v "$RUNNER_TEMP:/restore:ro" \
             postgres:17 \
             sh -c 'exec psql "$RESTORE_TEST_DATABASE_URL" \
               --no-psqlrc \
               --set=ON_ERROR_STOP=1 \
               --single-transaction \
+              --command="$PREPARE_RUNTIME_ROLE_SQL" \
               --command="drop schema if exists public cascade" \
               --command="create schema public" \
               --file=/restore/karsa-restore.sql'

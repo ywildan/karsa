@@ -604,3 +604,16 @@ harian belum diaktifkan sampai uji manual dan restore terisolasi berhasil.
 - Transaksi rollback berhasil sehingga penghapusan schema tidak menetap.
 - Workflow diperbaiki untuk menjalankan `DROP SCHEMA public`, `CREATE SCHEMA
   public`, dan seluruh SQL restore dalam transaksi tunggal yang sama.
+
+### Uji Restore Kedelapan — Dependency Role Policy
+
+- Restore berhasil memproses tabel, data, primary/foreign key, indeks, dan
+  constraint sebelum mencapai pembuatan policy RLS.
+- Pembuatan policy gagal karena role tingkat cluster `karsa_runtime` tidak ada
+  pada project uji; role tidak termasuk dalam logical dump schema `public`.
+- Seluruh perubahan kembali di-rollback oleh transaksi tunggal.
+- Workflow diperbaiki untuk membuat placeholder `karsa_runtime` berstatus
+  `NOLOGIN`, `NOSUPERUSER`, `NOCREATEDB`, `NOCREATEROLE`, `NOINHERIT`,
+  `NOREPLICATION`, dan `NOBYPASSRLS` dalam transaksi restore yang sama.
+- Placeholder tidak memakai atau menyalin password runtime production; role
+  hanya menjadi dependency agar definisi policy dapat dipulihkan.
