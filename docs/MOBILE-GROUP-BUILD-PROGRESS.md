@@ -7,8 +7,8 @@
 ## Status Ringkas
 
 - Tanggal mulai: 24 September 2026
-- Tahap aktif: pengujian kontrak, authorization, analyzer, dan build CI
-- Kode fitur production: belum dibuat
+- Tahap aktif: pengujian authorization/abuse dan review migrasi
+- Kode fitur: selesai di branch `feat/mobile-groups`, belum digabung/deploy
 - Migrasi production: belum dijalankan
 - Instalasi lokal: tidak ada dan tidak akan dilakukan
 - Target aplikasi: Flutter native (`karsa-mobile`)
@@ -74,7 +74,7 @@
 - [x] M8 — Implementasikan report/block serta konflik laporan terhadap PJ.
 - [x] M9 — Implementasikan UI Flutter daftar grup dan ruang percakapan.
 - [ ] M10 — Tambahkan pengujian kontrak, authorization, dan abuse cases.
-- [ ] M11 — Jalankan pemeriksaan format, analyzer, test, dan build via GitHub Actions.
+- [x] M11 — Jalankan pemeriksaan format, analyzer, test, dan build via GitHub Actions.
 - [ ] M12 — Review migrasi; minta user menjalankan langkah Supabase eksternal.
 - [ ] M13 — Deploy preview, smoke test lintas role/kelas, lalu production.
 - [ ] M14 — Perbarui dokumentasi privacy/security dan tutup milestone.
@@ -182,6 +182,22 @@ dibutuhkan:
   package yang diinstal.
 - TypeScript check dan Next.js production build berhasil. Satu warning lama di
   `lib/services/student-service.ts` tetap ada dan tidak terkait fitur grup.
+
+### 24 September 2026 — Validasi CI dan APK
+
+- Branch implementasi: `feat/mobile-groups`.
+- Commit tervalidasi: `879d22c6884382d0b32ddf5c0f099d7fcf4a2de3`.
+- GitHub Actions run: `36010042379`, status `completed/success`.
+- Backend lolos `npm ci`, Prisma Client generation, dan TypeScript typecheck.
+- Flutter lolos dependency resolution, formatter, analyzer, seluruh test,
+  launcher icon generation, dan release APK build.
+- Analyzer CI memakai `dart analyze --format=machine` dari SDK Flutter agar
+  diagnosis per baris dapat diterbitkan sebagai anotasi Actions.
+- Artifact APK: `karsa-mobile-apk-879d22c6884382d0b32ddf5c0f099d7fcf4a2de3`.
+- Artifact ID: `10812406521`, ukuran 24.453.476 byte.
+- Digest artifact: `sha256:225826409611bd041e1020e250cfe8e628563000e0a19b4e24949b4e23937acf`.
+- Artifact kedaluwarsa: 8 Oktober 2026 pukul 14:08:30 UTC.
+- Tidak ada dependency atau software yang dipasang secara lokal.
 
 ## Dokumen Terkait
 
