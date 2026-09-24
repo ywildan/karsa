@@ -1,0 +1,68 @@
+name: Prepare Auth.js Security Update
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  update:
+    name: Update and validate Auth.js
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    steps:
+      - name: Check out main
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: main
+          fetch-depth: 0
+
+      - name: Set up Node.js
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Ensure the security branch is new
+        shell: bash
+        run: |
+          set -euo pipefail
+          if git ls-remote --exit-code --heads origin security/authjs-beta32; then
+            echo "::error::Branch security/authjs-beta32 already exists."
+            exit 1
+          fi
+
+      - name: Update lockfile in CI
+        shell: bash
+        run: |
+          set -euo pipefail
+          npm install next-auth@5.0.0-beta.32 \
+            --save-exact \
+            --package-lock-only \
+            --ignore-scripts
+          test "$(git diff --name-only | wc -l)" -eq 2
+          git diff --name-only | grep -qx package.json
+          git diff --name-only | grep -qx package-lock.json
+          git diff --check
+
+      - name: Install and validate in CI
+        shell: bash
+        run: |
+          set -euo pipefail
+          npm ci --ignore-scripts
+          npx prisma generate
+          npm run typecheck
+          npm audit --omit=dev --audit-level=critical
+
+      - name: Push validated security branch
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git switch -c security/authjs-beta32
+          git add package.json package-lock.json
+          git commit -m "fix(security): update Auth.js to beta.32"
+          git push origin security/authjs-beta32

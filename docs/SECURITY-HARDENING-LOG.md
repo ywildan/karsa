@@ -675,3 +675,29 @@ harian belum diaktifkan sampai uji manual dan restore terisolasi berhasil.
   byte, dan berlaku sampai 24 Oktober 2026.
 - Runbook operasional dibuat pada `docs/DATABASE-BACKUP-RESTORE.md`; Step 11
   dinyatakan selesai.
+
+## Step 12A — Audit Aplikasi dan Dependensi
+
+Audit read-only awal pada 24 September 2026 menemukan:
+
+- belum ada security headers global pada `next.config.mjs`;
+- belum ada rate limiting pada endpoint autentikasi mobile;
+- beberapa exception database pada API mobile dapat menjadi respons 500 generik
+  alih-alih kontrak JSON stabil;
+- callback JWT mempertahankan klaim terakhir jika refresh database gagal; ini
+  perlu dievaluasi agar akses admin/PJ tidak terlalu fail-open;
+- `npm audit --omit=dev` menemukan 9 advisory: 2 critical, 4 high, dan 3
+  moderate pada dependency tree yang terpasang.
+
+Prioritas tertinggi adalah `next-auth@5.0.0-beta.25`, yang berada dalam rentang
+advisory kritis Auth.js. Perbaikan tersedia pada `5.0.0-beta.32`. Karena paket
+tidak boleh diinstal lokal, workflow satu-kali
+`.github/workflows/security-update-authjs.yml` disiapkan untuk:
+
+1. membuat lockfile di runner GitHub;
+2. memastikan hanya `package.json` dan `package-lock.json` yang berubah;
+3. menjalankan clean install, Prisma generate, typecheck, dan audit critical;
+4. mendorong hasil tervalidasi ke branch `security/authjs-beta32`.
+
+Production tidak menerima upgrade sampai branch tersebut ditinjau dan lulus
+pengujian lanjutan.
