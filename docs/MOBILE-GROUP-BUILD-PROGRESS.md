@@ -209,6 +209,15 @@ dibutuhkan:
 - `npm run test:groups` dan TypeScript typecheck berhasil tanpa instalasi lokal.
 - Test tersebut ditambahkan ke job `Validate mobile API` di GitHub Actions.
 
+### 24 September 2026 — Persiapan review migrasi
+
+- SQL migrasi ditinjau ulang terhadap schema Prisma dan kontrak authorization.
+- Dibuat `docs/mobile-groups-verify.sql` yang sepenuhnya read-only untuk
+  memeriksa tabel, kolom lock, RLS, grants runtime/public, sembilan policy,
+  constraint, dan index setelah migrasi.
+- Migrasi masih belum dijalankan; M12 tetap terbuka sampai output verifikasi
+  Supabase diperiksa.
+
 ## Dokumen Terkait
 
 - `DEEP_RESEARCH_MOBILE_GROUP_PRIVACY.md`
