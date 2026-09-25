@@ -22,6 +22,12 @@ SELECT
   (
     SELECT count(*)
     FROM "GroupMessage" AS message
+    WHERE message.pinned_at IS NOT NULL
+      AND message.pinned_at < CURRENT_TIMESTAMP - INTERVAL '40 days'
+  ) AS pins_due_for_expiry,
+  (
+    SELECT count(*)
+    FROM "GroupMessage" AS message
     JOIN "KelasMatkul" AS assignment ON assignment.id = message.kelas_matkul_id
     JOIN "Kelas" AS class ON class.id = assignment.kelas_id
     JOIN "Semester" AS semester ON semester.id = class.semester_id

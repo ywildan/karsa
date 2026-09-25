@@ -8,7 +8,9 @@ import {
   canResolveGroupReport,
   canSendToGroup,
   canUseMobileGroups as canUseGroups,
+  GROUP_PIN_WINDOW_MS,
   isGroupManager,
+  isGroupMessagePinned,
   shouldAutoHideReportedMessage,
 } from "@/lib/mobile/group-policy";
 import type { MobileActor } from "@/lib/mobile/auth";
@@ -190,7 +192,7 @@ function serializeMessage(
     edited_at: row.edited_at,
     created_at: row.created_at,
     updated_at: row.updated_at,
-    is_pinned: row.pinned_at !== null,
+    is_pinned: isGroupMessagePinned(row.pinned_at, new Date()),
     is_own: row.author_id === actorId,
     can_edit: canEditGroupMessage({
       actorId,
@@ -347,7 +349,7 @@ export async function listGroupMessages(
     prisma.groupMessage.findMany({
       where: {
         kelas_matkul_id: group.id,
-        pinned_at: { not: null },
+        pinned_at: { gt: new Date(Date.now() - GROUP_PIN_WINDOW_MS) },
         deleted_at: null,
         hidden_at: null,
       },

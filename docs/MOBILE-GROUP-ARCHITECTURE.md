@@ -125,6 +125,9 @@ Semua endpoint berada di `/api/mobile/v1/groups`, memakai bearer session native,
 - Urutan query terbaru ke lama; respons client disusun kronologis.
 - Mengembalikan hingga 10 pesan aktif paling baru yang di-pin dalam field
   `pinned_messages`, agar strip pin tidak bergantung pada halaman cursor saat ini.
+- Pin berlaku 40 × 24 jam sejak dipasang. Setelah batas tersebut API langsung
+  berhenti menampilkan status/pesan pin; job retention harian membersihkan
+  `pinned_at` dan `pinned_by_id`. Isi pesan tidak dihapus oleh kedaluwarsa pin.
 - Cursor hanya berlaku di grup yang sama.
 - Pesan deleted/hidden dikirim sebagai tombstone tanpa body.
 - Reply preview tidak membocorkan body deleted/hidden/blocked.
@@ -212,14 +215,15 @@ akses operasional dan bukan akses produk.
 
 ## 6. Retensi
 
+- Pin pesan: 40 hari sejak dipasang; dilepas otomatis tanpa menghapus pesan.
 - Pesan aktif: sampai semester berakhir + 90 hari.
 - Body pesan soft-deleted: purge setelah 30 hari, row tombstone tetap minimal.
 - Body yang menjadi bukti laporan: maksimal 90 hari setelah laporan selesai.
 - Pesan yang masih memiliki laporan terbuka atau laporan yang selesai dalam 90
   hari terakhir dikecualikan dari seluruh penghapusan sampai masa bukti berakhir.
 - Audit action tidak menyimpan body pesan.
-- Purge dijalankan setiap hari pukul 03:17 WIB oleh Supabase Cron melalui
-  `public.karsa_purge_group_retention()`.
+- Retensi pesan dan pembersihan pin kedaluwarsa dijalankan setiap hari pukul
+  03:17 WIB oleh Supabase Cron melalui `public.karsa_purge_group_retention()`.
 - Hak EXECUTE fungsi dicabut dari public, role API, dan role backup. Job
   dijadwalkan oleh database owner dan tidak melewati backend/web aplikasi.
 

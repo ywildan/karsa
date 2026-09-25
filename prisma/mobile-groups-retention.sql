@@ -19,6 +19,14 @@ DECLARE
     purged_count BIGINT := 0;
     execution_time TIMESTAMP(3) := CURRENT_TIMESTAMP;
 BEGIN
+    -- Pin kedaluwarsa setelah 40 hari; pesan tetap tersimpan.
+    UPDATE public."GroupMessage" AS message
+    SET pinned_at = NULL,
+        pinned_by_id = NULL,
+        updated_at = execution_time
+    WHERE message.pinned_at IS NOT NULL
+      AND message.pinned_at < execution_time - INTERVAL '40 days';
+
     -- Seluruh riwayat grup dihapus setelah semester berakhir + 90 hari.
     DELETE FROM public."GroupMessage" AS message
     USING public."KelasMatkul" AS assignment,

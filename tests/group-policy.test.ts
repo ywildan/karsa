@@ -7,6 +7,7 @@ import {
   canSendToGroup,
   canUseMobileGroups,
   isGroupManager,
+  isGroupMessagePinned,
   shouldAutoHideReportedMessage,
 } from "../lib/mobile/group-policy";
 
@@ -21,6 +22,13 @@ test("mobile groups fail closed for admins and users without a class", () => {
 test("manager authority is scoped to the exact subject group", () => {
   assert.equal(isGroupManager("pj-algorithm", "pj-algorithm"), true);
   assert.equal(isGroupManager("pj-algorithm", "pj-web"), false);
+});
+
+test("a message pin expires exactly 40 days after it is set", () => {
+  const pinnedAt = new Date("2026-09-24T00:00:00.000Z");
+  assert.equal(isGroupMessagePinned(pinnedAt, new Date("2026-11-02T23:59:59.999Z")), true);
+  assert.equal(isGroupMessagePinned(pinnedAt, new Date("2026-11-03T00:00:00.000Z")), false);
+  assert.equal(isGroupMessagePinned(null, pinnedAt), false);
 });
 
 test("a locked group only accepts messages from its own manager", () => {

@@ -1,4 +1,5 @@
 export const GROUP_EDIT_WINDOW_MS = 15 * 60 * 1000;
+export const GROUP_PIN_WINDOW_MS = 40 * 24 * 60 * 60 * 1000;
 export const GROUP_AUTO_HIDE_REPORTS = 3;
 
 type GroupActor = {
@@ -15,6 +16,10 @@ export function canUseMobileGroups(
 
 export function isGroupManager(actorId: string, managerId: string): boolean {
   return actorId === managerId;
+}
+
+export function isGroupMessagePinned(pinnedAt: Date | null, now: Date): boolean {
+  return pinnedAt !== null && pinnedAt.getTime() + GROUP_PIN_WINDOW_MS > now.getTime();
 }
 
 export function canSendToGroup(
