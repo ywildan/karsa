@@ -163,14 +163,108 @@ jobs:
         working-directory: karsa-mobile-build
         run: dart run flutter_launcher_icons
 
+      - name: Configure permanent Android release signing
+        id: release-signing
+        env:
+          ANDROID_KEYSTORE_BASE64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
+          ANDROID_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+          ANDROID_KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
+          ANDROID_KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
+        run: |
+          set -euo pipefail
+          if [[ "$GITHUB_REF" != "refs/heads/main" ]]; then
+            echo "configured=false" >> "$GITHUB_OUTPUT"
+            echo "::notice::Release APK signing is restricted to the main branch."
+            exit 0
+          fi
+          if [[ -z "$ANDROID_KEYSTORE_BASE64" || -z "$ANDROID_KEYSTORE_PASSWORD" || \
+                -z "$ANDROID_KEY_ALIAS" || -z "$ANDROID_KEY_PASSWORD" ]]; then
+            echo "configured=false" >> "$GITHUB_OUTPUT"
+            echo "::warning::Release APK skipped: configure the four Android signing repository secrets first."
+            exit 0
+          fi
+
+          key_file="$RUNNER_TEMP/karsa-release.jks"
+          printf '%s' "$ANDROID_KEYSTORE_BASE64" | base64 --decode > "$key_file"
+          chmod 600 "$key_file"
+          echo "KARSA_KEYSTORE_FILE=$key_file" >> "$GITHUB_ENV"
+          echo "configured=true" >> "$GITHUB_OUTPUT"
+
+          python3 - <<'PY'
+          from pathlib import Path
+          import re
+
+          app = Path("karsa-mobile-build/android/app")
+          candidates = [app / "build.gradle.kts", app / "build.gradle"]
+          gradle_file = next((path for path in candidates if path.is_file()), None)
+          if gradle_file is None:
+              raise SystemExit("Generated Android app Gradle file was not found")
+
+          source = gradle_file.read_text()
+          signing_block = '''    signingConfigs {
+              create("release") {
+                  storeFile = file(System.getenv("KARSA_KEYSTORE_FILE"))
+                  storePassword = System.getenv("ANDROID_KEYSTORE_PASSWORD")
+                  keyAlias = System.getenv("ANDROID_KEY_ALIAS")
+                  keyPassword = System.getenv("ANDROID_KEY_PASSWORD")
+              }
+          }
+          '''
+          if gradle_file.suffix == ".kts":
+              if 'signingConfig = signingConfigs.getByName("debug")' not in source:
+                  raise SystemExit("Unexpected Kotlin Gradle release signing template")
+              source = re.sub(r"(?m)^android \{", "android {\n" + signing_block, source, count=1)
+              source = source.replace(
+                  'signingConfig = signingConfigs.getByName("debug")',
+                  'signingConfig = signingConfigs.getByName("release")',
+                  1,
+              )
+          else:
+              groovy_block = '''    signingConfigs {
+                  release {
+                      storeFile file(System.getenv('KARSA_KEYSTORE_FILE'))
+                      storePassword System.getenv('ANDROID_KEYSTORE_PASSWORD')
+                      keyAlias System.getenv('ANDROID_KEY_ALIAS')
+                      keyPassword System.getenv('ANDROID_KEY_PASSWORD')
+                  }
+              }
+              '''
+              pattern = r"(?m)^android \{"
+              if not re.search(pattern, source):
+                  raise SystemExit("Unexpected Groovy Gradle Android block")
+              source = re.sub(pattern, "android {\n" + groovy_block, source, count=1)
+              debug_signing = re.compile(
+                  r"(?m)^([ \t]*)signingConfig(?:\s*=)?\s*(?:signingConfigs\.debug|signingConfigs\.getByName\(['\"]debug['\"]\))\s*$"
+              )
+              source, replacements = debug_signing.subn(r"\1signingConfig signingConfigs.release", source, count=1)
+              if replacements != 1:
+                  raise SystemExit("Unexpected Groovy Gradle debug signing configuration")
+
+          gradle_file.write_text(source)
+          print(f"Configured stable release signing in {gradle_file}")
+          PY
+
       - name: Build release APK
+        if: steps.release-signing.outputs.configured == 'true'
         working-directory: karsa-mobile-build
-        run: flutter build apk --release --dart-define=KARSA_API_BASE_URL=${{ env.API_BASE_URL }}
+        env:
+          ANDROID_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+          ANDROID_KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
+          ANDROID_KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
+        run: >-
+          flutter build apk --release
+          --dart-define=KARSA_API_BASE_URL=${{ env.API_BASE_URL }}
+          --build-number=${{ github.run_number }}
 
       - name: Upload APK artifact
+        if: steps.release-signing.outputs.configured == 'true'
         uses: actions/upload-artifact@v4
         with:
           name: karsa-mobile-apk-${{ github.sha }}
           path: karsa-mobile-build/build/app/outputs/flutter-apk/app-release.apk
           if-no-files-found: error
           retention-days: 14
+
+      - name: Remove runner keystore
+        if: always()
+        run: rm -f "$RUNNER_TEMP/karsa-release.jks"

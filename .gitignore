@@ -47,6 +47,8 @@ pnpm-debug.log*
 .idea
 .DS_Store
 *.pem
+*.jks
+*.keystore
 Thumbs.db
 
 # Vercel
