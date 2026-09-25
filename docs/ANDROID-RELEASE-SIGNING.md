@@ -40,8 +40,10 @@ laptop:
    - `ANDROID_KEY_ALIAS`: `karsa-release`.
    - `ANDROID_KEY_PASSWORD`: password private key untuk alias tersebut.
 
-   Untuk mengirim Base64 langsung ke secret tanpa mencetaknya ke terminal, jika
-   GitHub CLI di Codespace sudah login ke akun pemilik repo:
+   Cara utama adalah memasukkan setiap secret melalui halaman Settings GitHub.
+   `gh secret set` hanya berfungsi jika token CLI memiliki izin Actions Secrets
+   write; token Codespaces dapat menolak akses tersebut. Jika CLI berizin, Base64
+   dapat dikirim tanpa dicetak ke terminal:
 
    ```sh
    base64 -w0 karsa-release.jks | gh secret set ANDROID_KEYSTORE_BASE64 --repo ywildan/karsa
@@ -53,8 +55,12 @@ laptop:
 
 ## Verifikasi
 
-- Jalankan workflow `Validate and Build Karsa Mobile` pada `main`.
-- Pastikan validasi dan build sukses dan artifact APK tersedia.
+- Build signing permanen pertama berhasil di run
+  [36089951126](https://github.com/ywildan/karsa/actions/runs/36089951126),
+  commit `c3d5aa8b74fb61677d25421a210f5df98be44313`.
+- Artifact: `karsa-mobile-apk-c3d5aa8b74fb61677d25421a210f5df98be44313`, ID
+  `10845795443`, digest
+  `sha256:f02b2b86bed7e5a40531626a5b92a1ba38f0112090e346c4130a719c63d9bd3b`.
 - Simpan keystore/password di backup aman; kehilangan private key berarti APK
   mendatang tidak dapat memperbarui instalasi yang memakai kunci ini.
 - APK lama yang dipasang sebelum keystore permanen tersedia kemungkinan perlu

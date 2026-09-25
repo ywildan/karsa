@@ -319,6 +319,33 @@ dibutuhkan:
   agar deployment production menyajikan data untuk strip pin.
 - Menunggu user memasang APK artifact dan menguji pin/unpin di HP.
 
+### 25 September 2026 — Masa aktif pin 40 hari
+
+- Implementasi lokal membuat API tidak lagi menampilkan pin setelah 40 × 24 jam
+  sejak dipasang; pesan tetap tersimpan sesuai retensi pesan.
+- Job `karsa_purge_group_retention()` diperbarui lokal untuk membersihkan
+  `pinned_at`/`pinned_by_id` saat jadwal retention harian berikutnya.
+- Tes policy menambahkan pengecekan sebelum dan tepat pada batas 40 hari.
+- Job production aktif (ID 2, `17 20 * * *`). SQL fungsi baru belum dipasang ke
+  production dan perubahan backend belum dideploy; tidak perlu membuat job kedua.
+
+### 25 September 2026 — Persiapan signing APK permanen
+
+- Keystore permanen dibuat oleh user di Codespaces; empat GitHub Actions Secrets
+  dikonfigurasi. Secret tidak ditampilkan atau dikirim ke log.
+- Workflow signing masuk ke `main` pada commit
+  `c3d5aa8b74fb61677d25421a210f5df98be44313`. APK signing hanya dijalankan dari
+  `main`, memakai keystore yang sama setiap run; tanpa secrets, APK dilewati.
+- Nomor build APK akan mengikuti nomor run GitHub Actions agar meningkat di tiap
+  build.
+- Build permanen pertama sukses di [Actions run 36089951126](https://github.com/ywildan/karsa/actions/runs/36089951126).
+- Artifact `karsa-mobile-apk-c3d5aa8b74fb61677d25421a210f5df98be44313`, ID
+  `10845795443`, digest
+  `sha256:f02b2b86bed7e5a40531626a5b92a1ba38f0112090e346c4130a719c63d9bd3b`.
+- User perlu mengamankan backup `.jks` dan password. APK ini adalah instalasi
+  permanen pertama; APK sebelumnya perlu di-uninstall satu kali sebelum APK ini
+  dipasang. Rilis berikutnya dapat di-update selama keystore dipertahankan.
+
 ### 24 September 2026 — Retention implementation
 
 - Supabase Cron dipilih sebagai scheduler internal database; tidak ada layanan
@@ -330,8 +357,9 @@ dibutuhkan:
   retensi semester berakhir.
 - Hak EXECUTE dicabut dari public, `anon`, `authenticated`, `karsa_runtime`, dan
   `karsa_backup`; hanya job yang dibuat database owner yang menjalankannya.
-- Scheduler dirancang berjalan setiap hari pukul 03:17 WIB dan idempotent saat
-  dipasang ulang. Aktivasi Cron dan SQL production masih menunggu langkah user.
+- Scheduler production terverifikasi aktif sebagai job ID 2 setiap hari pukul
+  03:17 WIB. SQL retensi terbaru untuk melepas pin setelah 40 hari masih perlu
+  dijalankan terpisah setelah perubahannya dideploy.
 
 ## Dokumen Terkait
 
