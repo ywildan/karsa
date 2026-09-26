@@ -91,6 +91,8 @@ jobs:
   build-apk:
     name: Test and build APK
     runs-on: ubuntu-latest
+    outputs:
+      apk_ready: ${{ steps.release-signing.outputs.configured }}
     steps:
       - uses: actions/checkout@v6
 
@@ -268,3 +270,59 @@ jobs:
       - name: Remove runner keystore
         if: always()
         run: rm -f "$RUNNER_TEMP/karsa-release.jks"
+
+  release:
+    name: Create GitHub release
+    needs: [validate-backend, build-apk]
+    if: >-
+      github.ref == 'refs/heads/main' &&
+      needs.validate-backend.result == 'success' &&
+      needs.build-apk.result == 'success' &&
+      needs.build-apk.outputs.apk_ready == 'true'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v6
+
+      - name: Read app version
+        id: version
+        shell: bash
+        run: |
+          set -euo pipefail
+          version="$(sed -n 's/^version:[[:space:]]*//p' karsa-mobile/pubspec.yaml | head -n 1)"
+          if [[ -z "$version" ]]; then
+            echo "version is missing from karsa-mobile/pubspec.yaml" >&2
+            exit 1
+          fi
+          tag="karsa-v${version}"
+          echo "version=$version" >> "$GITHUB_OUTPUT"
+          echo "tag=$tag" >> "$GITHUB_OUTPUT"
+
+      - name: Download signed APK
+        uses: actions/download-artifact@v4
+        with:
+          name: karsa-mobile-apk-${{ github.sha }}
+          path: release-assets
+
+      - name: Create GitHub release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          VERSION: ${{ steps.version.outputs.version }}
+          TAG: ${{ steps.version.outputs.tag }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          apk="$(find release-assets -type f -name '*.apk' -print -quit)"
+          if [[ -z "$apk" ]]; then
+            echo "Signed APK was not found in the downloaded artifact" >&2
+            exit 1
+          fi
+          if gh release view "$TAG" >/dev/null 2>&1; then
+            echo "Release $TAG already exists; nothing to create."
+            exit 0
+          fi
+          gh release create "$TAG" "$apk" \
+            --target "$GITHUB_SHA" \
+            --title "Karsa Mobile $VERSION" \
+            --generate-notes
