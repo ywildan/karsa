@@ -2,10 +2,10 @@ import 'package:flutter/material.dart';
 
 import '../core/app_controller.dart';
 import 'account_screen.dart';
+import 'activity_screen.dart';
 import 'group_list_screen.dart';
 import 'leaderboard_screen.dart';
 import 'point_form_screen.dart';
-import 'point_history_screen.dart';
 import 'report_screen.dart';
 
 class HomeShell extends StatefulWidget {
@@ -22,22 +22,29 @@ class _HomeShellState extends State<HomeShell> {
   @override
   Widget build(BuildContext context) {
     final isPj = widget.controller.user!.capabilities.recordPoints;
-    final pages = <Widget>[
-      GroupListScreen(api: widget.controller.api),
-      if (isPj) PointFormScreen(api: widget.controller.api),
-      if (isPj) PointHistoryScreen(api: widget.controller.api),
-      ReportScreen(api: widget.controller.api),
-      LeaderboardScreen(api: widget.controller.api),
-      AccountScreen(controller: widget.controller),
-    ];
+    final pages = isPj
+        ? <Widget>[
+            GroupListScreen(api: widget.controller.api),
+            PointFormScreen(api: widget.controller.api),
+            ActivityScreen(api: widget.controller.api),
+            AccountScreen(controller: widget.controller),
+          ]
+        : <Widget>[
+            GroupListScreen(api: widget.controller.api),
+            ReportScreen(api: widget.controller.api),
+            LeaderboardScreen(api: widget.controller.api),
+            AccountScreen(controller: widget.controller),
+          ];
     final destinations = <NavigationDestination>[
       const NavigationDestination(icon: Icon(Icons.forum_outlined), selectedIcon: Icon(Icons.forum), label: 'Grup'),
       if (isPj)
         const NavigationDestination(icon: Icon(Icons.add_circle_outline), selectedIcon: Icon(Icons.add_circle), label: 'Poin'),
       if (isPj)
-        const NavigationDestination(icon: Icon(Icons.history_outlined), selectedIcon: Icon(Icons.history), label: 'Riwayat'),
-      const NavigationDestination(icon: Icon(Icons.assessment_outlined), selectedIcon: Icon(Icons.assessment), label: 'Laporan'),
-      const NavigationDestination(icon: Icon(Icons.emoji_events_outlined), selectedIcon: Icon(Icons.emoji_events), label: 'Peringkat'),
+        const NavigationDestination(icon: Icon(Icons.insights_outlined), selectedIcon: Icon(Icons.insights), label: 'Aktivitas'),
+      if (!isPj)
+        const NavigationDestination(icon: Icon(Icons.assessment_outlined), selectedIcon: Icon(Icons.assessment), label: 'Laporan'),
+      if (!isPj)
+        const NavigationDestination(icon: Icon(Icons.emoji_events_outlined), selectedIcon: Icon(Icons.emoji_events), label: 'Peringkat'),
       const NavigationDestination(icon: Icon(Icons.person_outline), selectedIcon: Icon(Icons.person), label: 'Akun'),
     ];
 
