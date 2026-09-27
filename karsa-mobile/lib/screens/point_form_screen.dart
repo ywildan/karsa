@@ -144,7 +144,7 @@ class _PointFormScreenState extends State<PointFormScreen> {
 
   String _studentLabel(Student student) => student.nim == null
       ? student.name
-      : '${student.name} · ${student.nim}';
+      : '${student.name} · ${maskNim(student.nim)}';
 
   String _studentSearchHelper() {
     if (_assignment == null) {
@@ -166,7 +166,33 @@ class _PointFormScreenState extends State<PointFormScreen> {
   @override
   Widget build(BuildContext context) => CustomScrollView(
         slivers: [
-          const SliverAppBar(title: Text('Catat poin')),
+          SliverAppBar(
+            title: const Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text('Catat Poin Mahasiswa'),
+                Text(
+                  'KARSA Academic Point-Tracking',
+                  style: TextStyle(fontSize: 12, fontWeight: FontWeight.w400),
+                ),
+              ],
+            ),
+            actions: [
+              Padding(
+                padding: const EdgeInsets.only(right: 16),
+                child: DecoratedBox(
+                  decoration: BoxDecoration(
+                    color: Theme.of(context).colorScheme.primaryContainer,
+                    borderRadius: BorderRadius.circular(999),
+                  ),
+                  child: const Padding(
+                    padding: EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                    child: Text('PJ KELAS', style: TextStyle(fontSize: 10, fontWeight: FontWeight.w800)),
+                  ),
+                ),
+              ),
+            ],
+          ),
           SliverFillRemaining(hasScrollBody: true, child: _body(context)),
         ],
       );
@@ -186,16 +212,14 @@ class _PointFormScreenState extends State<PointFormScreen> {
       );
     }
     return SingleChildScrollView(
-      padding: const EdgeInsets.fromLTRB(16, 8, 16, 28),
+      padding: const EdgeInsets.fromLTRB(20, 12, 20, 28),
       child: Form(
         key: _formKey,
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text('Detail pencatatan', style: Theme.of(context).textTheme.titleLarge),
-            const SizedBox(height: 6),
-            const Text('Pastikan mahasiswa dan mata kuliah sudah tepat sebelum menyimpan.'),
-            const SizedBox(height: 20),
+            Text('Mata Kuliah', style: Theme.of(context).textTheme.labelLarge),
+            const SizedBox(height: 8),
             DropdownButtonFormField<Assignment>(
               initialValue: _assignment,
               isExpanded: true,
@@ -206,7 +230,9 @@ class _PointFormScreenState extends State<PointFormScreen> {
               onChanged: _submitting ? null : _chooseAssignment,
               validator: (value) => value == null ? 'Pilih mata kuliah' : null,
             ),
-            const SizedBox(height: 14),
+            const SizedBox(height: 20),
+            Text('Cari Mahasiswa', style: Theme.of(context).textTheme.labelLarge),
+            const SizedBox(height: 8),
             if (_loadingStudents)
               const LinearProgressIndicator()
             else
@@ -230,8 +256,7 @@ class _PointFormScreenState extends State<PointFormScreen> {
                   enabled: _assignment != null && !_submitting,
                   textInputAction: TextInputAction.search,
                   decoration: InputDecoration(
-                    labelText: 'Cari mahasiswa',
-                    hintText: 'Contoh: wil',
+                    hintText: 'Ketik nama atau NPM mahasiswa...',
                     helperText: _studentSearchHelper(),
                     prefixIcon: const Icon(Icons.search_rounded),
                     suffixIcon: controller.text.isEmpty
@@ -278,7 +303,7 @@ class _PointFormScreenState extends State<PointFormScreen> {
                                 title: Text(student.name),
                                 subtitle: student.nim == null
                                     ? null
-                                    : Text(student.nim!),
+                                    : Text(maskNim(student.nim)),
                                 onTap: () => onSelected(student),
                               );
                             },
@@ -289,7 +314,9 @@ class _PointFormScreenState extends State<PointFormScreen> {
                   );
                 },
               ),
-            const SizedBox(height: 14),
+            const SizedBox(height: 20),
+            Text('Kategori', style: Theme.of(context).textTheme.labelLarge),
+            const SizedBox(height: 8),
             DropdownButtonFormField<PointCategory>(
               initialValue: _category,
               isExpanded: true,
@@ -301,7 +328,7 @@ class _PointFormScreenState extends State<PointFormScreen> {
               validator: (value) => value == null ? 'Pilih kategori' : null,
             ),
             const SizedBox(height: 20),
-            Text('Jumlah poin', style: Theme.of(context).textTheme.titleMedium),
+            Text('Jumlah Poin', style: Theme.of(context).textTheme.labelLarge),
             const SizedBox(height: 10),
             SegmentedButton<int>(
               segments: const [
@@ -320,7 +347,7 @@ class _PointFormScreenState extends State<PointFormScreen> {
               maxLength: 500,
               maxLines: 3,
               decoration: const InputDecoration(
-                labelText: 'Catatan (opsional)',
+                labelText: 'Catatan (Opsional)',
                 alignLabelWithHint: true,
               ),
             ),

@@ -134,7 +134,7 @@ class _RankTile extends StatelessWidget {
           entry.isCurrentUser ? '${entry.name} (Kamu)' : entry.name,
           style: const TextStyle(fontWeight: FontWeight.w700),
         ),
-        subtitle: entry.nim == null ? null : Text(entry.nim!),
+        subtitle: entry.nim == null ? null : Text(maskNim(entry.nim)),
         trailing: Text('${entry.points} poin', style: const TextStyle(fontWeight: FontWeight.w700)),
       ),
     );

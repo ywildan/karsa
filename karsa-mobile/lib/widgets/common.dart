@@ -81,3 +81,12 @@ String formatDate(DateTime date) {
   final minute = date.minute.toString().padLeft(2, '0');
   return '${date.day} ${months[date.month - 1]} ${date.year}, $hour:$minute';
 }
+
+/// Keeps the first three NPM digits visible while avoiding exposing the full
+/// student identifier in shared PJ views.
+String maskNim(String? nim) {
+  final value = nim?.trim() ?? '';
+  if (value.isEmpty) return '';
+  if (value.length <= 3) return value;
+  return '${value.substring(0, 3)}${List.filled(value.length - 3, '*').join()}';
+}

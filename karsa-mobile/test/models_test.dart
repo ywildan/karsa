@@ -1,6 +1,7 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:karsa_mobile/core/models.dart';
 import 'package:karsa_mobile/core/student_search.dart';
+import 'package:karsa_mobile/widgets/common.dart';
 
 void main() {
   test('AppUser membaca kapabilitas PJ dan mahasiswa', () {
@@ -72,6 +73,12 @@ void main() {
       searchStudentsByName(students, 'WIL').map((student) => student.name),
       ['YUSUF WILDAN AFFANDI', 'DEWILSON'],
     );
+  });
+
+  test('NPM hanya menampilkan tiga digit pertama di layar bersama', () {
+    expect(maskNim('123456789'), '123******');
+    expect(maskNim('12'), '12');
+    expect(maskNim(null), '');
   });
 
   test('GroupSummary membaca hak PJ hanya pada grup terkait', () {
