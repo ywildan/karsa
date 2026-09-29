@@ -11,7 +11,11 @@ class ActivityScreen extends StatelessWidget {
   final ApiClient api;
 
   void _open(BuildContext context, Widget screen) {
-    Navigator.of(context).push(MaterialPageRoute<void>(builder: (_) => screen));
+    Navigator.of(context).push(
+      MaterialPageRoute<void>(
+        builder: (_) => _ActivityRouteShell(child: screen),
+      ),
+    );
   }
 
   @override
@@ -57,6 +61,26 @@ class ActivityScreen extends StatelessWidget {
             ),
           ),
         ],
+      );
+}
+
+/// Menjadikan screen Aktivitas sebagai route mandiri.
+///
+/// Screen laporan, peringkat, dan riwayat juga dipakai sebagai body di
+/// HomeShell. Saat dibuka dari ActivityScreen, mereka membutuhkan parent
+/// Scaffold agar background, safe area, dan surface Material tetap konsisten.
+class _ActivityRouteShell extends StatelessWidget {
+  const _ActivityRouteShell({required this.child});
+
+  final Widget child;
+
+  @override
+  Widget build(BuildContext context) => Scaffold(
+        backgroundColor: Theme.of(context).scaffoldBackgroundColor,
+        body: SafeArea(
+          bottom: false,
+          child: child,
+        ),
       );
 }
 
