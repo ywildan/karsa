@@ -98,7 +98,7 @@ class AppController extends ChangeNotifier {
 
     if (authError == 'not_eligible') {
       state = SessionState.signedOut;
-      _setError('Aplikasi ini hanya tersedia untuk mahasiswa dan PJ aktif.');
+      _setError('Aplikasi ini hanya tersedia untuk akun mahasiswa UNTIDAR.');
       return;
     }
     if (authError == 'temporarily_unavailable') {

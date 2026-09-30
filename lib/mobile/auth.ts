@@ -3,6 +3,7 @@ import "server-only";
 import { createHash, randomBytes } from "node:crypto";
 
 import { prisma } from "@/lib/prisma";
+import { isStudentEmail } from "@/lib/mahasiswa";
 import { loadUserSnapshot } from "@/lib/user-snapshot";
 
 export const MOBILE_REDIRECT_URI = "karsa://auth/callback";
@@ -53,10 +54,16 @@ export async function mobileUserPayload(userId: string) {
     nim: snapshot.nim,
     kelas_id: snapshot.kelas_id,
     is_admin: snapshot.is_admin,
+    lib_profile: snapshot.libProfile,
     capabilities: {
       record_points: !snapshot.is_admin && snapshot.is_pj,
       view_report: !snapshot.is_admin && snapshot.kelas_id !== null,
       view_leaderboard: !snapshot.is_admin && snapshot.kelas_id !== null,
+      view_karsa_lib: !snapshot.is_admin && isStudentEmail(snapshot.email),
+      write_karsa_lib:
+        !snapshot.is_admin &&
+        isStudentEmail(snapshot.email) &&
+        snapshot.is_lib_writer,
     },
   };
 }

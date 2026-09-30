@@ -14,6 +14,7 @@ import {
   ChevronRight,
   GraduationCap,
   Layers,
+  Landmark,
   Users,
   type LucideIcon,
 } from "lucide-react";
@@ -42,8 +43,9 @@ export default async function AdminDashboardPage() {
 
   // Empat hitungan independen dijalankan paralel (PRD §16: hindari query
   // berantai). Semua pakai `prisma.count()` sesuai scope Sub-Fase 2A.
-  const [prodiCount, kelasCount, matkulCount, mahasiswaCount] =
+  const [facultyCount, prodiCount, kelasCount, matkulCount, mahasiswaCount] =
     await Promise.all([
+      prisma.faculty.count(),
       prisma.prodi.count(),
       prisma.kelas.count(),
       prisma.matkul.count(),
@@ -52,6 +54,13 @@ export default async function AdminDashboardPage() {
     ]);
 
   const cards: StatCard[] = [
+    {
+      label: "Fakultas",
+      description: "Fakultas terdaftar",
+      value: facultyCount,
+      icon: Landmark,
+      href: "/admin/fakultas",
+    },
     {
       label: "Prodi",
       description: "Program studi terdaftar",
@@ -98,7 +107,7 @@ export default async function AdminDashboardPage() {
 
       <section
         aria-label="Statistik master data"
-        className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4"
+        className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5"
       >
         {cards.map((card) =>
           card.href ? (

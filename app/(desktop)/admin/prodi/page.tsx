@@ -20,9 +20,10 @@ export const metadata: Metadata = {
 export default async function AdminProdiPage() {
   await requireAdmin();
 
-  const prodis = await prisma.prodi.findMany({
+  const [prodis, faculties] = await Promise.all([prisma.prodi.findMany({
     orderBy: { name: "asc" },
-  });
+    include: { faculty: { select: { id: true, name: true } } },
+  }), prisma.faculty.findMany({ orderBy: { name: "asc" } })]);
 
   return (
     <main className="mx-auto flex w-full max-w-5xl flex-col gap-6 px-4 py-8">
@@ -33,12 +34,11 @@ export default async function AdminProdiPage() {
           Program Studi
         </h1>
         <p className="mt-1 text-sm text-muted-foreground">
-          Master program studi. Prodi yang masih memiliki kelas tidak bisa
-          dihapus.
+          Setiap prodi harus terhubung ke fakultas. Lengkapi relasi prodi lama sebelum prodi digunakan pada setup Karsa Lib.
         </p>
       </header>
 
-      <ProdiManager prodis={prodis} />
+      <ProdiManager prodis={prodis} faculties={faculties} />
     </main>
   );
 }

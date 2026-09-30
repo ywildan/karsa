@@ -286,6 +286,140 @@ class ApiClient {
     );
   }
 
+  Future<LibBootstrap> libBootstrap() async {
+    final data = await _request('GET', '/lib/bootstrap') as Map<String, dynamic>;
+    return LibBootstrap.fromJson(data);
+  }
+
+  Future<LibProfileInfo> createLibProfile({
+    required String displayName,
+    required String facultyId,
+    required String programId,
+    String? classId,
+  }) async {
+    final data = await _request(
+      'POST',
+      '/lib/profile',
+      body: {
+        'display_name': displayName,
+        'faculty_id': facultyId,
+        'prodi_id': programId,
+        'kelas_id': classId,
+      },
+    ) as Map<String, dynamic>;
+    return LibProfileInfo.fromJson(data);
+  }
+
+  Future<List<LibArticle>> libFeed() async {
+    final data = await _request('GET', '/lib/feed') as List;
+    return data
+        .map((item) => LibArticle.fromJson(item as Map<String, dynamic>))
+        .toList();
+  }
+
+  Future<LibArticle> libArticle(String articleId) async {
+    final data = await _request('GET', '/lib/articles/$articleId') as Map<String, dynamic>;
+    return LibArticle.fromJson(data);
+  }
+
+  Future<LibAuthorProfile> libAuthorProfile(String authorId) async {
+    final data = await _request('GET', '/lib/authors/$authorId') as Map<String, dynamic>;
+    return LibAuthorProfile.fromJson(data);
+  }
+
+  Future<List<LibArticle>> libVault() async {
+    final data = await _request('GET', '/lib/vault') as List;
+    return data
+        .map((item) => LibArticle.fromJson(item as Map<String, dynamic>))
+        .toList();
+  }
+
+  Future<LibArticle> createLibArticle({required String title, required String body}) async {
+    final data = await _request(
+      'POST',
+      '/lib/articles',
+      body: {'title': title, 'body': body},
+    ) as Map<String, dynamic>;
+    return LibArticle.fromJson(data);
+  }
+
+  Future<LibArticle> updateLibArticle(
+    String articleId, {
+    required String action,
+    String? title,
+    String? body,
+  }) async {
+    final data = await _request(
+      'PATCH',
+      '/lib/articles/$articleId',
+      body: {
+        'action': action,
+        if (title != null) 'title': title,
+        if (body != null) 'body': body,
+      },
+    ) as Map<String, dynamic>;
+    return LibArticle.fromJson(data);
+  }
+
+  Future<void> deleteLibDraft(String articleId) async {
+    await _request('DELETE', '/lib/articles/$articleId');
+  }
+
+  Future<List<LibComment>> libComments(String articleId) async {
+    final data = await _request('GET', '/lib/articles/$articleId/comments') as List;
+    return data
+        .map((item) => LibComment.fromJson(item as Map<String, dynamic>))
+        .toList();
+  }
+
+  Future<LibComment> createLibComment(
+    String articleId, {
+    required String body,
+    String? parentId,
+  }) async {
+    final data = await _request(
+      'POST',
+      '/lib/articles/$articleId/comments',
+      body: {'body': body, 'parent_id': parentId},
+    ) as Map<String, dynamic>;
+    return LibComment.fromJson(data);
+  }
+
+  Future<void> deleteLibComment(String commentId) async {
+    await _request('DELETE', '/lib/comments/$commentId');
+  }
+
+  Future<Map<String, dynamic>> requestLibAuthor({
+    required String motivation,
+    required String topics,
+  }) async => await _request(
+        'POST',
+        '/lib/author-requests',
+        body: {
+          'motivation': motivation,
+          'topics': topics,
+          'accepted_guidelines': true,
+        },
+      ) as Map<String, dynamic>;
+
+  Future<void> reportLibContent({
+    String? articleId,
+    String? commentId,
+    required String reason,
+    String? details,
+  }) async {
+    await _request(
+      'POST',
+      '/lib/reports',
+      body: {
+        if (articleId != null) 'article_id': articleId,
+        if (commentId != null) 'comment_id': commentId,
+        'reason': reason,
+        'details': details,
+      },
+    );
+  }
+
   Future<dynamic> _request(
     String method,
     String path, {

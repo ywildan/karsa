@@ -63,6 +63,17 @@ model User {
   groupBlocksCreated   GroupBlock[]        @relation("GroupBlocker")
   groupBlocksReceived  GroupBlock[]        @relation("GroupBlocked")
   groupsLocked         KelasMatkul[]       @relation("KelasMatkulGroupLocker")
+  libProfile           LibProfile?
+  libAuthorRequests    LibAuthorRequest[]  @relation("LibAuthorRequestUser")
+  libRequestsDecided   LibAuthorRequest[]  @relation("LibAuthorRequestAdmin")
+  libAuthorAccess      LibAuthorAccess?    @relation("LibAuthorAccessUser")
+  libAccessGranted     LibAuthorAccess[]   @relation("LibAuthorAccessAdmin")
+  libArticles          LibArticle[]        @relation("LibArticleAuthor")
+  libArticleViews      LibArticleView[]
+  libComments          LibComment[]        @relation("LibCommentAuthor")
+  libCommentsDeleted   LibComment[]        @relation("LibCommentDeletedBy")
+  libReports           LibReport[]         @relation("LibReportReporter")
+  libReportsResolved   LibReport[]         @relation("LibReportResolver")
 
   @@index([kelas_id])
 }
@@ -130,10 +141,27 @@ model Semester {
 model Prodi {
   id         String   @id @default(cuid())
   name       String   @unique
+  faculty_id String?
   created_at DateTime @default(now())
   updated_at DateTime @default(now()) @updatedAt
 
-  kelas Kelas[]
+  faculty     Faculty?     @relation(fields: [faculty_id], references: [id], onDelete: Restrict, onUpdate: Cascade)
+  kelas       Kelas[]
+  libProfiles LibProfile[]
+  libArticles LibArticle[]
+
+  @@index([faculty_id])
+}
+
+/// Fakultas induk dari satu atau lebih program studi.
+model Faculty {
+  id         String   @id @default(cuid())
+  name       String   @unique
+  created_at DateTime @default(now())
+  updated_at DateTime @default(now()) @updatedAt
+
+  prodis      Prodi[]
+  libProfiles LibProfile[]
 }
 
 /// Matkul — master mata kuliah, dipakai lintas kelas.
@@ -161,6 +189,7 @@ model Kelas {
   semester    Semester      @relation(fields: [semester_id], references: [id], onDelete: Restrict, onUpdate: Cascade)
   users       User[]
   kelasMatkul KelasMatkul[]
+  libProfiles LibProfile[]
 
   @@unique([name, prodi_id, semester_id])
   @@index([prodi_id])
@@ -385,4 +414,154 @@ model AuditLog {
   @@index([action, created_at(sort: Desc)])
   @@index([actor_id, created_at(sort: Desc)])
   @@index([created_at(sort: Desc)])
+}
+
+// ---------------------------------------------------------------------------
+// Karsa Lib
+// ---------------------------------------------------------------------------
+
+/// Profil Karsa Lib diisi saat pertama kali membuka fitur. Fakultas dan prodi
+/// dikunci oleh service setelah dibuat; kelas bersifat opsional.
+model LibProfile {
+  id           String   @id @default(cuid())
+  user_id      String   @unique
+  display_name String
+  faculty      String
+  faculty_id   String?
+  prodi_id     String
+  kelas_id     String?
+  created_at   DateTime @default(now())
+  updated_at   DateTime @default(now()) @updatedAt
+
+  user       User     @relation(fields: [user_id], references: [id], onDelete: Cascade, onUpdate: Cascade)
+  facultyRef Faculty? @relation(fields: [faculty_id], references: [id], onDelete: Restrict, onUpdate: Cascade)
+  prodi      Prodi    @relation(fields: [prodi_id], references: [id], onDelete: Restrict, onUpdate: Cascade)
+  kelas      Kelas?   @relation(fields: [kelas_id], references: [id], onDelete: SetNull, onUpdate: Cascade)
+
+  @@index([prodi_id])
+  @@index([kelas_id])
+  @@index([faculty_id])
+}
+
+/// Permohonan akses menulis artikel; approval menghasilkan LibAuthorAccess.
+model LibAuthorRequest {
+  id            String    @id @default(cuid())
+  user_id       String
+  motivation    String    @db.Text
+  topics        String    @db.Text
+  status        String    @default("PENDING")
+  decision_note String?   @db.Text
+  decided_by_id String?
+  submitted_at  DateTime  @default(now())
+  decided_at    DateTime?
+  updated_at    DateTime  @default(now()) @updatedAt
+
+  user      User  @relation("LibAuthorRequestUser", fields: [user_id], references: [id], onDelete: Cascade, onUpdate: Cascade)
+  decidedBy User? @relation("LibAuthorRequestAdmin", fields: [decided_by_id], references: [id], onDelete: SetNull, onUpdate: Cascade)
+
+  @@index([status, submitted_at(sort: Desc)])
+  @@index([user_id, submitted_at(sort: Desc)])
+}
+
+/// Status penulis terpisah dari permohonan agar admin dapat mencabut akses.
+model LibAuthorAccess {
+  user_id       String    @id
+  granted_by_id String
+  granted_at    DateTime  @default(now())
+  revoked_at    DateTime?
+  updated_at    DateTime  @default(now()) @updatedAt
+
+  user      User @relation("LibAuthorAccessUser", fields: [user_id], references: [id], onDelete: Cascade, onUpdate: Cascade)
+  grantedBy User @relation("LibAuthorAccessAdmin", fields: [granted_by_id], references: [id], onDelete: Restrict, onUpdate: Cascade)
+
+  @@index([revoked_at])
+}
+
+/// Artikel teks; audience prodi disalin saat publish dan tidak dipilih manual.
+model LibArticle {
+  id           String    @id @default(cuid())
+  author_id    String
+  prodi_id     String
+  title        String
+  body         String    @db.Text
+  status       String    @default("DRAFT")
+  published_at DateTime?
+  archived_at  DateTime?
+  created_at   DateTime  @default(now())
+  updated_at   DateTime  @default(now()) @updatedAt
+
+  author   User             @relation("LibArticleAuthor", fields: [author_id], references: [id], onDelete: Restrict, onUpdate: Cascade)
+  prodi    Prodi            @relation(fields: [prodi_id], references: [id], onDelete: Restrict, onUpdate: Cascade)
+  views    LibArticleView[]
+  comments LibComment[]
+  reports  LibReport[]
+
+  @@index([prodi_id, status, published_at(sort: Desc)])
+  @@index([author_id, status, updated_at(sort: Desc)])
+}
+
+/// Satu pembacaan per pengguna per artikel.
+model LibArticleView {
+  id         String   @id @default(cuid())
+  article_id String
+  user_id    String
+  created_at DateTime @default(now())
+
+  article LibArticle @relation(fields: [article_id], references: [id], onDelete: Cascade, onUpdate: Cascade)
+  user    User       @relation(fields: [user_id], references: [id], onDelete: Cascade, onUpdate: Cascade)
+
+  @@unique([article_id, user_id])
+  @@index([user_id, created_at(sort: Desc)])
+}
+
+/// Komentar dan satu tingkat balasan. Body dipertahankan sebagai tombstone
+/// setelah pemilik/admin menghapusnya agar konteks balasan dan laporan utuh.
+model LibComment {
+  id             String    @id @default(cuid())
+  article_id     String
+  author_id      String
+  parent_id      String?
+  body           String?   @db.Text
+  deleted_at     DateTime?
+  deleted_by_id  String?
+  deleted_reason String?
+  created_at     DateTime  @default(now())
+  updated_at     DateTime  @default(now()) @updatedAt
+
+  article   LibArticle   @relation(fields: [article_id], references: [id], onDelete: Cascade, onUpdate: Cascade)
+  author    User         @relation("LibCommentAuthor", fields: [author_id], references: [id], onDelete: Restrict, onUpdate: Cascade)
+  parent    LibComment?  @relation("LibCommentReplies", fields: [parent_id], references: [id], onDelete: SetNull, onUpdate: Cascade)
+  replies   LibComment[] @relation("LibCommentReplies")
+  deletedBy User?        @relation("LibCommentDeletedBy", fields: [deleted_by_id], references: [id], onDelete: SetNull, onUpdate: Cascade)
+  reports   LibReport[]
+
+  @@index([article_id, created_at])
+  @@index([parent_id, created_at])
+  @@index([author_id, created_at(sort: Desc)])
+}
+
+/// Laporan artikel/komentar; exactly one target divalidasi oleh service.
+model LibReport {
+  id             String    @id @default(cuid())
+  article_id     String?
+  comment_id     String?
+  reporter_id    String
+  reason         String
+  details        String?   @db.Text
+  status         String    @default("PENDING")
+  decision_note  String?   @db.Text
+  resolved_by_id String?
+  resolved_at    DateTime?
+  created_at     DateTime  @default(now())
+  updated_at     DateTime  @default(now()) @updatedAt
+
+  article    LibArticle? @relation(fields: [article_id], references: [id], onDelete: Cascade, onUpdate: Cascade)
+  comment    LibComment? @relation(fields: [comment_id], references: [id], onDelete: Cascade, onUpdate: Cascade)
+  reporter   User        @relation("LibReportReporter", fields: [reporter_id], references: [id], onDelete: Restrict, onUpdate: Cascade)
+  resolvedBy User?       @relation("LibReportResolver", fields: [resolved_by_id], references: [id], onDelete: SetNull, onUpdate: Cascade)
+
+  @@unique([article_id, reporter_id])
+  @@unique([comment_id, reporter_id])
+  @@index([status, created_at(sort: Desc)])
+  @@index([resolved_by_id])
 }
