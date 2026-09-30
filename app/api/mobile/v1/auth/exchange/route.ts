@@ -21,6 +21,7 @@ const bodySchema = z.object({
   code: z.string().regex(/^[A-Za-z0-9_-]{32,}$/),
   code_verifier: z.string().regex(/^[A-Za-z0-9._~-]{43,128}$/),
   device_name: z.string().max(100).optional(),
+  accepted_terms_version: z.literal("1.0").optional(),
 });
 
 export const POST = withMobileApiErrors(async function POST(request: Request) {
@@ -71,6 +72,23 @@ export const POST = withMobileApiErrors(async function POST(request: Request) {
         device_name: normalizeDeviceName(parsed.data.device_name),
       },
     });
+    if (parsed.data.accepted_terms_version) {
+      await tx.auditLog.create({
+        data: {
+          actor_id: user.id,
+          actor_name: user.name?.trim() || user.email,
+          actor_role: user.is_admin ? "ADMIN" : user.capabilities.record_points ? "PJ" : "MAHASISWA",
+          action: "LEGAL_CONSENT_ACCEPTED",
+          entity_type: "User",
+          entity_id: user.id,
+          after: {
+            terms_version: parsed.data.accepted_terms_version,
+            privacy_version: parsed.data.accepted_terms_version,
+          },
+          metadata: { source: "KARSA_MOBILE" },
+        },
+      });
+    }
     return true;
   });
 

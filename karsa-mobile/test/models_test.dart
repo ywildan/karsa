@@ -161,11 +161,13 @@ void main() {
         'prodi_name': 'Akuntansi',
       },
       'views': 2,
+      'period_views': 1,
       'comments_count': 1,
       'published_at': '2026-09-30T10:00:00.000Z',
     });
     expect(article.authorId, 'author-1');
     expect(article.views, 2);
+    expect(article.periodViews, 1);
     expect(article.publishedAt, isNotNull);
 
     final comment = LibComment.fromJson({

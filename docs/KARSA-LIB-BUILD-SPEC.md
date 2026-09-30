@@ -25,6 +25,8 @@ Karsa Mobile saat ini hanya mengizinkan akun dengan akses kelas atau PJ. Impleme
 ### Membaca artikel
 
 - Beranda Karsa Lib menampilkan feed artikel prodi pengguna, bergaya linimasa.
+- Urutan tersedia sebagai Terbaru, Trending 7 hari, dan Trending 30 hari. Trending dihitung di server dari jumlah pembaca unik yang pertama kali membuka artikel dalam periode berjalan; artikel lama tanpa pembaca baru tidak mendominasi. Hasil tetap terbatas pada prodi pengguna.
+- Pencarian judul artikel dilakukan di server dalam prodi yang sama dan dapat dipakai bersama setiap pilihan urutan. Feed menampilkan maksimal 30 hasil teratas.
 - Artikel menampilkan judul, ringkasan teks, penulis, waktu terbit, dan jumlah pembaca unik.
 - Nama penulis dapat dibuka untuk melihat profil Karsa Lib-nya. Profil menampilkan identitas penulis, fakultas/prodi, artikel yang sudah terbit, dan jumlah pembaca pada setiap artikel. Profil hanya terlihat bagi pengguna yang dapat mengakses prodi tersebut.
 - Feed dan halaman artikel hanya menyajikan artikel dengan prodi yang sama dengan profil pembaca. Server memeriksa batas ini pada setiap permintaan.

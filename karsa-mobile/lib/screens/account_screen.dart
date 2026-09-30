@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../core/app_controller.dart';
+import '../core/legal_links.dart';
 import '../widgets/common.dart';
 
 class AccountScreen extends StatelessWidget {
@@ -47,6 +48,26 @@ class AccountScreen extends StatelessWidget {
                           ? 'Mahasiswa · PJ mata kuliah'
                           : 'Mahasiswa',
                     ),
+                  ),
+                ),
+                const SizedBox(height: 16),
+                Card(
+                  child: Column(
+                    children: [
+                      ListTile(
+                        leading: const Icon(Icons.description_outlined),
+                        title: const Text('Syarat Penggunaan'),
+                        trailing: const Icon(Icons.open_in_new_rounded, size: 18),
+                        onTap: () => openLegalDocument(context, termsPath),
+                      ),
+                      const Divider(height: 1, indent: 16, endIndent: 16),
+                      ListTile(
+                        leading: const Icon(Icons.privacy_tip_outlined),
+                        title: const Text('Kebijakan Privasi'),
+                        trailing: const Icon(Icons.open_in_new_rounded, size: 18),
+                        onTap: () => openLegalDocument(context, privacyPath),
+                      ),
+                    ],
                   ),
                 ),
                 const SizedBox(height: 16),

@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 
 import '../core/api_client.dart';
@@ -19,7 +21,11 @@ class KarsaLibScreen extends StatefulWidget {
 class _KarsaLibScreenState extends State<KarsaLibScreen> {
   late Future<LibBootstrap> _bootstrap;
   Future<List<LibArticle>>? _feed;
-  String _sort = 'Terbaru';
+  final TextEditingController _searchController = TextEditingController();
+  Timer? _searchDebounce;
+  String _sort = 'latest';
+  String _searchQuery = '';
+  bool _searchOpen = false;
 
   @override
   void initState() {
@@ -32,12 +38,60 @@ class _KarsaLibScreenState extends State<KarsaLibScreen> {
     _feed = null;
   }
 
+  Future<List<LibArticle>> _requestFeed() => widget.api.libFeed(
+        sort: _sort,
+        query: _searchQuery,
+      );
+
+  void _selectSort(String sort) {
+    if (_sort == sort) return;
+    setState(() {
+      _sort = sort;
+      _feed = _requestFeed();
+    });
+  }
+
+  void _applySearch(String value) {
+    final query = value.trim();
+    if (query == _searchQuery) return;
+    setState(() {
+      _searchQuery = query;
+      _feed = _requestFeed();
+    });
+  }
+
+  void _onSearchChanged(String value) {
+    _searchDebounce?.cancel();
+    _searchDebounce = Timer(const Duration(milliseconds: 350), () {
+      if (mounted) _applySearch(value);
+    });
+  }
+
+  void _toggleSearch() {
+    _searchDebounce?.cancel();
+    setState(() {
+      _searchOpen = !_searchOpen;
+      if (!_searchOpen) {
+        _searchController.clear();
+        _searchQuery = '';
+        _feed = _requestFeed();
+      }
+    });
+  }
+
+  @override
+  void dispose() {
+    _searchDebounce?.cancel();
+    _searchController.dispose();
+    super.dispose();
+  }
+
   Future<void> _refresh() async {
     setState(_load);
     try {
       final bootstrap = await _bootstrap;
       if (!mounted || bootstrap.profile == null) return;
-      final feed = _feed ??= widget.api.libFeed();
+      final feed = _feed ??= _requestFeed();
       setState(() {});
       await feed;
     } catch (_) {
@@ -69,9 +123,9 @@ class _KarsaLibScreenState extends State<KarsaLibScreen> {
           ),
           actions: [
             IconButton(
-              tooltip: 'Cari artikel',
-              onPressed: () => _message('Pencarian artikel akan tersedia di pembaruan berikutnya.'),
-              icon: const Icon(Icons.search_rounded),
+              tooltip: _searchOpen ? 'Tutup pencarian' : 'Cari artikel',
+              onPressed: _toggleSearch,
+              icon: Icon(_searchOpen ? Icons.close_rounded : Icons.search_rounded),
             ),
             const SizedBox(width: 6),
           ],
@@ -103,7 +157,7 @@ class _KarsaLibScreenState extends State<KarsaLibScreen> {
       );
 
   Widget _feedView(LibBootstrap bootstrap) {
-    _feed ??= widget.api.libFeed();
+    _feed ??= _requestFeed();
     return RefreshIndicator(
         onRefresh: _refresh,
         child: CustomScrollView(
@@ -112,6 +166,7 @@ class _KarsaLibScreenState extends State<KarsaLibScreen> {
             SliverToBoxAdapter(child: _welcome(bootstrap)),
             if (!bootstrap.canWrite) SliverToBoxAdapter(child: _writerAccessCard(bootstrap)),
             SliverToBoxAdapter(child: _feedHeader(bootstrap)),
+            if (_searchOpen) SliverToBoxAdapter(child: _searchField()),
             FutureBuilder<List<LibArticle>>(
               future: _feed,
               builder: (context, snapshot) {
@@ -121,15 +176,14 @@ class _KarsaLibScreenState extends State<KarsaLibScreen> {
                 if (snapshot.hasError) {
                   return SliverFillRemaining(child: ErrorState(message: friendlyError(snapshot.error!), onRetry: _refresh));
                 }
-                var articles = snapshot.data!;
-                if (_sort == 'Populer') {
-                  articles = [...articles]..sort((a, b) => b.views.compareTo(a.views));
-                }
+                final articles = snapshot.data!;
                 if (articles.isEmpty) {
-                  return const SliverFillRemaining(
+                  return SliverFillRemaining(
                     child: EmptyState(
-                      title: 'Belum ada artikel',
-                      message: 'Saat ada tulisan baru dari prodimu, artikel itu akan muncul di sini.',
+                      title: _searchQuery.isEmpty ? 'Belum ada artikel' : 'Artikel tidak ditemukan',
+                      message: _searchQuery.isEmpty
+                          ? 'Saat ada tulisan baru dari prodimu, artikel itu akan muncul di sini.'
+                          : 'Tidak ada judul yang cocok di program studimu. Coba kata kunci lain.',
                       icon: Icons.auto_stories_outlined,
                     ),
                   );
@@ -141,6 +195,7 @@ class _KarsaLibScreenState extends State<KarsaLibScreen> {
                     separatorBuilder: (_, _) => const SizedBox(height: 12),
                     itemBuilder: (context, index) => _ArticleCard(
                       article: articles[index],
+                      viewPeriodLabel: _sort == 'trending_7d' ? '7 hari' : _sort == 'trending_30d' ? '30 hari' : null,
                       onOpen: () => _openArticle(articles[index]),
                       onAuthor: () => _openAuthor(articles[index]),
                       onReport: () => _reportArticle(articles[index]),
@@ -207,33 +262,72 @@ class _KarsaLibScreenState extends State<KarsaLibScreen> {
 
   Widget _feedHeader(LibBootstrap bootstrap) => Padding(
         padding: const EdgeInsets.fromLTRB(18, 23, 16, 9),
-        child: Row(children: [
-          Expanded(child: Text(bootstrap.profile!.faculty, maxLines: 1, overflow: TextOverflow.ellipsis, style: Theme.of(context).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w700))),
-          const SizedBox(width: 5),
-          _sortChip('Terbaru'),
-          _sortChip('Populer'),
-          PopupMenuButton<String>(
-            tooltip: 'Menu Karsa Lib',
-            icon: const Icon(Icons.more_horiz_rounded),
-            onSelected: (value) {
-              if (value == 'vault') _openVault();
-              if (value == 'request') _authorRequest();
-            },
-            itemBuilder: (context) => [
-              if (bootstrap.canWrite) const PopupMenuItem(value: 'vault', child: ListTile(leading: Icon(Icons.inventory_2_outlined), title: Text('Vault penulis'))),
-              if (!bootstrap.canWrite) const PopupMenuItem(value: 'request', child: ListTile(leading: Icon(Icons.draw_outlined), title: Text('Ajukan jadi penulis'))),
-              const PopupMenuItem(enabled: false, child: Text('Profil prodi dikunci')),
-            ],
+        child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+          Row(children: [
+            Expanded(child: Text(bootstrap.profile!.faculty, maxLines: 1, overflow: TextOverflow.ellipsis, style: Theme.of(context).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w700))),
+            PopupMenuButton<String>(
+              tooltip: 'Menu Karsa Lib',
+              icon: const Icon(Icons.more_horiz_rounded),
+              onSelected: (value) {
+                if (value == 'vault') _openVault();
+                if (value == 'request') _authorRequest();
+              },
+              itemBuilder: (context) => [
+                if (bootstrap.canWrite) const PopupMenuItem(value: 'vault', child: ListTile(leading: Icon(Icons.inventory_2_outlined), title: Text('Vault penulis'))),
+                if (!bootstrap.canWrite) const PopupMenuItem(value: 'request', child: ListTile(leading: Icon(Icons.draw_outlined), title: Text('Ajukan jadi penulis'))),
+                const PopupMenuItem(enabled: false, child: Text('Profil prodi dikunci')),
+              ],
+            ),
+          ]),
+          const SizedBox(height: 4),
+          SingleChildScrollView(
+            scrollDirection: Axis.horizontal,
+            child: Row(children: [
+              _sortChip('Terbaru', 'latest'),
+              _sortChip('Trending 7 hari', 'trending_7d'),
+              _sortChip('Trending 30 hari', 'trending_30d'),
+            ]),
           ),
         ]),
       );
 
-  Widget _sortChip(String label) => Padding(
+  Widget _searchField() => Padding(
+        padding: const EdgeInsets.fromLTRB(18, 2, 18, 12),
+        child: TextField(
+          controller: _searchController,
+          autofocus: true,
+          maxLength: 100,
+          onChanged: _onSearchChanged,
+          onSubmitted: (value) {
+            _searchDebounce?.cancel();
+            _applySearch(value);
+          },
+          textInputAction: TextInputAction.search,
+          decoration: InputDecoration(
+            hintText: 'Cari judul artikel di prodimu',
+            prefixIcon: const Icon(Icons.search_rounded),
+            counterText: '',
+            suffixIcon: _searchController.text.isEmpty
+                ? null
+                : IconButton(
+                    tooltip: 'Hapus pencarian',
+                    onPressed: () {
+                      _searchDebounce?.cancel();
+                      _searchController.clear();
+                      _applySearch('');
+                    },
+                    icon: const Icon(Icons.close_rounded),
+                  ),
+          ),
+        ),
+      );
+
+  Widget _sortChip(String label, String value) => Padding(
         padding: const EdgeInsets.only(left: 3),
         child: ChoiceChip(
           label: Text(label),
-          selected: _sort == label,
-          onSelected: (_) => setState(() => _sort = label),
+          selected: _sort == value,
+          onSelected: (_) => _selectSort(value),
           labelStyle: const TextStyle(fontSize: 10, fontWeight: FontWeight.w600),
           visualDensity: VisualDensity.compact,
           padding: EdgeInsets.zero,
@@ -348,11 +442,12 @@ class _KarsaLibScreenState extends State<KarsaLibScreen> {
 }
 
 class _ArticleCard extends StatelessWidget {
-  const _ArticleCard({required this.article, required this.onOpen, required this.onAuthor, required this.onReport});
+  const _ArticleCard({required this.article, required this.onOpen, required this.onAuthor, required this.onReport, this.viewPeriodLabel});
   final LibArticle article;
   final VoidCallback onOpen;
   final VoidCallback onAuthor;
   final VoidCallback onReport;
+  final String? viewPeriodLabel;
 
   @override
   Widget build(BuildContext context) {
@@ -374,7 +469,31 @@ class _ArticleCard extends StatelessWidget {
           const SizedBox(height: 6),
           InkWell(onTap: onOpen, child: Text(article.body, maxLines: 3, overflow: TextOverflow.ellipsis, style: const TextStyle(fontFamily: 'Georgia', fontSize: 12, height: 1.6, color: Color(0xFF6E6A62)))),
           const Divider(height: 22),
-          Row(children: [Icon(Icons.visibility_outlined, size: 15, color: colors.onSurfaceVariant), const SizedBox(width: 5), Text('${article.views} pembaca', style: TextStyle(fontSize: 10, color: colors.onSurfaceVariant)), const SizedBox(width: 14), Icon(Icons.mode_comment_outlined, size: 14, color: colors.onSurfaceVariant), const SizedBox(width: 5), Text('${article.commentsCount}', style: TextStyle(fontSize: 10, color: colors.onSurfaceVariant)), const Spacer(), TextButton.icon(onPressed: onReport, icon: const Icon(Icons.flag_outlined, size: 14), label: const Text('Laporkan'), style: TextButton.styleFrom(visualDensity: VisualDensity.compact, foregroundColor: Colors.black54, textStyle: const TextStyle(fontSize: 10))) ]),
+          Wrap(
+            alignment: WrapAlignment.spaceBetween,
+            crossAxisAlignment: WrapCrossAlignment.center,
+            spacing: 8,
+            children: [
+              Row(mainAxisSize: MainAxisSize.min, children: [
+                Icon(Icons.visibility_outlined, size: 15, color: colors.onSurfaceVariant),
+                const SizedBox(width: 5),
+                Text(
+                  viewPeriodLabel == null ? '${article.views} pembaca' : '${article.periodViews ?? 0} pembaca / $viewPeriodLabel',
+                  style: TextStyle(fontSize: 10, color: colors.onSurfaceVariant),
+                ),
+                const SizedBox(width: 12),
+                Icon(Icons.mode_comment_outlined, size: 14, color: colors.onSurfaceVariant),
+                const SizedBox(width: 5),
+                Text('${article.commentsCount}', style: TextStyle(fontSize: 10, color: colors.onSurfaceVariant)),
+              ]),
+              TextButton.icon(
+                onPressed: onReport,
+                icon: const Icon(Icons.flag_outlined, size: 14),
+                label: const Text('Laporkan'),
+                style: TextButton.styleFrom(visualDensity: VisualDensity.compact, foregroundColor: Colors.black54, textStyle: const TextStyle(fontSize: 10)),
+              ),
+            ],
+          ),
         ]),
       ),
     );

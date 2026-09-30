@@ -11,7 +11,7 @@ class KarsaApp extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    const seed = Color(0xFFC65D16);
+    const seed = Color(0xFFCF6A12);
     final scheme = ColorScheme.fromSeed(
       seedColor: seed,
       brightness: Brightness.light,
@@ -87,21 +87,13 @@ class _LogoMark extends StatelessWidget {
   final double size;
 
   @override
-  Widget build(BuildContext context) => Container(
-        width: size,
-        height: size,
-        decoration: BoxDecoration(
-          color: Theme.of(context).colorScheme.primary,
-          borderRadius: BorderRadius.circular(size * .3),
-        ),
-        alignment: Alignment.center,
-        child: Text(
-          'K',
-          style: TextStyle(
-            color: Colors.white,
-            fontSize: size * .5,
-            fontWeight: FontWeight.w800,
-          ),
+  Widget build(BuildContext context) => ClipRRect(
+        borderRadius: BorderRadius.circular(size * .28),
+        child: Image.asset(
+          'assets/icon.png',
+          width: size,
+          height: size,
+          semanticLabel: 'Logo SiKarsa',
         ),
       );
 }

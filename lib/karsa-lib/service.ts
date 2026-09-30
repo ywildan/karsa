@@ -167,26 +167,71 @@ export async function createProfile(
   }
 }
 
-export async function listFeed(actor: MobileActor): Promise<LibResult<unknown>> {
+export type LibFeedSort = "latest" | "trending_7d" | "trending_30d";
+
+export async function listFeed(
+  actor: MobileActor,
+  options: { sort: LibFeedSort; query: string } = { sort: "latest", query: "" },
+): Promise<LibResult<unknown>> {
   const denied = profileError(actor);
   if (denied) return denied;
   const profile = requiredProfile(actor)!;
+  const where: Prisma.LibArticleWhereInput = {
+    prodi_id: profile.prodi_id,
+    status: "PUBLISHED",
+    ...(options.query ? { title: { contains: options.query, mode: "insensitive" } } : {}),
+  };
+  const select = {
+    id: true,
+    title: true,
+    body: true,
+    published_at: true,
+    updated_at: true,
+    author_id: true,
+    author: { select: { libProfile: { select: { display_name: true, faculty: true, prodi: { select: { name: true } } } } } },
+    prodi: { select: { name: true } },
+    _count: { select: { views: true, comments: true } },
+  } satisfies Prisma.LibArticleSelect;
+
+  let rankedIds: string[] | null = null;
+  let periodViews: Map<string, number> | null = null;
+  if (options.sort !== "latest") {
+    const days = options.sort === "trending_7d" ? 7 : 30;
+    const since = new Date(Date.now() - days * 24 * 60 * 60 * 1000);
+    const titleFilter = options.query
+      ? Prisma.sql`AND STRPOS(LOWER(a.title), LOWER(${options.query})) > 0`
+      : Prisma.empty;
+    // Hitung seluruh artikel terbit dalam prodi, bukan hanya 30 artikel terbaru.
+    const ranked = await prisma.$queryRaw<Array<{ id: string; period_views: number }>>(
+      Prisma.sql`
+        SELECT a.id, COUNT(v.id)::int AS period_views
+        FROM "LibArticle" a
+        LEFT JOIN "LibArticleView" v
+          ON v.article_id = a.id AND v.created_at >= ${since}
+        WHERE a.prodi_id = ${profile.prodi_id}
+          AND a.status = 'PUBLISHED'
+          ${titleFilter}
+        GROUP BY a.id, a.published_at
+        ORDER BY period_views DESC, a.published_at DESC NULLS LAST, a.id DESC
+        LIMIT ${KARSA_LIB_PAGE_SIZE}
+      `,
+    );
+    rankedIds = ranked.map((row) => row.id);
+    periodViews = new Map(ranked.map((row) => [row.id, row.period_views]));
+  }
+
+  if (rankedIds !== null && rankedIds.length === 0) return { ok: true, data: [] };
   const rows = await prisma.libArticle.findMany({
-    where: { prodi_id: profile.prodi_id, status: "PUBLISHED" },
-    orderBy: [{ published_at: "desc" }, { id: "desc" }],
-    take: KARSA_LIB_PAGE_SIZE,
-    select: {
-      id: true,
-      title: true,
-      body: true,
-      published_at: true,
-      updated_at: true,
-      author_id: true,
-      author: { select: { libProfile: { select: { display_name: true, faculty: true, prodi: { select: { name: true } } } } } },
-      prodi: { select: { name: true } },
-      _count: { select: { views: true, comments: true } },
-    },
+    where: rankedIds === null ? where : { ...where, id: { in: rankedIds } },
+    ...(rankedIds === null
+      ? { orderBy: [{ published_at: "desc" as const }, { id: "desc" as const }], take: KARSA_LIB_PAGE_SIZE }
+      : {}),
+    select,
   });
+  if (rankedIds !== null) {
+    const positions = new Map(rankedIds.map((id, index) => [id, index]));
+    rows.sort((a, b) => (positions.get(a.id) ?? 0) - (positions.get(b.id) ?? 0));
+  }
   return {
     ok: true,
     data: rows.map((row) => ({
@@ -199,6 +244,7 @@ export async function listFeed(actor: MobileActor): Promise<LibResult<unknown>> 
         prodi_name: row.author.libProfile?.prodi.name ?? row.prodi.name,
       },
       views: row._count.views,
+      period_views: periodViews?.get(row.id),
       comments_count: row._count.comments,
       _count: undefined,
       author_id: undefined,
