@@ -37,6 +37,7 @@ class _KarsaLibArticleScreenState extends State<KarsaLibArticleScreen> {
   }
 
   Future<void> _reloadComments() async {
+    if (!mounted) return;
     setState(() => _comments = widget.api.libComments(widget.articleId));
     await _comments;
   }
@@ -127,6 +128,7 @@ class _KarsaLibArticleScreenState extends State<KarsaLibArticleScreen> {
     setState(() => _sending = true);
     try {
       await widget.api.createLibComment(widget.articleId, body: _comment.text.trim(), parentId: _replyToId);
+      if (!mounted) return;
       _comment.clear(); setState(() { _replyToId = null; _replyToName = null; }); await _reloadComments();
     } catch (error) { _message(friendlyError(error)); }
     finally { if (mounted) setState(() => _sending = false); }

@@ -18,7 +18,7 @@ class KarsaLibScreen extends StatefulWidget {
 
 class _KarsaLibScreenState extends State<KarsaLibScreen> {
   late Future<LibBootstrap> _bootstrap;
-  late Future<List<LibArticle>> _feed;
+  Future<List<LibArticle>>? _feed;
   String _sort = 'Terbaru';
 
   @override
@@ -29,12 +29,20 @@ class _KarsaLibScreenState extends State<KarsaLibScreen> {
 
   void _load() {
     _bootstrap = widget.api.libBootstrap();
-    _feed = widget.api.libFeed();
+    _feed = null;
   }
 
   Future<void> _refresh() async {
     setState(_load);
-    await Future.wait([_bootstrap, _feed]);
+    try {
+      final bootstrap = await _bootstrap;
+      if (!mounted || bootstrap.profile == null) return;
+      final feed = _feed ??= widget.api.libFeed();
+      setState(() {});
+      await feed;
+    } catch (_) {
+      // FutureBuilder displays the request error and its retry action.
+    }
   }
 
   @override
@@ -94,7 +102,9 @@ class _KarsaLibScreenState extends State<KarsaLibScreen> {
         ),
       );
 
-  Widget _feedView(LibBootstrap bootstrap) => RefreshIndicator(
+  Widget _feedView(LibBootstrap bootstrap) {
+    _feed ??= widget.api.libFeed();
+    return RefreshIndicator(
         onRefresh: _refresh,
         child: CustomScrollView(
           physics: const AlwaysScrollableScrollPhysics(),
@@ -142,6 +152,7 @@ class _KarsaLibScreenState extends State<KarsaLibScreen> {
           ],
         ),
       );
+  }
 
   Widget _welcome(LibBootstrap bootstrap) => Padding(
         padding: const EdgeInsets.fromLTRB(18, 16, 18, 2),
@@ -264,7 +275,7 @@ class _KarsaLibScreenState extends State<KarsaLibScreen> {
       showDragHandle: true,
       builder: (context) => Padding(
         padding: EdgeInsets.fromLTRB(20, 8, 20, MediaQuery.viewInsetsOf(context).bottom + 22),
-        child: SafeArea(child: Column(mainAxisSize: MainAxisSize.min, crossAxisAlignment: CrossAxisAlignment.start, children: [
+        child: SafeArea(child: SingleChildScrollView(child: Column(mainAxisSize: MainAxisSize.min, crossAxisAlignment: CrossAxisAlignment.start, children: [
           Text('Tulis artikel', style: Theme.of(context).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.w700)),
           const SizedBox(height: 6), const Text('Artikelmu akan dibagikan ke mahasiswa prodimu.', style: TextStyle(color: Colors.black54, fontSize: 12)),
           const SizedBox(height: 18), TextField(controller: title, maxLength: 120, decoration: const InputDecoration(labelText: 'Judul artikel', hintText: 'Contoh: Cara memahami jurnal umum')),
@@ -276,7 +287,7 @@ class _KarsaLibScreenState extends State<KarsaLibScreen> {
               if (mounted) { await _refresh(); _message('Draf disimpan di vault.'); }
             } catch (error) { if (context.mounted) _message(friendlyError(error)); }
           }, icon: const Icon(Icons.save_outlined), label: const Text('Simpan draf'))),
-        ])),
+        ]))),
       ),
     );
     title.dispose(); body.dispose();
@@ -400,7 +411,7 @@ class _ProfileSetupState extends State<_ProfileSetup> {
         const SizedBox(height: 7),
         const Text('Pilih identitas program studi agar feed Karsa Lib menampilkan artikel yang tepat untukmu.', textAlign: TextAlign.center, style: TextStyle(color: Colors.black54, fontSize: 12, height: 1.5)),
         const SizedBox(height: 22),
-        TextField(controller: _name, textCapitalization: TextCapitalization.words, maxLength: 80, decoration: const InputDecoration(labelText: 'Nama yang ditampilkan', prefixIcon: Icon(Icons.person_outline))),
+        TextField(controller: _name, textCapitalization: TextCapitalization.words, maxLength: 80, onChanged: (_) => setState(() {}), decoration: const InputDecoration(labelText: 'Nama yang ditampilkan', prefixIcon: Icon(Icons.person_outline))),
         const SizedBox(height: 12),
         DropdownButtonFormField<String>(value: _facultyId, isExpanded: true, decoration: const InputDecoration(labelText: 'Fakultas'), items: widget.bootstrap.faculties.map((faculty) => DropdownMenuItem(value: faculty.id, child: Text(faculty.name, overflow: TextOverflow.ellipsis))).toList(), onChanged: (value) => setState(() { _facultyId = value; _programId = null; _classId = null; })),
         const SizedBox(height: 12),

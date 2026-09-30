@@ -129,4 +129,70 @@ void main() {
     expect(page.messages.single.text, isNull);
     expect(page.messages.single.canEdit, isFalse);
   });
+
+  test('Karsa Lib membaca profil, artikel, dan balasan dari respons API', () {
+    final bootstrap = LibBootstrap.fromJson({
+      'profile': {
+        'display_name': 'Yusuf',
+        'faculty': 'Ekonomi',
+        'prodi_id': 'prodi-1',
+        'kelas_id': null,
+      },
+      'faculties': [
+        {'id': 'faculty-1', 'name': 'Ekonomi'},
+      ],
+      'programs': [
+        {'id': 'prodi-1', 'name': 'Akuntansi', 'faculty_id': 'faculty-1'},
+      ],
+      'classes': <Map<String, dynamic>>[],
+      'can_write': false,
+    });
+    expect(bootstrap.profile?.programId, 'prodi-1');
+    expect(bootstrap.programs.single.facultyId, 'faculty-1');
+    expect(bootstrap.canWrite, isFalse);
+
+    final article = LibArticle.fromJson({
+      'id': 'article-1',
+      'title': 'Jurnal umum',
+      'body': 'Isi lengkap',
+      'author': {
+        'id': 'author-1',
+        'name': 'Yusuf',
+        'prodi_name': 'Akuntansi',
+      },
+      'views': 2,
+      'comments_count': 1,
+      'published_at': '2026-09-30T10:00:00.000Z',
+    });
+    expect(article.authorId, 'author-1');
+    expect(article.views, 2);
+    expect(article.publishedAt, isNotNull);
+
+    final comment = LibComment.fromJson({
+      'id': 'comment-1',
+      'author': 'Yusuf',
+      'body': null,
+      'is_deleted': true,
+      'is_own': false,
+      'created_at': '2026-09-30T10:00:00.000Z',
+      'replies': [
+        {
+          'id': 'reply-1',
+          'author': 'Teman',
+          'body': 'Terima kasih',
+          'is_deleted': false,
+          'is_own': true,
+        },
+      ],
+    });
+    expect(comment.isDeleted, isTrue);
+    expect(comment.replies.single.body, 'Terima kasih');
+  });
+
+  test('waktu relatif Karsa Lib menangani waktu baru dan lampau', () {
+    final now = DateTime.now();
+    expect(formatRelativeTime(now.add(const Duration(minutes: 1))), 'Baru saja');
+    expect(formatRelativeTime(now.subtract(const Duration(minutes: 5))), '5 menit lalu');
+    expect(formatRelativeTime(now.subtract(const Duration(days: 2))), '2 hari lalu');
+  });
 }

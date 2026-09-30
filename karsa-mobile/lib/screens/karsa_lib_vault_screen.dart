@@ -16,7 +16,11 @@ class _KarsaLibVaultScreenState extends State<KarsaLibVaultScreen> {
   late Future<List<LibArticle>> _future;
   @override
   void initState() { super.initState(); _future = widget.api.libVault(); }
-  Future<void> _reload() async { setState(() => _future = widget.api.libVault()); await _future; }
+  Future<void> _reload() async {
+    if (!mounted) return;
+    setState(() => _future = widget.api.libVault());
+    await _future;
+  }
 
   @override
   Widget build(BuildContext context) => Scaffold(
@@ -52,7 +56,7 @@ class _VaultCard extends StatelessWidget {
   Future<void> _act(BuildContext context, String action) async {
     if (action == 'delete') {
       final confirmed = await showDialog<bool>(context: context, builder: (context) => AlertDialog(title: const Text('Hapus draf?'), content: const Text('Draf ini akan dihapus permanen.'), actions: [TextButton(onPressed: () => Navigator.pop(context, false), child: const Text('Batal')), FilledButton(onPressed: () => Navigator.pop(context, true), child: const Text('Hapus'))]));
-      if (confirmed != true) return;
+      if (confirmed != true || !context.mounted) return;
     }
     if (action == 'edit') { await _edit(context); return; }
     final apiAction = switch (action) { 'publish' => 'PUBLISH', 'archive' => 'ARCHIVE', 'restore' => 'RESTORE', _ => null };
@@ -67,7 +71,7 @@ class _VaultCard extends StatelessWidget {
   Future<void> _edit(BuildContext context) async {
     final title = TextEditingController(text: article.title);
     final body = TextEditingController(text: article.body);
-    await showModalBottomSheet<void>(context: context, isScrollControlled: true, showDragHandle: true, builder: (context) => Padding(padding: EdgeInsets.fromLTRB(20, 8, 20, MediaQuery.viewInsetsOf(context).bottom + 20), child: SafeArea(child: Column(mainAxisSize: MainAxisSize.min, children: [TextField(controller: title, maxLength: 120, decoration: const InputDecoration(labelText: 'Judul')), const SizedBox(height: 10), TextField(controller: body, minLines: 7, maxLines: 12, maxLength: 20000, decoration: const InputDecoration(labelText: 'Isi artikel')), const SizedBox(height: 12), SizedBox(width: double.infinity, child: FilledButton(onPressed: () async { try { await api.updateLibArticle(article.id, action: 'EDIT', title: title.text, body: body.text); if (context.mounted) Navigator.pop(context); await onChanged(); } catch (error) { if (context.mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(friendlyError(error)))); } }, child: const Text('Simpan perubahan')))]))));
+    await showModalBottomSheet<void>(context: context, isScrollControlled: true, showDragHandle: true, builder: (context) => Padding(padding: EdgeInsets.fromLTRB(20, 8, 20, MediaQuery.viewInsetsOf(context).bottom + 20), child: SafeArea(child: SingleChildScrollView(child: Column(mainAxisSize: MainAxisSize.min, children: [TextField(controller: title, maxLength: 120, decoration: const InputDecoration(labelText: 'Judul')), const SizedBox(height: 10), TextField(controller: body, minLines: 7, maxLines: 12, maxLength: 20000, decoration: const InputDecoration(labelText: 'Isi artikel')), const SizedBox(height: 12), SizedBox(width: double.infinity, child: FilledButton(onPressed: () async { try { await api.updateLibArticle(article.id, action: 'EDIT', title: title.text, body: body.text); if (context.mounted) Navigator.pop(context); await onChanged(); } catch (error) { if (context.mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(friendlyError(error)))); } }, child: const Text('Simpan perubahan')))])))));
     title.dispose(); body.dispose();
   }
 }
