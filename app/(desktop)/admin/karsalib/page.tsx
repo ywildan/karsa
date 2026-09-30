@@ -6,7 +6,6 @@ import {
   resolveLibReportAction,
   revokeLibAuthorAction,
 } from "@/actions/karsa-lib-admin";
-import { AdminNav } from "@/components/admin-nav";
 import { requireAdmin } from "@/lib/auth-helpers";
 import { formatDateTimeWib, formatNumber } from "@/lib/utils";
 import { prisma } from "@/lib/prisma";
@@ -54,7 +53,6 @@ export default async function KarsaLibAdminPage() {
 
   return (
     <main className="mx-auto flex w-full max-w-6xl flex-col gap-6 px-4 py-8">
-      <AdminNav />
       <header>
         <p className="text-sm font-medium text-primary">Kelola Karsa Lib</p>
         <h1 className="mt-1 text-2xl font-semibold tracking-tight">Artikel, penulis, dan laporan</h1>
@@ -65,7 +63,7 @@ export default async function KarsaLibAdminPage() {
         {cards.map((card) => { const Icon = card.icon; return <div key={card.label} className="rounded-xl border border-border bg-card p-4"><div className="flex items-center justify-between text-muted-foreground"><span className="text-xs">{card.label}</span><Icon className="h-4 w-4" aria-hidden /></div><p className="mt-2 text-2xl font-semibold">{formatNumber(card.value)}</p></div>; })}
       </section>
 
-      <section className="rounded-xl border border-border bg-card">
+      <section id="permohonan-penulis" className="scroll-mt-20 rounded-xl border border-border bg-card">
         <div className="flex items-center justify-between border-b border-border px-5 py-4"><div><h2 className="font-semibold">Permohonan penulis</h2><p className="mt-1 text-xs text-muted-foreground">Setujui permohonan untuk membuka fitur menulis dan vault.</p></div><Clock3 className="h-5 w-5 text-muted-foreground" /></div>
         {requests.length === 0 ? <p className="px-5 py-8 text-center text-sm text-muted-foreground">Tidak ada permohonan yang menunggu.</p> : <div className="divide-y divide-border">{requests.map((request) => {
           const profile = request.user.libProfile;
@@ -82,7 +80,7 @@ export default async function KarsaLibAdminPage() {
         {writers.length === 0 ? <p className="px-5 py-8 text-center text-sm text-muted-foreground">Belum ada penulis aktif.</p> : <div className="divide-y divide-border">{writers.map((writer) => <div key={writer.user_id} className="flex flex-wrap items-center justify-between gap-3 px-5 py-3"><div><p className="text-sm font-medium">{writer.user.libProfile?.display_name || writer.user.email}</p><p className="text-xs text-muted-foreground">{writer.user.libProfile?.prodi.name || writer.user.email} · Akses sejak {formatDateTimeWib(writer.granted_at)}</p></div><form action={revokeLibAuthorAction}><input type="hidden" name="user_id" value={writer.user_id} /><button className="h-8 rounded-md border border-border px-3 text-xs font-medium hover:bg-accent">Cabut akses</button></form></div>)}</div>}
       </section>
 
-      <section className="rounded-xl border border-border bg-card">
+      <section id="laporan-menunggu" className="scroll-mt-20 rounded-xl border border-border bg-card">
         <div className="border-b border-border px-5 py-4"><h2 className="font-semibold">Laporan yang menunggu</h2><p className="mt-1 text-xs text-muted-foreground">Hapus komentar atau arsipkan artikel hanya setelah meninjau laporan.</p></div>
         {reports.length === 0 ? <p className="px-5 py-8 text-center text-sm text-muted-foreground">Tidak ada laporan yang menunggu.</p> : <div className="divide-y divide-border">{reports.map((report) => {
           const isComment = report.comment_id !== null;

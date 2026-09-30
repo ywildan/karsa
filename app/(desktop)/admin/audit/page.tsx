@@ -5,7 +5,6 @@ import {
   getAuditKelasOptions,
 } from "@/actions/audit";
 import { AuditLogView } from "@/components/admin/audit-log-view";
-import { AdminNav } from "@/components/admin-nav";
 import { requireAdmin } from "@/lib/auth-helpers";
 
 export const metadata: Metadata = {
@@ -22,7 +21,6 @@ export default async function AuditLogPage() {
 
   return (
     <main className="mx-auto flex w-full max-w-5xl flex-col gap-6 px-4 py-8">
-      <AdminNav />
 
       <header>
         <h1 className="text-2xl font-semibold">Riwayat Perubahan</h1>

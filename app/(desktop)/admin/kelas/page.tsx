@@ -10,7 +10,6 @@ import type { Metadata } from "next";
 import { requireAdmin } from "@/lib/auth-helpers";
 import { prisma } from "@/lib/prisma";
 
-import { AdminNav } from "@/components/admin-nav";
 import { KelasManager } from "./_components/kelas-manager";
 
 export const metadata: Metadata = {
@@ -35,7 +34,6 @@ export default async function AdminKelasPage() {
 
   return (
     <main className="mx-auto flex w-full max-w-5xl flex-col gap-6 px-4 py-8">
-      <AdminNav />
 
       <header>
         <h1 className="text-2xl font-semibold tracking-tight">Kelas</h1>

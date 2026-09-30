@@ -27,7 +27,6 @@ import type {
 import type { MahasiswaRow } from "@/lib/mahasiswa";
 import { prisma } from "@/lib/prisma";
 
-import { AdminNav } from "@/components/admin-nav";
 import { Button } from "@/components/button";
 import { KelasDetailTabs } from "./_components/kelas-detail-tabs";
 
@@ -156,7 +155,6 @@ export default async function AdminKelasDetailPage({
 
   return (
     <main className="mx-auto flex w-full max-w-5xl flex-col gap-6 px-4 py-8">
-      <AdminNav />
 
       <header className="flex flex-col gap-3">
         <Button asChild variant="outline" size="sm" className="w-fit">
