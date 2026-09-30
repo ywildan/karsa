@@ -445,7 +445,7 @@ export function AuditLogView({
 
   return (
     <section className="flex flex-col gap-5" aria-label="Daftar audit log">
-      <div className="grid gap-3 rounded-lg border border-border bg-card p-4 md:grid-cols-2 xl:grid-cols-4">
+      <div className="sticky top-14 z-20 grid gap-3 rounded-lg border border-border bg-card/85 p-4 shadow-sm backdrop-blur-md md:grid-cols-2 xl:grid-cols-4">
         <div>
           <label htmlFor="audit-kelas" className="text-sm font-medium">
             Kelas
