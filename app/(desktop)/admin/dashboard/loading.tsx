@@ -17,6 +17,12 @@ export default function AdminDashboardLoading() {
             <div className="h-20 rounded-2xl bg-muted" />
           </div>
         </div>
+        <div className="rounded-[24px] border border-border bg-card/75 p-6">
+          <div className="h-4 w-40 rounded bg-muted" />
+          <div className="mt-5 h-10 w-44 rounded bg-muted" />
+          <div className="mt-4 h-4 w-56 rounded bg-muted" />
+          <div className="mt-7 h-48 rounded-xl bg-muted/60" />
+        </div>
         <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
           {[0, 1, 2, 3].map((item) => (
             <div key={item} className="h-32 rounded-2xl border border-border bg-card" />

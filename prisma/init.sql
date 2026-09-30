@@ -50,6 +50,7 @@ CREATE TABLE IF NOT EXISTS "User" (
     "image"         TEXT,
     "is_admin"      BOOLEAN      NOT NULL DEFAULT false,
     "kelas_id"      TEXT,
+    "first_login_at" TIMESTAMP(3),
     "created_at"    TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
     "updated_at"    TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
     CONSTRAINT "User_pkey" PRIMARY KEY ("id")
@@ -585,7 +586,9 @@ CREATE INDEX IF NOT EXISTS "Account_userId_idx" ON "Account" ("userId");
 CREATE INDEX IF NOT EXISTS "Session_userId_idx" ON "Session" ("userId");
 
 -- User
+ALTER TABLE "User" ADD COLUMN IF NOT EXISTS "first_login_at" TIMESTAMP(3);
 CREATE INDEX IF NOT EXISTS "User_kelas_id_idx" ON "User" ("kelas_id");
+CREATE INDEX IF NOT EXISTS "User_first_login_at_idx" ON "User" ("first_login_at");
 
 -- Master akademik
 CREATE INDEX IF NOT EXISTS "Kelas_prodi_id_idx" ON "Kelas" ("prodi_id");

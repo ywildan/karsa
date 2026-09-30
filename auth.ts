@@ -25,6 +25,7 @@ import Credentials from "next-auth/providers/credentials";
 
 import { authConfig } from "@/auth.config";
 import { DEV_PROVIDER_ID, isDevAuthEnabled } from "@/lib/dev-users";
+import { isStudentEmail } from "@/lib/mahasiswa";
 import { prisma } from "@/lib/prisma";
 import { loadUserSnapshot, loadUserSnapshotByEmail } from "@/lib/user-snapshot";
 
@@ -77,6 +78,20 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
   // Ditulis ulang eksplisit: adapter bisa membawa default "database".
   session: { strategy: "jwt" },
   providers: [...authConfig.providers, ...devProviders],
+  events: {
+    async signIn({ user, account }) {
+      if (account?.provider !== "google" || !user.id || !isStudentEmail(user.email)) return;
+      try {
+        await prisma.user.updateMany({
+          where: { id: user.id, first_login_at: null },
+          data: { first_login_at: new Date() },
+        });
+      } catch (error) {
+        // Statistik tidak boleh membuat login gagal. Kegagalan tetap terlihat di log.
+        console.error("[auth] gagal mencatat login pertama mahasiswa", error);
+      }
+    },
+  },
   callbacks: {
     ...authConfig.callbacks,
 
