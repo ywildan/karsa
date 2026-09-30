@@ -807,3 +807,235 @@ COMMIT;
 --   · User yang sudah pernah login lewat Google punya baris "Account"/"Session".
 --     Hapus dua tabel itu lebih dulu kalau DELETE di atas kena foreign key.
 -- ============================================================================
+
+-- ============================================================================
+-- 8. KARSA LIB (tambahan idempoten untuk database Karsa yang sudah ada)
+-- ============================================================================
+
+BEGIN;
+
+CREATE TABLE IF NOT EXISTS "Faculty" (
+    "id"         TEXT         NOT NULL,
+    "name"       TEXT         NOT NULL,
+    "created_at" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "updated_at" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    CONSTRAINT "Faculty_pkey" PRIMARY KEY ("id"),
+    CONSTRAINT "Faculty_name_key" UNIQUE ("name")
+);
+
+ALTER TABLE "Prodi" ADD COLUMN IF NOT EXISTS "faculty_id" TEXT;
+
+CREATE TABLE IF NOT EXISTS "LibProfile" (
+    "id"           TEXT         NOT NULL,
+    "user_id"      TEXT         NOT NULL,
+    "display_name" TEXT         NOT NULL,
+    "faculty"      TEXT         NOT NULL,
+    "faculty_id"   TEXT,
+    "prodi_id"     TEXT         NOT NULL,
+    "kelas_id"     TEXT,
+    "created_at"   TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "updated_at"   TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    CONSTRAINT "LibProfile_pkey" PRIMARY KEY ("id"),
+    CONSTRAINT "LibProfile_user_id_key" UNIQUE ("user_id")
+);
+ALTER TABLE "LibProfile" ADD COLUMN IF NOT EXISTS "faculty_id" TEXT;
+
+CREATE TABLE IF NOT EXISTS "LibAuthorRequest" (
+    "id"            TEXT         NOT NULL,
+    "user_id"       TEXT         NOT NULL,
+    "motivation"    TEXT         NOT NULL,
+    "topics"        TEXT         NOT NULL,
+    "status"        TEXT         NOT NULL DEFAULT 'PENDING',
+    "decision_note" TEXT,
+    "decided_by_id" TEXT,
+    "submitted_at"  TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "decided_at"    TIMESTAMP(3),
+    "updated_at"    TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    CONSTRAINT "LibAuthorRequest_pkey" PRIMARY KEY ("id")
+);
+
+CREATE TABLE IF NOT EXISTS "LibAuthorAccess" (
+    "user_id"       TEXT         NOT NULL,
+    "granted_by_id" TEXT         NOT NULL,
+    "granted_at"    TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "revoked_at"    TIMESTAMP(3),
+    "updated_at"    TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    CONSTRAINT "LibAuthorAccess_pkey" PRIMARY KEY ("user_id")
+);
+
+CREATE TABLE IF NOT EXISTS "LibArticle" (
+    "id"           TEXT         NOT NULL,
+    "author_id"    TEXT         NOT NULL,
+    "prodi_id"     TEXT         NOT NULL,
+    "title"        TEXT         NOT NULL,
+    "body"         TEXT         NOT NULL,
+    "status"       TEXT         NOT NULL DEFAULT 'DRAFT',
+    "published_at" TIMESTAMP(3),
+    "archived_at"  TIMESTAMP(3),
+    "created_at"   TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "updated_at"   TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    CONSTRAINT "LibArticle_pkey" PRIMARY KEY ("id")
+);
+
+CREATE TABLE IF NOT EXISTS "LibArticleView" (
+    "id"         TEXT         NOT NULL,
+    "article_id" TEXT         NOT NULL,
+    "user_id"    TEXT         NOT NULL,
+    "created_at" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    CONSTRAINT "LibArticleView_pkey" PRIMARY KEY ("id"),
+    CONSTRAINT "LibArticleView_article_id_user_id_key" UNIQUE ("article_id", "user_id")
+);
+
+CREATE TABLE IF NOT EXISTS "LibComment" (
+    "id"             TEXT         NOT NULL,
+    "article_id"     TEXT         NOT NULL,
+    "author_id"      TEXT         NOT NULL,
+    "parent_id"      TEXT,
+    "body"           TEXT,
+    "deleted_at"     TIMESTAMP(3),
+    "deleted_by_id"  TEXT,
+    "deleted_reason" TEXT,
+    "created_at"     TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "updated_at"     TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    CONSTRAINT "LibComment_pkey" PRIMARY KEY ("id")
+);
+
+CREATE TABLE IF NOT EXISTS "LibReport" (
+    "id"             TEXT         NOT NULL,
+    "article_id"     TEXT,
+    "comment_id"     TEXT,
+    "reporter_id"    TEXT         NOT NULL,
+    "reason"         TEXT         NOT NULL,
+    "details"        TEXT,
+    "status"         TEXT         NOT NULL DEFAULT 'PENDING',
+    "decision_note"  TEXT,
+    "resolved_by_id" TEXT,
+    "resolved_at"    TIMESTAMP(3),
+    "created_at"     TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "updated_at"     TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    CONSTRAINT "LibReport_pkey" PRIMARY KEY ("id"),
+    CONSTRAINT "LibReport_target_check" CHECK (
+        ("article_id" IS NOT NULL AND "comment_id" IS NULL) OR
+        ("article_id" IS NULL AND "comment_id" IS NOT NULL)
+    )
+);
+
+DO $$
+BEGIN
+    IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'LibProfile_user_id_fkey') THEN
+        ALTER TABLE "LibProfile" ADD CONSTRAINT "LibProfile_user_id_fkey"
+            FOREIGN KEY ("user_id") REFERENCES "User" ("id") ON DELETE CASCADE ON UPDATE CASCADE;
+    END IF;
+    IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'Prodi_faculty_id_fkey') THEN
+        ALTER TABLE "Prodi" ADD CONSTRAINT "Prodi_faculty_id_fkey"
+            FOREIGN KEY ("faculty_id") REFERENCES "Faculty" ("id") ON DELETE RESTRICT ON UPDATE CASCADE;
+    END IF;
+    IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'LibProfile_faculty_id_fkey') THEN
+        ALTER TABLE "LibProfile" ADD CONSTRAINT "LibProfile_faculty_id_fkey"
+            FOREIGN KEY ("faculty_id") REFERENCES "Faculty" ("id") ON DELETE RESTRICT ON UPDATE CASCADE;
+    END IF;
+    IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'LibProfile_prodi_id_fkey') THEN
+        ALTER TABLE "LibProfile" ADD CONSTRAINT "LibProfile_prodi_id_fkey"
+            FOREIGN KEY ("prodi_id") REFERENCES "Prodi" ("id") ON DELETE RESTRICT ON UPDATE CASCADE;
+    END IF;
+    IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'LibProfile_kelas_id_fkey') THEN
+        ALTER TABLE "LibProfile" ADD CONSTRAINT "LibProfile_kelas_id_fkey"
+            FOREIGN KEY ("kelas_id") REFERENCES "Kelas" ("id") ON DELETE SET NULL ON UPDATE CASCADE;
+    END IF;
+    IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'LibAuthorRequest_user_id_fkey') THEN
+        ALTER TABLE "LibAuthorRequest" ADD CONSTRAINT "LibAuthorRequest_user_id_fkey"
+            FOREIGN KEY ("user_id") REFERENCES "User" ("id") ON DELETE CASCADE ON UPDATE CASCADE;
+    END IF;
+    IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'LibAuthorRequest_decided_by_id_fkey') THEN
+        ALTER TABLE "LibAuthorRequest" ADD CONSTRAINT "LibAuthorRequest_decided_by_id_fkey"
+            FOREIGN KEY ("decided_by_id") REFERENCES "User" ("id") ON DELETE SET NULL ON UPDATE CASCADE;
+    END IF;
+    IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'LibAuthorAccess_user_id_fkey') THEN
+        ALTER TABLE "LibAuthorAccess" ADD CONSTRAINT "LibAuthorAccess_user_id_fkey"
+            FOREIGN KEY ("user_id") REFERENCES "User" ("id") ON DELETE CASCADE ON UPDATE CASCADE;
+    END IF;
+    IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'LibAuthorAccess_granted_by_id_fkey') THEN
+        ALTER TABLE "LibAuthorAccess" ADD CONSTRAINT "LibAuthorAccess_granted_by_id_fkey"
+            FOREIGN KEY ("granted_by_id") REFERENCES "User" ("id") ON DELETE RESTRICT ON UPDATE CASCADE;
+    END IF;
+    IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'LibArticle_author_id_fkey') THEN
+        ALTER TABLE "LibArticle" ADD CONSTRAINT "LibArticle_author_id_fkey"
+            FOREIGN KEY ("author_id") REFERENCES "User" ("id") ON DELETE RESTRICT ON UPDATE CASCADE;
+    END IF;
+    IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'LibArticle_prodi_id_fkey') THEN
+        ALTER TABLE "LibArticle" ADD CONSTRAINT "LibArticle_prodi_id_fkey"
+            FOREIGN KEY ("prodi_id") REFERENCES "Prodi" ("id") ON DELETE RESTRICT ON UPDATE CASCADE;
+    END IF;
+    IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'LibArticleView_article_id_fkey') THEN
+        ALTER TABLE "LibArticleView" ADD CONSTRAINT "LibArticleView_article_id_fkey"
+            FOREIGN KEY ("article_id") REFERENCES "LibArticle" ("id") ON DELETE CASCADE ON UPDATE CASCADE;
+    END IF;
+    IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'LibArticleView_user_id_fkey') THEN
+        ALTER TABLE "LibArticleView" ADD CONSTRAINT "LibArticleView_user_id_fkey"
+            FOREIGN KEY ("user_id") REFERENCES "User" ("id") ON DELETE CASCADE ON UPDATE CASCADE;
+    END IF;
+    IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'LibComment_article_id_fkey') THEN
+        ALTER TABLE "LibComment" ADD CONSTRAINT "LibComment_article_id_fkey"
+            FOREIGN KEY ("article_id") REFERENCES "LibArticle" ("id") ON DELETE CASCADE ON UPDATE CASCADE;
+    END IF;
+    IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'LibComment_author_id_fkey') THEN
+        ALTER TABLE "LibComment" ADD CONSTRAINT "LibComment_author_id_fkey"
+            FOREIGN KEY ("author_id") REFERENCES "User" ("id") ON DELETE RESTRICT ON UPDATE CASCADE;
+    END IF;
+    IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'LibComment_parent_id_fkey') THEN
+        ALTER TABLE "LibComment" ADD CONSTRAINT "LibComment_parent_id_fkey"
+            FOREIGN KEY ("parent_id") REFERENCES "LibComment" ("id") ON DELETE SET NULL ON UPDATE CASCADE;
+    END IF;
+    IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'LibComment_deleted_by_id_fkey') THEN
+        ALTER TABLE "LibComment" ADD CONSTRAINT "LibComment_deleted_by_id_fkey"
+            FOREIGN KEY ("deleted_by_id") REFERENCES "User" ("id") ON DELETE SET NULL ON UPDATE CASCADE;
+    END IF;
+    IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'LibReport_article_id_fkey') THEN
+        ALTER TABLE "LibReport" ADD CONSTRAINT "LibReport_article_id_fkey"
+            FOREIGN KEY ("article_id") REFERENCES "LibArticle" ("id") ON DELETE CASCADE ON UPDATE CASCADE;
+    END IF;
+    IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'LibReport_comment_id_fkey') THEN
+        ALTER TABLE "LibReport" ADD CONSTRAINT "LibReport_comment_id_fkey"
+            FOREIGN KEY ("comment_id") REFERENCES "LibComment" ("id") ON DELETE CASCADE ON UPDATE CASCADE;
+    END IF;
+    IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'LibReport_reporter_id_fkey') THEN
+        ALTER TABLE "LibReport" ADD CONSTRAINT "LibReport_reporter_id_fkey"
+            FOREIGN KEY ("reporter_id") REFERENCES "User" ("id") ON DELETE RESTRICT ON UPDATE CASCADE;
+    END IF;
+    IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'LibReport_resolved_by_id_fkey') THEN
+        ALTER TABLE "LibReport" ADD CONSTRAINT "LibReport_resolved_by_id_fkey"
+            FOREIGN KEY ("resolved_by_id") REFERENCES "User" ("id") ON DELETE SET NULL ON UPDATE CASCADE;
+    END IF;
+END $$;
+
+CREATE UNIQUE INDEX IF NOT EXISTS "LibReport_article_id_reporter_id_key" ON "LibReport" ("article_id", "reporter_id");
+CREATE UNIQUE INDEX IF NOT EXISTS "LibReport_comment_id_reporter_id_key" ON "LibReport" ("comment_id", "reporter_id");
+CREATE INDEX IF NOT EXISTS "Prodi_faculty_id_idx" ON "Prodi" ("faculty_id");
+CREATE INDEX IF NOT EXISTS "LibProfile_faculty_id_idx" ON "LibProfile" ("faculty_id");
+CREATE INDEX IF NOT EXISTS "LibProfile_prodi_id_idx" ON "LibProfile" ("prodi_id");
+CREATE INDEX IF NOT EXISTS "LibProfile_kelas_id_idx" ON "LibProfile" ("kelas_id");
+CREATE INDEX IF NOT EXISTS "LibAuthorRequest_status_submitted_at_idx" ON "LibAuthorRequest" ("status", "submitted_at" DESC);
+CREATE INDEX IF NOT EXISTS "LibAuthorRequest_user_id_submitted_at_idx" ON "LibAuthorRequest" ("user_id", "submitted_at" DESC);
+CREATE INDEX IF NOT EXISTS "LibAuthorAccess_revoked_at_idx" ON "LibAuthorAccess" ("revoked_at");
+CREATE INDEX IF NOT EXISTS "LibArticle_prodi_id_status_published_at_idx" ON "LibArticle" ("prodi_id", "status", "published_at" DESC);
+CREATE INDEX IF NOT EXISTS "LibArticle_author_id_status_updated_at_idx" ON "LibArticle" ("author_id", "status", "updated_at" DESC);
+CREATE INDEX IF NOT EXISTS "LibArticleView_user_id_created_at_idx" ON "LibArticleView" ("user_id", "created_at" DESC);
+CREATE INDEX IF NOT EXISTS "LibComment_article_id_created_at_idx" ON "LibComment" ("article_id", "created_at");
+CREATE INDEX IF NOT EXISTS "LibComment_parent_id_created_at_idx" ON "LibComment" ("parent_id", "created_at");
+CREATE INDEX IF NOT EXISTS "LibComment_author_id_created_at_idx" ON "LibComment" ("author_id", "created_at" DESC);
+CREATE INDEX IF NOT EXISTS "LibReport_status_created_at_idx" ON "LibReport" ("status", "created_at" DESC);
+CREATE INDEX IF NOT EXISTS "LibReport_resolved_by_id_idx" ON "LibReport" ("resolved_by_id");
+
+ALTER TABLE "LibProfile" ENABLE ROW LEVEL SECURITY;
+ALTER TABLE "LibAuthorRequest" ENABLE ROW LEVEL SECURITY;
+ALTER TABLE "LibAuthorAccess" ENABLE ROW LEVEL SECURITY;
+ALTER TABLE "LibArticle" ENABLE ROW LEVEL SECURITY;
+ALTER TABLE "LibArticleView" ENABLE ROW LEVEL SECURITY;
+ALTER TABLE "LibComment" ENABLE ROW LEVEL SECURITY;
+ALTER TABLE "LibReport" ENABLE ROW LEVEL SECURITY;
+ALTER TABLE "Faculty" ENABLE ROW LEVEL SECURITY;
+REVOKE ALL ON "Faculty" FROM PUBLIC, anon, authenticated;
+REVOKE ALL ON "LibProfile", "LibAuthorRequest", "LibAuthorAccess", "LibArticle", "LibArticleView", "LibComment", "LibReport"
+    FROM PUBLIC, anon, authenticated;
+
+COMMIT;

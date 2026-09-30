@@ -7,7 +7,7 @@
 "use client";
 
 import * as React from "react";
-import type { Prodi } from "@prisma/client";
+import type { Faculty, Prodi } from "@prisma/client";
 import { Pencil, Plus, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 
@@ -32,27 +32,32 @@ import {
   TableRow,
 } from "@/components/ui/table";
 
-export function ProdiManager({ prodis }: { prodis: Prodi[] }) {
+type ProdiRow = Prodi & { faculty: Pick<Faculty, "id" | "name"> | null };
+
+export function ProdiManager({ prodis, faculties }: { prodis: ProdiRow[]; faculties: Faculty[] }) {
   const [dialogOpen, setDialogOpen] = React.useState(false);
   const [editing, setEditing] = React.useState<Prodi | null>(null);
   const [name, setName] = React.useState("");
+  const [facultyId, setFacultyId] = React.useState("");
   const [pending, startTransition] = React.useTransition();
 
   function openCreate() {
     setEditing(null);
     setName("");
+    setFacultyId(faculties[0]?.id ?? "");
     setDialogOpen(true);
   }
 
-  function openEdit(prodi: Prodi) {
+  function openEdit(prodi: ProdiRow) {
     setEditing(prodi);
     setName(prodi.name);
+    setFacultyId(prodi.faculty_id ?? "");
     setDialogOpen(true);
   }
 
   function handleSubmit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    const payload = { name };
+    const payload = { name, faculty_id: facultyId };
     startTransition(async () => {
       const result = editing
         ? await updateProdi(editing.id, payload)
@@ -101,6 +106,7 @@ export function ProdiManager({ prodis }: { prodis: Prodi[] }) {
             <TableHeader>
               <TableRow>
                 <TableHead>Nama</TableHead>
+                <TableHead>Fakultas</TableHead>
                 <TableHead className="text-right">Aksi</TableHead>
               </TableRow>
             </TableHeader>
@@ -108,6 +114,7 @@ export function ProdiManager({ prodis }: { prodis: Prodi[] }) {
               {prodis.map((prodi) => (
                 <TableRow key={prodi.id}>
                   <TableCell className="font-medium">{prodi.name}</TableCell>
+                  <TableCell>{prodi.faculty?.name ?? <span className="text-destructive">Belum dihubungkan</span>}</TableCell>
                   <TableCell>
                     <div className="flex justify-end gap-1.5">
                       <Button
@@ -147,7 +154,7 @@ export function ProdiManager({ prodis }: { prodis: Prodi[] }) {
               {editing ? `Edit Prodi ${editing.name}` : "Tambah Prodi"}
             </DialogTitle>
             <DialogDescription>
-              Nama prodi harus unik, mis. &quot;Teknik Informatika&quot;.
+              Hubungkan prodi ke fakultas yang benar. Nama prodi harus unik.
             </DialogDescription>
           </DialogHeader>
 
@@ -164,6 +171,22 @@ export function ProdiManager({ prodis }: { prodis: Prodi[] }) {
               />
             </div>
 
+            <div className="grid gap-2">
+              <Label htmlFor="prodi-faculty">Fakultas</Label>
+              <select
+                id="prodi-faculty"
+                value={facultyId}
+                onChange={(event) => setFacultyId(event.target.value)}
+                required
+                disabled={faculties.length === 0}
+                className="h-10 rounded-md border border-input bg-background px-3 text-sm"
+              >
+                <option value="" disabled>Pilih fakultas</option>
+                {faculties.map((faculty) => <option key={faculty.id} value={faculty.id}>{faculty.name}</option>)}
+              </select>
+              {faculties.length === 0 ? <p className="text-xs text-destructive">Tambahkan fakultas terlebih dahulu.</p> : null}
+            </div>
+
             <DialogFooter>
               <Button
                 type="button"
@@ -173,7 +196,7 @@ export function ProdiManager({ prodis }: { prodis: Prodi[] }) {
               >
                 Batal
               </Button>
-              <Button type="submit" disabled={pending}>
+              <Button type="submit" disabled={pending || !facultyId}>
                 {pending
                   ? "Menyimpan..."
                   : editing

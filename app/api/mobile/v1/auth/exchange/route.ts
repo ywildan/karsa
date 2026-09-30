@@ -44,7 +44,12 @@ export const POST = withMobileApiErrors(async function POST(request: Request) {
   }
 
   const user = await mobileUserPayload(authRequest.user_id);
-  if (!user || (!user.capabilities.record_points && !user.capabilities.view_report)) {
+  if (
+    !user ||
+    (!user.capabilities.record_points &&
+      !user.capabilities.view_report &&
+      !user.capabilities.view_karsa_lib)
+  ) {
     return mobileError(403, "NOT_ELIGIBLE", "Akun ini tidak memiliki akses aplikasi Karsa.");
   }
 

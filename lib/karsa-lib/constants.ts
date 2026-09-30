@@ -1,0 +1,4 @@
+export const KARSA_LIB_ARTICLE_MAX_TITLE = 120;
+export const KARSA_LIB_ARTICLE_MAX_BODY = 20_000;
+export const KARSA_LIB_COMMENT_MAX_BODY = 2_000;
+export const KARSA_LIB_PAGE_SIZE = 30;

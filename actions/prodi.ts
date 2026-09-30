@@ -22,11 +22,12 @@ const prodiInputSchema = z.object({
     .trim()
     .min(1, "Nama prodi wajib diisi.")
     .max(100, "Nama prodi maksimal 100 karakter."),
+  faculty_id: z.string().trim().min(1, "Fakultas wajib dipilih."),
 });
 
 type ProdiInput = z.infer<typeof prodiInputSchema>;
 
-const REVALIDATE = ["/admin/prodi", "/admin/dashboard"] as const;
+const REVALIDATE = ["/admin/prodi", "/admin/dashboard", "/admin/karsalib"] as const;
 
 function revalidateAll() {
   for (const path of REVALIDATE) revalidatePath(path);
@@ -40,9 +41,11 @@ export async function createProdi(input: ProdiInput): Promise<ActionResult> {
   if (!parsed.success) return { ok: false, error: zodFirstError(parsed.error) };
 
   const { name } = parsed.data;
+  const faculty = await prisma.faculty.findUnique({ where: { id: parsed.data.faculty_id }, select: { id: true } });
+  if (!faculty) return { ok: false, error: "Fakultas tidak ditemukan. Muat ulang halaman lalu pilih fakultas yang tersedia." };
   try {
     await prisma.$transaction(async (tx) => {
-      const created = await tx.prodi.create({ data: { name } });
+      const created = await tx.prodi.create({ data: { name, faculty_id: parsed.data.faculty_id } });
 
       await logAudit(
         {
@@ -53,7 +56,7 @@ export async function createProdi(input: ProdiInput): Promise<ActionResult> {
           },
           action: "PRODI_CREATE",
           entity: { type: "Prodi", id: created.id, label: name },
-          after: { name },
+          after: { name, faculty_id: parsed.data.faculty_id },
         },
         tx,
       );
@@ -87,15 +90,21 @@ export async function updateProdi(
 
   const before = await prisma.prodi.findUnique({
     where: { id },
-    select: { name: true },
+    select: { name: true, faculty_id: true },
   });
   if (!before) {
     return { ok: false, error: "Prodi tidak ditemukan. Mungkin sudah dihapus." };
   }
+  const faculty = await prisma.faculty.findUnique({ where: { id: parsed.data.faculty_id }, select: { id: true } });
+  if (!faculty) return { ok: false, error: "Fakultas tidak ditemukan. Muat ulang halaman lalu pilih fakultas yang tersedia." };
+  const profileCount = await prisma.libProfile.count({ where: { prodi_id: id } });
+  if (profileCount > 0 && before.faculty_id !== parsed.data.faculty_id) {
+    return { ok: false, error: `Fakultas prodi tidak dapat diubah karena sudah dipakai ${profileCount} profil Karsa Lib.` };
+  }
 
   try {
     await prisma.$transaction(async (tx) => {
-      await tx.prodi.update({ where: { id }, data: { name } });
+      await tx.prodi.update({ where: { id }, data: { name, faculty_id: parsed.data.faculty_id } });
 
       await logAudit(
         {
@@ -107,7 +116,7 @@ export async function updateProdi(
           action: "PRODI_UPDATE",
           entity: { type: "Prodi", id, label: name },
           before,
-          after: { name },
+          after: { name, faculty_id: parsed.data.faculty_id },
         },
         tx,
       );
@@ -137,7 +146,7 @@ export async function updateProdi(
 export async function deleteProdi(id: string): Promise<ActionResult> {
   const admin = await requireAdmin();
 
-  const prodi = await prisma.prodi.findUnique({ where: { id } });
+  const prodi = await prisma.prodi.findUnique({ where: { id }, include: { _count: { select: { kelas: true, libProfiles: true, libArticles: true } } } });
   if (!prodi) {
     return { ok: false, error: "Prodi tidak ditemukan. Mungkin sudah dihapus." };
   }
@@ -148,6 +157,9 @@ export async function deleteProdi(id: string): Promise<ActionResult> {
       ok: false,
       error: `Prodi "${prodi.name}" masih dipakai ${kelasCount} kelas. Pindahkan atau hapus kelasnya dulu.`,
     };
+  }
+  if (prodi._count.libProfiles > 0 || prodi._count.libArticles > 0) {
+    return { ok: false, error: `Prodi "${prodi.name}" sudah dipakai profil atau artikel Karsa Lib dan tidak bisa dihapus.` };
   }
 
   try {

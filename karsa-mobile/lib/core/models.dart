@@ -3,16 +3,22 @@ class Capabilities {
     required this.recordPoints,
     required this.viewReport,
     required this.viewLeaderboard,
+    this.viewKarsaLib = false,
+    this.writeKarsaLib = false,
   });
 
   final bool recordPoints;
   final bool viewReport;
   final bool viewLeaderboard;
+  final bool viewKarsaLib;
+  final bool writeKarsaLib;
 
   factory Capabilities.fromJson(Map<String, dynamic> json) => Capabilities(
         recordPoints: json['record_points'] == true,
         viewReport: json['view_report'] == true,
         viewLeaderboard: json['view_leaderboard'] == true,
+        viewKarsaLib: json['view_karsa_lib'] == true,
+        writeKarsaLib: json['write_karsa_lib'] == true,
       );
 }
 
@@ -25,6 +31,7 @@ class AppUser {
     this.image,
     this.nim,
     this.classId,
+    this.libProfile,
   });
 
   final String id;
@@ -34,6 +41,7 @@ class AppUser {
   final String? nim;
   final String? classId;
   final Capabilities capabilities;
+  final LibProfileInfo? libProfile;
 
   factory AppUser.fromJson(Map<String, dynamic> json) => AppUser(
         id: json['id'] as String,
@@ -42,9 +50,225 @@ class AppUser {
         image: json['image'] as String?,
         nim: json['nim'] as String?,
         classId: json['kelas_id'] as String?,
+        libProfile: json['lib_profile'] is Map<String, dynamic>
+            ? LibProfileInfo.fromJson(json['lib_profile'] as Map<String, dynamic>)
+            : null,
         capabilities: Capabilities.fromJson(
           json['capabilities'] as Map<String, dynamic>,
         ),
+      );
+}
+
+class LibProfileInfo {
+  const LibProfileInfo({
+    required this.displayName,
+    required this.faculty,
+    required this.programId,
+    this.facultyId,
+    this.classId,
+  });
+
+  final String displayName;
+  final String faculty;
+  final String programId;
+  final String? facultyId;
+  final String? classId;
+
+  factory LibProfileInfo.fromJson(Map<String, dynamic> json) => LibProfileInfo(
+        displayName: json['display_name'] as String? ?? 'Mahasiswa',
+        faculty: json['faculty'] as String? ?? '',
+        programId: json['prodi_id'] as String? ?? '',
+        facultyId: json['faculty_id'] as String?,
+        classId: json['kelas_id'] as String?,
+      );
+}
+
+class LibFacultyOption {
+  const LibFacultyOption({required this.id, required this.name});
+  final String id;
+  final String name;
+
+  factory LibFacultyOption.fromJson(Map<String, dynamic> json) => LibFacultyOption(
+        id: json['id'] as String,
+        name: json['name'] as String? ?? 'Fakultas',
+      );
+}
+
+class LibProgramOption {
+  const LibProgramOption({required this.id, required this.name, required this.facultyId});
+  final String id;
+  final String name;
+  final String facultyId;
+
+  factory LibProgramOption.fromJson(Map<String, dynamic> json) => LibProgramOption(
+        id: json['id'] as String,
+        name: json['name'] as String? ?? 'Program studi',
+        facultyId: json['faculty_id'] as String? ?? '',
+      );
+}
+
+class LibClassOption {
+  const LibClassOption({required this.id, required this.name, required this.programId, this.semesterName});
+  final String id;
+  final String name;
+  final String programId;
+  final String? semesterName;
+
+  factory LibClassOption.fromJson(Map<String, dynamic> json) => LibClassOption(
+        id: json['id'] as String,
+        name: json['name'] as String? ?? 'Kelas',
+        programId: json['prodi_id'] as String? ?? '',
+        semesterName: (json['semester'] as Map<String, dynamic>?)?['name'] as String?,
+      );
+}
+
+class LibArticle {
+  const LibArticle({
+    required this.id,
+    required this.title,
+    required this.body,
+    required this.authorId,
+    required this.authorName,
+    required this.views,
+    required this.commentsCount,
+    this.authorFaculty,
+    this.authorProgramName,
+    this.publishedAt,
+    this.updatedAt,
+    this.status,
+    this.archivedAt,
+  });
+
+  final String id;
+  final String title;
+  final String body;
+  final String authorId;
+  final String authorName;
+  final String? authorFaculty;
+  final String? authorProgramName;
+  final int views;
+  final int commentsCount;
+  final DateTime? publishedAt;
+  final DateTime? updatedAt;
+  final DateTime? archivedAt;
+  final String? status;
+
+  factory LibArticle.fromJson(Map<String, dynamic> json) {
+    final author = json['author'] as Map<String, dynamic>? ?? const {};
+    return LibArticle(
+      id: json['id'] as String,
+      title: json['title'] as String? ?? 'Tanpa judul',
+      body: json['body_preview'] as String? ?? json['body'] as String? ?? '',
+      authorId: author['id'] as String? ?? json['author_id'] as String? ?? '',
+      authorName: author['name'] as String? ?? 'Mahasiswa Karsa',
+      authorFaculty: author['faculty'] as String?,
+      authorProgramName: author['prodi_name'] as String?,
+      views: (json['views'] as num?)?.toInt() ?? 0,
+      commentsCount: (json['comments_count'] as num?)?.toInt() ?? 0,
+      publishedAt: DateTime.tryParse(json['published_at'] as String? ?? ''),
+      updatedAt: DateTime.tryParse(json['updated_at'] as String? ?? ''),
+      archivedAt: DateTime.tryParse(json['archived_at'] as String? ?? ''),
+      status: json['status'] as String?,
+    );
+  }
+}
+
+class LibBootstrap {
+  const LibBootstrap({
+    required this.faculties,
+    required this.programs,
+    required this.classes,
+    required this.canWrite,
+    this.profile,
+    this.latestRequest,
+  });
+  final List<LibFacultyOption> faculties;
+  final List<LibProgramOption> programs;
+  final List<LibClassOption> classes;
+  final bool canWrite;
+  final LibProfileInfo? profile;
+  final Map<String, dynamic>? latestRequest;
+
+  factory LibBootstrap.fromJson(Map<String, dynamic> json) => LibBootstrap(
+        faculties: ((json['faculties'] as List?) ?? const [])
+            .map((item) => LibFacultyOption.fromJson(item as Map<String, dynamic>))
+            .toList(),
+        programs: ((json['programs'] as List?) ?? const [])
+            .map((item) => LibProgramOption.fromJson(item as Map<String, dynamic>))
+            .toList(),
+        classes: ((json['classes'] as List?) ?? const [])
+            .map((item) => LibClassOption.fromJson(item as Map<String, dynamic>))
+            .toList(),
+        canWrite: json['can_write'] == true,
+        profile: json['profile'] is Map<String, dynamic>
+            ? LibProfileInfo.fromJson(json['profile'] as Map<String, dynamic>)
+            : null,
+        latestRequest: json['latest_author_request'] as Map<String, dynamic>?,
+      );
+}
+
+class LibAuthorProfile {
+  const LibAuthorProfile({
+    required this.id,
+    required this.name,
+    required this.faculty,
+    required this.programName,
+    required this.totalViews,
+    required this.articleCount,
+    required this.articles,
+    this.image,
+  });
+  final String id;
+  final String name;
+  final String faculty;
+  final String programName;
+  final int totalViews;
+  final int articleCount;
+  final String? image;
+  final List<LibArticle> articles;
+
+  factory LibAuthorProfile.fromJson(Map<String, dynamic> json) => LibAuthorProfile(
+        id: json['id'] as String,
+        name: json['name'] as String? ?? 'Mahasiswa Karsa',
+        faculty: json['faculty'] as String? ?? '',
+        programName: json['prodi_name'] as String? ?? '',
+        totalViews: (json['total_views'] as num?)?.toInt() ?? 0,
+        articleCount: (json['article_count'] as num?)?.toInt() ?? 0,
+        image: json['image'] as String?,
+        articles: ((json['articles'] as List?) ?? const [])
+            .map((item) => LibArticle.fromJson(item as Map<String, dynamic>))
+            .toList(),
+      );
+}
+
+class LibComment {
+  const LibComment({
+    required this.id,
+    required this.author,
+    required this.isOwn,
+    this.body,
+    this.createdAt,
+    this.isDeleted = false,
+    this.replies = const [],
+  });
+  final String id;
+  final String author;
+  final String? body;
+  final bool isOwn;
+  final bool isDeleted;
+  final DateTime? createdAt;
+  final List<LibComment> replies;
+
+  factory LibComment.fromJson(Map<String, dynamic> json) => LibComment(
+        id: json['id'] as String,
+        author: json['author'] as String? ?? 'Mahasiswa Karsa',
+        body: json['body'] as String?,
+        isOwn: json['is_own'] == true,
+        isDeleted: json['is_deleted'] == true,
+        createdAt: DateTime.tryParse(json['created_at'] as String? ?? ''),
+        replies: ((json['replies'] as List?) ?? const [])
+            .map((item) => LibComment.fromJson(item as Map<String, dynamic>))
+            .toList(),
       );
 }
 

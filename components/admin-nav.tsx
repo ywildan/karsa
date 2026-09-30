@@ -15,11 +15,13 @@ import { cn } from "@/lib/utils";
 const NAV_ITEMS = [
   { href: "/admin/dashboard", label: "Dashboard" },
   { href: "/admin/semester", label: "Semester" },
+  { href: "/admin/fakultas", label: "Fakultas" },
   { href: "/admin/prodi", label: "Prodi" },
   { href: "/admin/matkul", label: "Matkul" },
   { href: "/admin/kelas", label: "Kelas" },
   { href: "/admin/rekap", label: "Rekap" },
   { href: "/admin/audit", label: "Audit Log" },
+  { href: "/admin/karsalib", label: "Karsa Lib" },
 ] as const;
 
 export function AdminNav() {

@@ -14,6 +14,7 @@ export const GET = withMobileApiErrors(async function GET(request: Request) {
     image: actor.image,
     nim: actor.nim,
     kelas_id: actor.kelas_id,
+    lib_profile: actor.lib_profile,
     capabilities: actor.capabilities,
   });
 });

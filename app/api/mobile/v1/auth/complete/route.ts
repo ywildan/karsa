@@ -4,6 +4,7 @@ import { NextResponse } from "next/server";
 import { auth } from "@/auth";
 import { hashToken, randomToken } from "@/lib/mobile/auth";
 import { withMobileApiErrors } from "@/lib/mobile/http";
+import { isStudentEmail } from "@/lib/mahasiswa";
 import { prisma } from "@/lib/prisma";
 
 export const runtime = "nodejs";
@@ -39,7 +40,11 @@ export const GET = withMobileApiErrors(async function GET(request: Request) {
     });
   }
 
-  if (session.user.is_admin || (!session.user.is_pj && !session.user.kelas_id)) {
+  const canUseKarsaLib = isStudentEmail(session.user.email);
+  if (
+    session.user.is_admin ||
+    (!session.user.is_pj && !session.user.kelas_id && !canUseKarsaLib)
+  ) {
     cookieStore.delete("karsa_mobile_auth");
     return appRedirect(authRequest.redirect_uri, {
       state: authRequest.state,

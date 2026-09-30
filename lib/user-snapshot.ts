@@ -26,6 +26,14 @@ export interface UserSnapshot {
   is_admin: boolean;
   kelas_id: string | null;
   is_pj: boolean;
+  libProfile: {
+    display_name: string;
+    faculty: string;
+    faculty_id: string | null;
+    prodi_id: string;
+    kelas_id: string | null;
+  } | null;
+  is_lib_writer: boolean;
 }
 
 /**
@@ -42,6 +50,18 @@ const snapshotSelect = {
   is_admin: true,
   kelas_id: true,
   kelasMatkulAsPj: { select: { id: true }, take: 1 },
+  libProfile: {
+    select: {
+      display_name: true,
+      faculty: true,
+      faculty_id: true,
+      prodi_id: true,
+      kelas_id: true,
+    },
+  },
+  libAuthorAccess: {
+    select: { revoked_at: true },
+  },
 };
 
 /**
@@ -60,6 +80,8 @@ interface SnapshotRow {
   is_admin: boolean;
   kelas_id: string | null;
   kelasMatkulAsPj: { id: string }[];
+  libProfile: UserSnapshot["libProfile"];
+  libAuthorAccess: { revoked_at: Date | null } | null;
 }
 
 function toSnapshot(row: SnapshotRow): UserSnapshot {
@@ -72,6 +94,8 @@ function toSnapshot(row: SnapshotRow): UserSnapshot {
     is_admin: row.is_admin,
     kelas_id: row.kelas_id,
     is_pj: row.kelasMatkulAsPj.length > 0,
+    libProfile: row.libProfile,
+    is_lib_writer: row.libAuthorAccess?.revoked_at === null,
   };
 }
 
