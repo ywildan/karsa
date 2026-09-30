@@ -43,7 +43,24 @@ class _KarsaLibAuthorScreenState extends State<KarsaLibAuthorScreen> {
             if (profile.articles.isEmpty)
               const SliverFillRemaining(child: EmptyState(title: 'Belum ada artikel', message: 'Artikel yang diterbitkan penulis akan tampil di sini.', icon: Icons.menu_book_outlined))
             else
-              SliverPadding(padding: const EdgeInsets.fromLTRB(16, 0, 16, 30), sliver: SliverList.separated(itemCount: profile.articles.length, separatorBuilder: (_, _) => const SizedBox(height: 10), itemBuilder: (context, index) => _ProfileArticleCard(article: profile.articles[index], onTap: () => Navigator.of(context).push<void>(MaterialPageRoute(builder: (_) => KarsaLibArticleScreen(api: widget.api, articleId: profile.articles[index].id))))),
+              SliverPadding(
+                padding: const EdgeInsets.fromLTRB(16, 0, 16, 30),
+                sliver: SliverList.separated(
+                  itemCount: profile.articles.length,
+                  separatorBuilder: (_, _) => const SizedBox(height: 10),
+                  itemBuilder: (context, index) => _ProfileArticleCard(
+                    article: profile.articles[index],
+                    onTap: () => Navigator.of(context).push<void>(
+                      MaterialPageRoute(
+                        builder: (_) => KarsaLibArticleScreen(
+                          api: widget.api,
+                          articleId: profile.articles[index].id,
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
+              ),
           ]);
         }),
       );
