@@ -8,8 +8,8 @@ import { formatNumber } from "@/lib/utils";
 
 const LEFT = 40;
 const RIGHT = 630;
-const TOP = 28;
-const BOTTOM = 196;
+const TOP = 26;
+const BOTTOM = 174;
 
 function axisMaximum(value: number): number {
   if (value <= 10) return 10;
@@ -66,9 +66,9 @@ export function UserGrowthChart({ growth }: { growth: UserGrowth }) {
           </div>
         </div>
 
-        <div className="mt-6 overflow-x-auto pb-2">
+        <div className="mt-4 overflow-x-auto">
           <svg
-            viewBox="0 0 660 235"
+            viewBox="0 0 660 214"
             className="h-auto min-w-[540px] w-full"
             role="img"
             aria-label={`Grafik ${period === "weekly" ? "mingguan" : "bulanan"}: total mahasiswa naik hingga ${formatNumber(growth.total)}. Penambahan periode ini ${formatNumber(data.gained)} mahasiswa.`}
@@ -100,16 +100,13 @@ export function UserGrowthChart({ growth }: { growth: UserGrowth }) {
                   <circle cx={point.x} cy={point.y} r={last ? 5.5 : 3.5} fill={last ? "hsl(var(--primary))" : "hsl(var(--card))"} stroke="hsl(var(--primary))" strokeWidth="2">
                     <title>{point.label}: {formatNumber(point.value)} mahasiswa</title>
                   </circle>
-                  <text x={point.x} y="225" textAnchor={index === 0 ? "start" : last ? "end" : "middle"} fill="hsl(var(--muted-foreground))" fontSize="10">
+                  <text x={point.x} y="204" textAnchor={index === 0 ? "start" : last ? "end" : "middle"} fill="hsl(var(--muted-foreground))" fontSize="10">
                     {point.label}
                   </text>
                 </g>
               );
             })}
           </svg>
-        </div>
-        <div className="border-t border-border/70 pt-3 text-xs text-muted-foreground">
-          Setiap mahasiswa dihitung sekali pada tanggal login pertamanya.
         </div>
       </div>
     </section>
