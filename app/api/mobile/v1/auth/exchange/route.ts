@@ -13,6 +13,7 @@ import {
   readJson,
   withMobileApiErrors,
 } from "@/lib/mobile/http";
+import { isStudentEmail } from "@/lib/mahasiswa";
 import { prisma } from "@/lib/prisma";
 
 export const runtime = "nodejs";
@@ -72,6 +73,12 @@ export const POST = withMobileApiErrors(async function POST(request: Request) {
         device_name: normalizeDeviceName(parsed.data.device_name),
       },
     });
+    if (isStudentEmail(user.email)) {
+      await tx.user.updateMany({
+        where: { id: user.id, first_login_at: null },
+        data: { first_login_at: now },
+      });
+    }
     if (parsed.data.accepted_terms_version) {
       await tx.auditLog.create({
         data: {

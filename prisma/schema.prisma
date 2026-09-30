@@ -44,6 +44,7 @@ model User {
   image         String?
   is_admin      Boolean   @default(false)
   kelas_id      String?
+  first_login_at DateTime?
   created_at    DateTime  @default(now())
   updated_at    DateTime  @default(now()) @updatedAt
 
@@ -76,6 +77,7 @@ model User {
   libReportsResolved   LibReport[]         @relation("LibReportResolver")
 
   @@index([kelas_id])
+  @@index([first_login_at])
 }
 
 /// Account — menyimpan tautan akun OAuth (Google). Wajib untuk Auth.js adapter.

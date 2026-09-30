@@ -15,6 +15,9 @@ import {
 } from "lucide-react";
 
 import { requireAdmin } from "@/lib/auth-helpers";
+import { UserGrowthChart } from "@/components/admin/user-growth-chart";
+import { buildUserGrowth } from "@/lib/admin/user-growth";
+import { STUDENT_EMAIL_DOMAIN } from "@/lib/mahasiswa";
 import { prisma } from "@/lib/prisma";
 import { formatDateTimeWib, formatNumber } from "@/lib/utils";
 
@@ -82,6 +85,7 @@ export default async function AdminDashboardPage() {
     activeSemester,
     libQueue,
     recentActivity,
+    userGrowth,
   ] = await Promise.all([
     prisma.faculty.count(),
     prisma.prodi.count(),
@@ -109,6 +113,18 @@ export default async function AdminDashboardPage() {
         created_at: true,
       },
     }).catch(() => null),
+    prisma.user.findMany({
+      where: {
+        email: { endsWith: `@${STUDENT_EMAIL_DOMAIN}`, mode: "insensitive" },
+        first_login_at: { not: null },
+      },
+      select: { first_login_at: true },
+    })
+      .then((rows) => buildUserGrowth(rows.flatMap((row) => row.first_login_at ? [row.first_login_at] : [])))
+      .catch((error) => {
+        console.error("[admin/dashboard] gagal memuat pertumbuhan pengguna", error);
+        return null;
+      }),
   ]);
 
   const pendingTotal = libQueue
@@ -222,6 +238,14 @@ export default async function AdminDashboardPage() {
           </div>
         </div>
       </section>
+
+      {userGrowth ? (
+        <UserGrowthChart growth={userGrowth} />
+      ) : (
+        <section className="rounded-2xl border border-border bg-card/75 p-5 text-sm text-muted-foreground backdrop-blur-sm">
+          Grafik pertumbuhan pengguna belum dapat dimuat. Coba lagi setelah beberapa saat.
+        </section>
+      )}
 
       <section aria-labelledby="admin-shortcuts-title">
         <SectionHeading

@@ -106,6 +106,21 @@
 }
 
 @layer utilities {
+  @keyframes growth-endpoint-pulse {
+    0%, 100% { transform: scale(1); opacity: 0.35; }
+    50% { transform: scale(2.35); opacity: 0; }
+  }
+
+  .growth-endpoint-pulse {
+    transform-box: fill-box;
+    transform-origin: center;
+    animation: growth-endpoint-pulse 2.6s ease-out infinite;
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .growth-endpoint-pulse { animation: none; opacity: 0.3; }
+  }
+
   /* Region aman untuk bottom nav channel mobile (iPhone home indicator). */
   .pb-safe {
     padding-bottom: env(safe-area-inset-bottom);
