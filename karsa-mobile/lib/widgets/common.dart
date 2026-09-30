@@ -82,6 +82,16 @@ String formatDate(DateTime date) {
   return '${date.day} ${months[date.month - 1]} ${date.year}, $hour:$minute';
 }
 
+String formatRelativeTime(DateTime date) {
+  final localDate = date.toLocal();
+  final elapsed = DateTime.now().difference(localDate);
+  if (elapsed.isNegative || elapsed.inMinutes < 1) return 'Baru saja';
+  if (elapsed.inMinutes < 60) return '${elapsed.inMinutes} menit lalu';
+  if (elapsed.inHours < 24) return '${elapsed.inHours} jam lalu';
+  if (elapsed.inDays < 7) return '${elapsed.inDays} hari lalu';
+  return formatDate(localDate);
+}
+
 /// Keeps the first three NPM digits visible while avoiding exposing the full
 /// student identifier in shared PJ views.
 String maskNim(String? nim) {
