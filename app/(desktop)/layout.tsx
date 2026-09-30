@@ -12,6 +12,7 @@ import { signOutAction } from "@/actions/auth";
 import { Button } from "@/components/button";
 import { getSession } from "@/lib/auth-helpers";
 import { DESKTOP_HOME } from "@/lib/channel";
+import { cn } from "@/lib/utils";
 
 export default async function DesktopLayout({
   children,
@@ -21,11 +22,12 @@ export default async function DesktopLayout({
   const session = await getSession();
   const displayName =
     session?.user?.name?.trim() || session?.user?.email || "Pengguna Karsa";
+  const isAdmin = session?.user?.is_admin === true;
 
   return (
     <div className="min-h-dvh">
       <header className="sticky top-0 z-30 border-b border-border bg-background/90 backdrop-blur">
-        <div className="mx-auto flex h-14 w-full max-w-5xl items-center justify-between gap-3 px-4">
+        <div className={cn("mx-auto flex h-14 w-full items-center justify-between gap-3 px-4", isAdmin ? "max-w-[1440px]" : "max-w-5xl")}>
           <Link
             href={DESKTOP_HOME}
             className="flex items-center gap-2 font-semibold tracking-tight"

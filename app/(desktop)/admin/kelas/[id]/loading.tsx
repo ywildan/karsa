@@ -1,9 +1,7 @@
-import { AdminNav } from "@/components/admin-nav";
 
 export default function KelasDetailLoading() {
   return (
     <main className="mx-auto flex w-full max-w-5xl flex-col gap-6 px-4 py-8">
-      <AdminNav />
       <div className="animate-pulse" role="status" aria-label="Memuat detail kelas">
         <div className="h-9 w-28 rounded bg-muted" />
         <div className="mt-4 h-8 w-44 rounded bg-muted" />

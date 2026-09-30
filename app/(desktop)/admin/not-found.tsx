@@ -1,12 +1,10 @@
 import Link from "next/link";
 
-import { AdminNav } from "@/components/admin-nav";
 import { Button } from "@/components/button";
 
 export default function AdminNotFoundPage() {
   return (
     <main className="mx-auto flex w-full max-w-5xl flex-col gap-6 px-4 py-8">
-      <AdminNav />
 
       <section className="rounded-2xl border border-dashed border-border bg-card p-8 text-center">
         <p className="text-sm font-medium text-muted-foreground">404</p>

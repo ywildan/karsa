@@ -1,9 +1,7 @@
-import { AdminNav } from "@/components/admin-nav";
 
 export default function RekapLoading() {
   return (
     <main className="mx-auto flex w-full max-w-5xl flex-col gap-6 px-4 py-8">
-      <AdminNav />
       <div className="animate-pulse" role="status" aria-label="Memuat rekap poin">
         <div className="h-8 w-52 rounded bg-muted" />
         <div className="mt-2 h-4 w-[36rem] max-w-full rounded bg-muted" />
