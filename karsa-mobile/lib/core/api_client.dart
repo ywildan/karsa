@@ -40,7 +40,11 @@ class ApiClient {
     return _accessToken != null && _refreshToken != null;
   }
 
-  Future<void> exchangeCode(String code, String verifier) async {
+  Future<void> exchangeCode(
+    String code,
+    String verifier, {
+    required String acceptedTermsVersion,
+  }) async {
     final data = await _request(
       'POST',
       '/auth/exchange',
@@ -49,6 +53,7 @@ class ApiClient {
         'code': code,
         'code_verifier': verifier,
         'device_name': 'Karsa Mobile',
+        'accepted_terms_version': acceptedTermsVersion,
       },
     ) as Map<String, dynamic>;
     await _storeTokens(data);
@@ -310,8 +315,12 @@ class ApiClient {
     return LibProfileInfo.fromJson(data);
   }
 
-  Future<List<LibArticle>> libFeed() async {
-    final data = await _request('GET', '/lib/feed') as List;
+  Future<List<LibArticle>> libFeed({String sort = 'latest', String query = ''}) async {
+    final data = await _request(
+      'GET',
+      '/lib/feed',
+      query: {'sort': sort, if (query.isNotEmpty) 'q': query},
+    ) as List;
     return data
         .map((item) => LibArticle.fromJson(item as Map<String, dynamic>))
         .toList();
@@ -424,6 +433,7 @@ class ApiClient {
     String method,
     String path, {
     Object? body,
+    Map<String, String>? query,
     bool authenticated = true,
     Map<String, String>? extraHeaders,
     bool retry = true,
@@ -435,7 +445,7 @@ class ApiClient {
         'Authorization': 'Bearer $_accessToken',
       ...?extraHeaders,
     };
-    final request = http.Request(method, endpoint(path))
+    final request = http.Request(method, endpoint(path, query))
       ..headers.addAll(headers);
     if (body != null) {
       request.body = jsonEncode(body);
@@ -448,6 +458,7 @@ class ApiClient {
         method,
         path,
         body: body,
+        query: query,
         authenticated: authenticated,
         extraHeaders: extraHeaders,
         retry: false,

@@ -9,6 +9,7 @@ import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 import 'api_client.dart';
+import 'legal_links.dart';
 import 'models.dart';
 
 enum SessionState { loading, signedOut, authenticating, signedIn }
@@ -55,7 +56,11 @@ class AppController extends ChangeNotifier {
     notifyListeners();
   }
 
-  Future<void> signIn() async {
+  Future<void> signIn({required bool termsAccepted}) async {
+    if (!termsAccepted) {
+      _setError('Baca dan setujui Syarat Penggunaan sebelum masuk.');
+      return;
+    }
     error = null;
     state = SessionState.authenticating;
     notifyListeners();
@@ -67,6 +72,7 @@ class AppController extends ChangeNotifier {
         .replaceAll('=', '');
     await _storage.write(key: 'oauth_state', value: stateValue);
     await _storage.write(key: 'oauth_verifier', value: verifier);
+    await _storage.write(key: 'oauth_legal_version', value: legalDocumentVersion);
 
     final uri = Uri.parse('$apiBaseUrl/api/mobile/v1/auth/start').replace(
       queryParameters: {
@@ -92,6 +98,7 @@ class AppController extends ChangeNotifier {
 
     final expectedState = await _storage.read(key: 'oauth_state');
     final verifier = await _storage.read(key: 'oauth_verifier');
+    final acceptedLegalVersion = await _storage.read(key: 'oauth_legal_version');
     final returnedState = uri.queryParameters['state'];
     final code = uri.queryParameters['code'];
     final authError = uri.queryParameters['error'];
@@ -106,14 +113,14 @@ class AppController extends ChangeNotifier {
       _setError('Layanan data sedang tidak tersedia. Coba lagi sebentar.');
       return;
     }
-    if (expectedState == null || verifier == null || expectedState != returnedState || code == null) {
+    if (expectedState == null || verifier == null || acceptedLegalVersion == null || expectedState != returnedState || code == null) {
       state = SessionState.signedOut;
       _setError('Proses masuk tidak valid atau sudah kedaluwarsa.');
       return;
     }
 
     try {
-      await api.exchangeCode(code, verifier);
+      await api.exchangeCode(code, verifier, acceptedTermsVersion: acceptedLegalVersion);
       user = await api.me();
       state = SessionState.signedIn;
       await _clearOAuthValues();
@@ -149,6 +156,7 @@ class AppController extends ChangeNotifier {
   Future<void> _clearOAuthValues() async {
     await _storage.delete(key: 'oauth_state');
     await _storage.delete(key: 'oauth_verifier');
+    await _storage.delete(key: 'oauth_legal_version');
   }
 
   void _setError(String message) {

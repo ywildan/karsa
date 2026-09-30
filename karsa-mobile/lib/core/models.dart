@@ -131,6 +131,7 @@ class LibArticle {
     required this.authorName,
     required this.views,
     required this.commentsCount,
+    this.periodViews,
     this.authorFaculty,
     this.authorProgramName,
     this.publishedAt,
@@ -147,6 +148,7 @@ class LibArticle {
   final String? authorFaculty;
   final String? authorProgramName;
   final int views;
+  final int? periodViews;
   final int commentsCount;
   final DateTime? publishedAt;
   final DateTime? updatedAt;
@@ -164,6 +166,7 @@ class LibArticle {
       authorFaculty: author['faculty'] as String?,
       authorProgramName: author['prodi_name'] as String?,
       views: (json['views'] as num?)?.toInt() ?? 0,
+      periodViews: (json['period_views'] as num?)?.toInt(),
       commentsCount: (json['comments_count'] as num?)?.toInt() ?? 0,
       publishedAt: DateTime.tryParse(json['published_at'] as String? ?? ''),
       updatedAt: DateTime.tryParse(json['updated_at'] as String? ?? ''),

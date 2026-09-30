@@ -141,6 +141,10 @@ export default async function LoginPage({
           </Link>{" "}
           · Sistem Pencatatan Poin Keaktifan
         </p>
+        <p className="mt-3 flex justify-center gap-4 text-center text-xs text-muted-foreground">
+          <Link href="/syarat-penggunaan" className="underline-offset-4 hover:underline">Syarat Penggunaan</Link>
+          <Link href="/kebijakan-privasi" className="underline-offset-4 hover:underline">Kebijakan Privasi</Link>
+        </p>
       </div>
     </main>
   );
