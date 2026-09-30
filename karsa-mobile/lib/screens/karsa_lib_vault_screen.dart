@@ -16,7 +16,11 @@ class _KarsaLibVaultScreenState extends State<KarsaLibVaultScreen> {
   late Future<List<LibArticle>> _future;
   @override
   void initState() { super.initState(); _future = widget.api.libVault(); }
-  Future<void> _reload() async { setState(() => _future = widget.api.libVault()); await _future; }
+  Future<void> _reload() async {
+    if (!mounted) return;
+    setState(() => _future = widget.api.libVault());
+    await _future;
+  }
 
   @override
   Widget build(BuildContext context) => Scaffold(
@@ -52,7 +56,7 @@ class _VaultCard extends StatelessWidget {
   Future<void> _act(BuildContext context, String action) async {
     if (action == 'delete') {
       final confirmed = await showDialog<bool>(context: context, builder: (context) => AlertDialog(title: const Text('Hapus draf?'), content: const Text('Draf ini akan dihapus permanen.'), actions: [TextButton(onPressed: () => Navigator.pop(context, false), child: const Text('Batal')), FilledButton(onPressed: () => Navigator.pop(context, true), child: const Text('Hapus'))]));
-      if (confirmed != true) return;
+      if (confirmed != true || !context.mounted) return;
     }
     if (action == 'edit') { await _edit(context); return; }
     final apiAction = switch (action) { 'publish' => 'PUBLISH', 'archive' => 'ARCHIVE', 'restore' => 'RESTORE', _ => null };
