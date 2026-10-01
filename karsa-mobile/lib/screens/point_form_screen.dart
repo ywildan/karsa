@@ -144,7 +144,7 @@ class _PointFormScreenState extends State<PointFormScreen> {
 
   String _studentLabel(Student student) => student.nim == null
       ? student.name
-      : '${student.name} · ${maskNim(student.nim)}';
+      : '${student.name} · ${studentNimLabel(student.nim)}';
 
   String _studentSearchHelper() {
     if (_assignment == null) {
@@ -154,11 +154,12 @@ class _PointFormScreenState extends State<PointFormScreen> {
       return 'Tidak ada mahasiswa yang dapat dipilih.';
     }
     final query = _studentSearchController.text.trim();
-    if (query.length < 3) {
-      return 'Ketik minimal 3 huruf nama mahasiswa.';
+    if (query.length < 2 ||
+        (!RegExp(r'^[0-9]+$').hasMatch(query) && query.length < 3)) {
+      return 'Ketik minimal 3 huruf nama atau 2 digit akhir NIM.';
     }
-    if (searchStudentsByName(_students!, query).isEmpty) {
-      return 'Tidak ada nama yang cocok.';
+    if (searchStudents(_students!, query).isEmpty) {
+      return 'Tidak ada mahasiswa yang cocok.';
     }
     return 'Pilih mahasiswa dari hasil yang muncul.';
   }
@@ -240,7 +241,7 @@ class _PointFormScreenState extends State<PointFormScreen> {
                 textEditingController: _studentSearchController,
                 focusNode: _studentSearchFocusNode,
                 displayStringForOption: _studentLabel,
-                optionsBuilder: (textValue) => searchStudentsByName(
+                optionsBuilder: (textValue) => searchStudents(
                   _students ?? const <Student>[],
                   textValue.text,
                 ),
@@ -256,7 +257,7 @@ class _PointFormScreenState extends State<PointFormScreen> {
                   enabled: _assignment != null && !_submitting,
                   textInputAction: TextInputAction.search,
                   decoration: InputDecoration(
-                    hintText: 'Ketik nama atau NPM mahasiswa...',
+                    hintText: 'Nama, NIM, atau 2–4 digit terakhir',
                     helperText: _studentSearchHelper(),
                     prefixIcon: const Icon(Icons.search_rounded),
                     suffixIcon: controller.text.isEmpty
@@ -274,7 +275,7 @@ class _PointFormScreenState extends State<PointFormScreen> {
                   onChanged: (_) => setState(() => _student = null),
                   onFieldSubmitted: (_) => onFieldSubmitted(),
                   validator: (_) => _student == null
-                      ? 'Ketik nama lalu pilih mahasiswa dari hasil pencarian'
+                      ? 'Cari lalu pilih mahasiswa dari hasil pencarian'
                       : null,
                 ),
                 optionsViewBuilder: (context, onSelected, options) {
@@ -301,9 +302,7 @@ class _PointFormScreenState extends State<PointFormScreen> {
                                   child: Icon(Icons.person_outline_rounded),
                                 ),
                                 title: Text(student.name),
-                                subtitle: student.nim == null
-                                    ? null
-                                    : Text(maskNim(student.nim)),
+                                subtitle: Text(studentNimLabel(student.nim)),
                                 onTap: () => onSelected(student),
                               );
                             },
