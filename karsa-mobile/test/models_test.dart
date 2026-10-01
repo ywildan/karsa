@@ -64,15 +64,34 @@ void main() {
       Student(id: '3', name: 'BUDI SANTOSO', nim: '22003'),
     ];
 
-    expect(searchStudentsByName(students, 'wi'), isEmpty);
+    expect(searchStudents(students, 'wi'), isEmpty);
     expect(
-      searchStudentsByName(students, 'wil').map((student) => student.name),
+      searchStudents(students, 'wil').map((student) => student.name),
       ['YUSUF WILDAN AFFANDI', 'DEWILSON'],
     );
     expect(
-      searchStudentsByName(students, 'WIL').map((student) => student.name),
+      searchStudents(students, 'WIL').map((student) => student.name),
       ['YUSUF WILDAN AFFANDI', 'DEWILSON'],
     );
+  });
+
+  test('cari NIM lengkap atau 2–4 digit akhir tanpa menebak hasil bentrok', () {
+    const students = [
+      Student(id: '68', name: 'Mahasiswa Satu', nim: '2601060068'),
+      Student(id: '23', name: 'Mahasiswa Dua', nim: '2601060023'),
+      Student(id: '41', name: 'Mahasiswa Tiga', nim: '2420106041'),
+      Student(id: '42', name: 'Mahasiswa Empat', nim: '2420106042'),
+      Student(id: 'x42', name: 'Mahasiswa Lima', nim: '2601060042'),
+    ];
+
+    expect(searchStudents(students, '6'), isEmpty);
+    expect(searchStudents(students, '68').map((item) => item.id), ['68']);
+    expect(searchStudents(students, '0023').map((item) => item.id), ['23']);
+    expect(searchStudents(students, '2420106041').map((item) => item.id), ['41']);
+    expect(searchStudents(students, '26010600'), isEmpty);
+    expect(searchStudents(students, '42').map((item) => item.id), ['42', 'x42']);
+    expect(studentNimLabel('2601060068'), 'NIM ••••0068');
+    expect(studentNimLabel(null), 'NIM belum ada');
   });
 
   test('NPM hanya menampilkan tiga digit pertama di layar bersama', () {
