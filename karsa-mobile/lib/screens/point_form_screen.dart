@@ -394,7 +394,7 @@ class _PointFormScreenState extends State<PointFormScreen> {
             const SizedBox(height: 8),
           ],
         ),
-      )),
+      ))),
       SafeArea(top: false, child: Container(
         padding: const EdgeInsets.fromLTRB(20, 12, 20, 14),
         decoration: const BoxDecoration(
