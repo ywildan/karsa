@@ -60,9 +60,6 @@ class _PointFormScreenState extends State<PointFormScreen> {
       ]);
       _assignments = results[0] as List<Assignment>;
       _categories = results[1] as List<PointCategory>;
-      if (_categories!.isNotEmpty) {
-        _category = _categories!.first;
-      }
     } catch (error) {
       _error = error;
     } finally {
@@ -75,9 +72,14 @@ class _PointFormScreenState extends State<PointFormScreen> {
   Future<void> _chooseAssignment(Assignment? value) async {
     final requestVersion = ++_studentRequestVersion;
     _studentSearchController.clear();
+    _noteController.clear();
+    _studentSearchFocusNode.unfocus();
     setState(() {
       _assignment = value;
       _student = null;
+      _category = null;
+      _points = 1;
+      _showNote = false;
       _students = null;
       _loadingStudents = value != null;
     });
@@ -104,7 +106,7 @@ class _PointFormScreenState extends State<PointFormScreen> {
 
   Future<void> _submit() async {
     if (_submitting) return;
-    if (!_formKey.currentState!.validate() || _assignment == null || _student == null || _category == null) {
+    if (_assignment == null || _student == null || _category == null || !_formKey.currentState!.validate()) {
       _show('Lengkapi mata kuliah, mahasiswa, dan kategori.');
       return;
     }
@@ -134,7 +136,12 @@ class _PointFormScreenState extends State<PointFormScreen> {
       }
       _noteController.clear();
       _studentSearchController.clear();
-      setState(() => _student = null);
+      setState(() {
+        _student = null;
+        _category = null;
+        _points = 1;
+        _showNote = false;
+      });
       _show('$savedPoints poin berhasil dicatat untuk $studentName.', success: true);
     } catch (error) {
       if (mounted) {
@@ -179,36 +186,41 @@ class _PointFormScreenState extends State<PointFormScreen> {
   }
 
   @override
-  Widget build(BuildContext context) => CustomScrollView(
-        slivers: [
-          SliverAppBar(
-            title: const Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
+  Widget build(BuildContext context) => Column(
+        children: [
+          Container(
+            width: double.infinity,
+            padding: const EdgeInsets.fromLTRB(20, 15, 20, 14),
+            decoration: const BoxDecoration(
+              color: KarsaColors.background,
+              border: Border(bottom: BorderSide(color: KarsaColors.border)),
+            ),
+            child: Row(
               children: [
-                Text('Input poin'),
-                Text(
-                  'KARSA Academic Point-Tracking',
-                  style: TextStyle(fontSize: 12, fontWeight: FontWeight.w400),
+                const Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text('Input poin', style: TextStyle(fontSize: 20, fontWeight: FontWeight.w800)),
+                      SizedBox(height: 2),
+                      Text('Catat kontribusi mahasiswa', style: TextStyle(fontSize: 12, color: KarsaColors.muted)),
+                    ],
+                  ),
+                ),
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFFFFF0E2),
+                    borderRadius: BorderRadius.circular(9),
+                  ),
+                  child: const Text('PJ KELAS', style: TextStyle(
+                    color: KarsaColors.orange, fontSize: 11, fontWeight: FontWeight.w800,
+                  )),
                 ),
               ],
             ),
-            actions: [
-              Padding(
-                padding: const EdgeInsets.only(right: 16),
-                child: DecoratedBox(
-                  decoration: BoxDecoration(
-                    color: Theme.of(context).colorScheme.primaryContainer,
-                    borderRadius: BorderRadius.circular(999),
-                  ),
-                  child: const Padding(
-                    padding: EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-                    child: Text('PJ KELAS', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w800)),
-                  ),
-                ),
-              ),
-            ],
           ),
-          SliverFillRemaining(hasScrollBody: true, child: _body(context)),
+          Expanded(child: _body(context)),
         ],
       );
 
@@ -227,17 +239,56 @@ class _PointFormScreenState extends State<PointFormScreen> {
       );
     }
     return Column(children: [
-      Expanded(child: SingleChildScrollView(
-      padding: const EdgeInsets.fromLTRB(20, 12, 20, 28),
-      child: Form(
-        key: _formKey,
-        child: Column(
+      Expanded(child: LayoutBuilder(builder: (context, constraints) {
+        final minHeight = constraints.maxHeight > 24 ? constraints.maxHeight - 24 : 0.0;
+        return SingleChildScrollView(
+          keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+          child: ConstrainedBox(
+            constraints: BoxConstraints(minHeight: minHeight),
+            child: Center(
+              child: ConstrainedBox(
+                constraints: const BoxConstraints(maxWidth: 480),
+                child: AnimatedSize(
+                  duration: MediaQuery.of(context).disableAnimations
+                      ? Duration.zero : const Duration(milliseconds: 220),
+                  curve: Curves.easeOutCubic,
+                  alignment: Alignment.center,
+                  child: Card(
+                    margin: EdgeInsets.zero,
+                    color: Colors.white,
+                    elevation: 0,
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(24),
+                      side: const BorderSide(color: KarsaColors.border),
+                    ),
+                    child: Padding(
+                      padding: const EdgeInsets.all(20),
+                      child: Form(
+                        key: _formKey,
+                        child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
+          mainAxisSize: MainAxisSize.min,
           children: [
-            const SectionHeading(title: '1. Pilih mahasiswa', subtitle: 'Mulai dari mata kuliah yang kamu ampu.'),
-            const SizedBox(height: 16),
-            const SizedBox(height: 8),
+            Row(children: [
+              const Icon(Icons.auto_awesome_rounded, color: KarsaColors.orange, size: 28),
+              const SizedBox(width: 10),
+              const Expanded(child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text('Pilih mata kuliah', style: TextStyle(fontSize: 18, fontWeight: FontWeight.w800)),
+                  SizedBox(height: 3),
+                  Text('Mulai dari kelas yang kamu ampu.', style: TextStyle(fontSize: 12, color: KarsaColors.muted)),
+                ],
+              )),
+              if (_assignment != null) TextButton(
+                onPressed: _submitting ? null : () { _chooseAssignment(null); },
+                child: const Text('Ulangi'),
+              ),
+            ]),
+            const SizedBox(height: 18),
             DropdownButtonFormField<Assignment>(
+              key: ValueKey(_assignment?.id ?? 'no-assignment'),
               initialValue: _assignment,
               isExpanded: true,
               decoration: const InputDecoration(labelText: 'Mata kuliah'),
@@ -247,8 +298,11 @@ class _PointFormScreenState extends State<PointFormScreen> {
               onChanged: _submitting ? null : _chooseAssignment,
               validator: (value) => value == null ? 'Pilih mata kuliah' : null,
             ),
-            const SizedBox(height: 20),
-            Text('Cari Mahasiswa', style: Theme.of(context).textTheme.labelLarge),
+            if (_assignment != null && _student == null) ...[
+            const SizedBox(height: 18),
+            const Divider(height: 1),
+            const SizedBox(height: 15),
+            Text('Cari mahasiswa', style: Theme.of(context).textTheme.labelLarge),
             const SizedBox(height: 8),
             if (_loadingStudents)
               const LinearProgressIndicator()
@@ -261,7 +315,15 @@ class _PointFormScreenState extends State<PointFormScreen> {
                   _students ?? const <Student>[],
                   textValue.text,
                 ),
-                onSelected: (student) => setState(() => _student = student),
+                onSelected: (student) {
+                  _studentSearchFocusNode.unfocus();
+                  _studentSearchController.clear();
+                  setState(() {
+                    _student = student;
+                    _category = null;
+                    _points = 1;
+                  });
+                },
                 fieldViewBuilder: (
                   context,
                   controller,
@@ -329,48 +391,60 @@ class _PointFormScreenState extends State<PointFormScreen> {
                   );
                 },
               ),
-            const SizedBox(height: 20),
-            if (_student != null) ...[
-              Card(color: const Color(0xFFFFF1E4), child: ListTile(
-                leading: InitialAvatar(name: _student!.name),
-                title: Text(_student!.name, style: const TextStyle(fontWeight: FontWeight.w700)),
-                subtitle: Text(studentNimLabel(_student!.nim)),
-                trailing: const Icon(Icons.check_circle_rounded, color: KarsaColors.orange),
-              )),
-              const SizedBox(height: 20),
             ],
-            const SectionHeading(title: '2. Catat kontribusi'),
-            const SizedBox(height: 16),
-            Text('Kategori', style: Theme.of(context).textTheme.labelLarge),
-            const SizedBox(height: 8),
-            DropdownButtonFormField<PointCategory>(
-              initialValue: _category,
-              isExpanded: true,
-              decoration: const InputDecoration(labelText: 'Kategori'),
-              items: _categories!
-                  .map((item) => DropdownMenuItem(value: item, child: Text(item.name)))
-                  .toList(),
-              onChanged: _submitting ? null : (value) => setState(() => _category = value),
-              validator: (value) => value == null ? 'Pilih kategori' : null,
-            ),
-            const SizedBox(height: 20),
-            Text('Jumlah Poin', style: Theme.of(context).textTheme.labelLarge),
-            const SizedBox(height: 10),
-            SegmentedButton<int>(
-              segments: const [
-                ButtonSegment(value: 1, label: Text('1')),
-                ButtonSegment(value: 2, label: Text('2')),
-                ButtonSegment(value: 3, label: Text('3')),
-                ButtonSegment(value: 4, label: Text('4')),
-              ],
-              selected: {_points},
-              onSelectionChanged: _submitting ? null : (value) => setState(() => _points = value.first),
-            ),
-            const SizedBox(height: 20),
+            if (_student != null) ...[
+              const SizedBox(height: 18),
+              const Divider(height: 1),
+              Row(children: [
+                Expanded(child: Text('Mahasiswa terpilih', style: Theme.of(context).textTheme.labelLarge)),
+                TextButton(
+                  onPressed: _submitting ? null : () {
+                    _studentSearchController.clear();
+                    _noteController.clear();
+                    setState(() {
+                      _student = null;
+                      _category = null;
+                      _points = 1;
+                      _showNote = false;
+                    });
+                  },
+                  child: const Text('Ganti'),
+                ),
+              ]),
+              Container(
+                width: double.infinity,
+                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+                decoration: BoxDecoration(
+                  color: const Color(0xFFFFF0E2),
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: Row(children: [
+                  InitialAvatar(name: _student!.name, radius: 17),
+                  const SizedBox(width: 9),
+                  Expanded(child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(_student!.name, maxLines: 1, overflow: TextOverflow.ellipsis,
+                        style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w700)),
+                      Text(studentNimLabel(_student!.nim),
+                        style: const TextStyle(fontSize: 11, color: KarsaColors.muted)),
+                    ],
+                  )),
+                ]),
+              ),
+              const SizedBox(height: 18),
+              const Divider(height: 1),
+              const SizedBox(height: 15),
+            ],
+            if (_student != null) ...[
+            const SectionHeading(title: 'Input poin', subtitle: 'Pilih kategori dan jumlah poin.'),
+            const SizedBox(height: 14),
+            _pointInputs(context),
+            const SizedBox(height: 9),
             TextButton.icon(
               onPressed: _submitting ? null : () => setState(() => _showNote = !_showNote),
               icon: Icon(_showNote ? Icons.expand_less_rounded : Icons.add_rounded),
-              label: Text(_showNote ? 'Sembunyikan catatan' : _noteController.text.trim().isNotEmpty ? 'Lihat catatan yang disertakan' : 'Tambahkan catatan (opsional)'),
+              label: Text(_showNote ? 'Sembunyikan catatan' : 'Catatan (opsional)'),
             ),
             if (_showNote) TextFormField(
               controller: _noteController,
@@ -386,16 +460,19 @@ class _PointFormScreenState extends State<PointFormScreen> {
               Text('Catatan akan disertakan: ${_noteController.text.trim()}',
                 maxLines: 2, overflow: TextOverflow.ellipsis,
                 style: const TextStyle(fontSize: 12, color: KarsaColors.muted)),
-            const SizedBox(height: 20),
-            const SectionHeading(title: '3. Simpan poin'),
-            const SizedBox(height: 8),
-            if (_student != null) Padding(padding: const EdgeInsets.only(bottom: 12),
-              child: Text('$_points poin · ${_student!.name}', style: const TextStyle(color: KarsaColors.muted))),
-            const SizedBox(height: 8),
+            ],
           ],
-        ),
-      ))),
-      SafeArea(top: false, child: Container(
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+            ),
+          ),
+        );
+      })),
+      if (_student != null) Container(
         padding: const EdgeInsets.fromLTRB(20, 12, 20, 14),
         decoration: const BoxDecoration(
           color: Colors.white,
@@ -403,14 +480,58 @@ class _PointFormScreenState extends State<PointFormScreen> {
         ),
         child: SizedBox(width: double.infinity, height: 52,
           child: FilledButton.icon(
-            onPressed: _submitting ? null : _submit,
+            onPressed: _submitting || _category == null ? null : _submit,
             icon: _submitting
                 ? const SizedBox.square(dimension: 20, child: CircularProgressIndicator(strokeWidth: 2))
                 : const Icon(Icons.check_rounded),
-            label: Text(_submitting ? 'Menyimpan…' : 'Simpan poin'),
+            label: Text(_submitting ? 'Menyimpan…' : 'Input poin'),
           ),
         ),
-      )),
+      ),
     ]);
+  }
+
+  Widget _pointInputs(BuildContext context) {
+    final category = DropdownButtonFormField<PointCategory>(
+      initialValue: _category,
+      isExpanded: true,
+      decoration: const InputDecoration(labelText: 'Kategori'),
+      items: _categories!
+          .map((item) => DropdownMenuItem(
+            value: item, child: Text(item.name, overflow: TextOverflow.ellipsis),
+          ))
+          .toList(),
+      onChanged: _submitting ? null : (value) => setState(() => _category = value),
+      validator: (value) => value == null ? 'Pilih kategori' : null,
+    );
+    final points = Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Text('Jumlah poin', style: Theme.of(context).textTheme.labelLarge),
+        const SizedBox(height: 5),
+        Wrap(spacing: 5, children: [
+          for (var point = 1; point <= 4; point++)
+            ChoiceChip(
+              label: Text('$point'),
+              selected: _points == point,
+              visualDensity: VisualDensity.compact,
+              materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
+              onSelected: _submitting ? null : (_) => setState(() => _points = point),
+            ),
+        ]),
+      ],
+    );
+    return LayoutBuilder(builder: (context, constraints) =>
+      constraints.maxWidth < 355
+        ? Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [category, const SizedBox(height: 12), points],
+          )
+        : Row(
+            crossAxisAlignment: CrossAxisAlignment.end,
+            children: [Expanded(child: category), const SizedBox(width: 12), points],
+          ),
+    );
   }
 }
