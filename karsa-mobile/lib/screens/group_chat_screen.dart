@@ -17,11 +17,22 @@ class GroupChatScreen extends StatefulWidget {
   State<GroupChatScreen> createState() => _GroupChatScreenState();
 }
 
-class _GroupChatScreenState extends State<GroupChatScreen> with WidgetsBindingObserver {
+class _GroupChatScreenState extends State<GroupChatScreen>
+    with WidgetsBindingObserver, SingleTickerProviderStateMixin {
   final _composer = TextEditingController();
   final _scroll = ScrollController();
+  final _stageKey = GlobalKey();
+  final _chatViewportKey = GlobalKey();
+  final _sendButtonKey = GlobalKey();
   final _submission = PendingSubmission();
   final Map<String, GlobalKey> _messageKeys = {};
+  final Set<String> _justSentMessageIds = {};
+  final Set<String> _incomingMessageIds = {};
+  late final AnimationController _sendFlightController;
+  String? _flyingText;
+  Offset _flightStart = Offset.zero;
+  Offset _flightEnd = Offset.zero;
+  double _flightWidth = 0;
   bool _nearBottom = true;
   bool _hasNewMessages = false;
   bool _locking = false;
@@ -40,6 +51,10 @@ class _GroupChatScreenState extends State<GroupChatScreen> with WidgetsBindingOb
   @override
   void initState() {
     super.initState();
+    _sendFlightController = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 220),
+    );
     WidgetsBinding.instance.addObserver(this);
     _scroll.addListener(_trackScroll);
     _isManager = widget.group.isManager;
@@ -58,6 +73,7 @@ class _GroupChatScreenState extends State<GroupChatScreen> with WidgetsBindingOb
     _scroll.removeListener(_trackScroll);
     _composer.dispose();
     _scroll.dispose();
+    _sendFlightController.dispose();
     super.dispose();
   }
 
@@ -112,6 +128,16 @@ class _GroupChatScreenState extends State<GroupChatScreen> with WidgetsBindingOb
       final page = await widget.api.groupMessages(widget.group.id);
       if (!mounted) return;
       final byId = {for (final message in _messages) message.id: message};
+      for (final message in page.messages) {
+        if (!byId.containsKey(message.id) &&
+            !message.isOwn &&
+            message.state == 'active') {
+          _incomingMessageIds.add(message.id);
+          Future<void>.delayed(const Duration(milliseconds: 300), () {
+            _incomingMessageIds.remove(message.id);
+          });
+        }
+      }
       for (final message in page.messages) {
         byId[message.id] = message;
       }
@@ -172,9 +198,43 @@ class _GroupChatScreenState extends State<GroupChatScreen> with WidgetsBindingOb
     }
   }
 
+  void _startSendFlight(String text) {
+    if (MediaQuery.disableAnimationsOf(context)) return;
+    final stage = _stageKey.currentContext?.findRenderObject();
+    final button = _sendButtonKey.currentContext?.findRenderObject();
+    final viewport = _chatViewportKey.currentContext?.findRenderObject();
+    if (stage is! RenderBox || button is! RenderBox || viewport is! RenderBox) return;
+
+    final previewWidth = stage.size.width * .62;
+    final maxWidth = previewWidth > 230 ? 230.0 : previewWidth;
+    final textPainter = TextPainter(
+      text: TextSpan(text: text, style: DefaultTextStyle.of(context).style),
+      textDirection: Directionality.of(context),
+      maxLines: 2,
+      ellipsis: '…',
+    )..layout(maxWidth: maxWidth - 20);
+    final width = textPainter.width + 20;
+    final height = textPainter.height + 16;
+    textPainter.dispose();
+    final buttonCenter = button.localToGlobal(
+      button.size.center(Offset.zero), ancestor: stage,
+    );
+    final chatBottom = viewport.localToGlobal(
+      Offset(0, viewport.size.height), ancestor: stage,
+    ).dy;
+    setState(() {
+      _flyingText = text;
+      _flightWidth = width;
+      _flightStart = Offset(buttonCenter.dx - width * .68, buttonCenter.dy - height / 2);
+      _flightEnd = Offset(stage.size.width - width - 16, chatBottom - height - 10);
+    });
+    _sendFlightController.forward(from: 0);
+  }
+
   Future<void> _send() async {
     final text = _composer.text.trim();
     if (text.isEmpty || _sending) return;
+    _startSendFlight(text);
     setState(() => _sending = true);
     try {
       final message = await widget.api.sendGroupMessage(
@@ -189,15 +249,31 @@ class _GroupChatScreenState extends State<GroupChatScreen> with WidgetsBindingOb
       );
       _submission.complete();
       if (!mounted) return;
+      if (_flyingText != null && _sendFlightController.isAnimating) {
+        try {
+          await _sendFlightController.forward().orCancel;
+        } catch (_) {
+          return;
+        }
+        if (!mounted) return;
+      }
+      _sendFlightController.stop();
+      _justSentMessageIds.add(message.id);
+      Future<void>.delayed(const Duration(milliseconds: 300), () {
+        _justSentMessageIds.remove(message.id);
+      });
       setState(() {
         _messages.removeWhere((item) => item.id == message.id);
         _messages.add(message);
         _composer.clear();
         _replyTo = null;
+        _flyingText = null;
       });
       _jumpToBottom();
     } catch (error) {
       if (mounted) {
+        _sendFlightController.stop();
+        setState(() => _flyingText = null);
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(content: Text(friendlyError(error))),
         );
@@ -613,8 +689,11 @@ class _GroupChatScreenState extends State<GroupChatScreen> with WidgetsBindingOb
               ),
           ],
         ),
-        body: Column(
+        body: Stack(
+          key: _stageKey,
+          fit: StackFit.expand,
           children: [
+            Column(children: [
             if (_pinnedMessages.isNotEmpty)
               _PinnedMessagesStrip(messages: _pinnedMessages, onTap: _showMessageDetail),
             if (_isManager &&
@@ -622,7 +701,7 @@ class _GroupChatScreenState extends State<GroupChatScreen> with WidgetsBindingOb
                 _messages.isNotEmpty &&
                 _pinnedMessages.isEmpty)
               const _PinHint(),
-            Expanded(child: Stack(children: [
+            Expanded(child: Stack(key: _chatViewportKey, children: [
               _body(),
               if (_hasNewMessages || !_nearBottom) Positioned(right: 16, bottom: 12,
                 child: FilledButton.tonalIcon(onPressed: _jumpToBottom,
@@ -631,6 +710,8 @@ class _GroupChatScreenState extends State<GroupChatScreen> with WidgetsBindingOb
             ])),
             if (_replyTo != null) _ReplyComposer(message: _replyTo!, onClose: () => setState(() => _replyTo = null)),
             _composerBar(),
+            ]),
+            if (_flyingText != null) _sendFlightPreview(),
           ],
         ),
       );
@@ -672,6 +753,8 @@ class _GroupChatScreenState extends State<GroupChatScreen> with WidgetsBindingOb
               child: StatusBadge(label: formatDay(message.createdAt), color: KarsaColors.muted)),
             _MessageBubble(key: _messageKeys.putIfAbsent(message.id, () => GlobalKey()),
               message: message, onLongPress: () => _showActions(message),
+              animateOnInsert: _justSentMessageIds.contains(message.id),
+              popOnInsert: _incomingMessageIds.contains(message.id),
               onReplyTap: message.replyTo == null ? null : () => _openReply(message.replyTo!)),
           ]);
         },
@@ -704,6 +787,7 @@ class _GroupChatScreenState extends State<GroupChatScreen> with WidgetsBindingOb
             ),
             const SizedBox(width: 8),
             IconButton.filled(
+              key: _sendButtonKey,
               tooltip: 'Kirim',
               onPressed: disabled || _sending ? null : _send,
               icon: _sending
@@ -711,6 +795,49 @@ class _GroupChatScreenState extends State<GroupChatScreen> with WidgetsBindingOb
                   : const Icon(Icons.send_rounded),
             ),
           ],
+        ),
+      ),
+    );
+  }
+
+  Widget _sendFlightPreview() {
+    final text = _flyingText!;
+    return Positioned(
+      left: _flightEnd.dx,
+      top: _flightEnd.dy,
+      child: IgnorePointer(
+        child: AnimatedBuilder(
+          animation: _sendFlightController,
+          child: ConstrainedBox(
+            constraints: BoxConstraints(maxWidth: _flightWidth),
+            child: DecoratedBox(
+              decoration: BoxDecoration(
+                color: Theme.of(context).colorScheme.primaryContainer,
+                borderRadius: BorderRadius.circular(14).copyWith(
+                  bottomRight: const Radius.circular(4),
+                ),
+              ),
+              child: Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+                child: Text(text, maxLines: 2, overflow: TextOverflow.ellipsis),
+              ),
+            ),
+          ),
+          builder: (context, child) {
+            final progress = const Cubic(.23, 1, .32, 1)
+                .transform(_sendFlightController.value);
+            return Transform.translate(
+              offset: Offset(
+                (_flightStart.dx - _flightEnd.dx) * (1 - progress),
+                (_flightStart.dy - _flightEnd.dy) * (1 - progress),
+              ),
+              child: Transform.scale(
+                scale: .95 + .05 * progress,
+                alignment: Alignment.bottomRight,
+                child: Opacity(opacity: .96, child: child),
+              ),
+            );
+          },
         ),
       ),
     );
@@ -850,36 +977,87 @@ class _PinHint extends StatelessWidget {
   }
 }
 
-class _MessageBubble extends StatelessWidget {
-  const _MessageBubble({required this.message, required this.onLongPress, this.onReplyTap, super.key});
+class _MessageBubble extends StatefulWidget {
+  const _MessageBubble({
+    required this.message,
+    required this.onLongPress,
+    this.onReplyTap,
+    this.animateOnInsert = false,
+    this.popOnInsert = false,
+    super.key,
+  });
   final GroupMessageItem message;
   final VoidCallback onLongPress;
   final VoidCallback? onReplyTap;
+  final bool animateOnInsert;
+  final bool popOnInsert;
 
-  String get _content => switch (message.state) {
+  @override
+  State<_MessageBubble> createState() => _MessageBubbleState();
+}
+
+class _MessageBubbleState extends State<_MessageBubble> {
+  late bool _visible;
+
+  @override
+  void initState() {
+    super.initState();
+    _visible = !(widget.animateOnInsert || widget.popOnInsert);
+    if (!_visible) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) setState(() => _visible = true);
+      });
+    }
+  }
+
+  String get _content => switch (widget.message.state) {
         'deleted' => 'Pesan telah dihapus',
-        'hidden' => message.hiddenReason ?? 'Pesan disembunyikan oleh PJ',
+        'hidden' => widget.message.hiddenReason ?? 'Pesan disembunyikan oleh PJ',
         'blocked' => 'Pesan dari pengguna yang kamu blokir',
-        _ => message.text ?? '',
+        _ => widget.message.text ?? '',
       };
 
   @override
   Widget build(BuildContext context) {
+    final message = widget.message;
     final colors = Theme.of(context).colorScheme;
     final muted = message.state != 'active';
-    return Align(
+    return LayoutBuilder(builder: (context, constraints) {
+      final availableWidth = constraints.maxWidth * .8;
+      final maxBubbleWidth = availableWidth > 300 ? 300.0 : availableWidth;
+      final reduceMotion = MediaQuery.disableAnimationsOf(context);
+      final duration = Duration(
+        milliseconds: reduceMotion ? 120 : widget.popOnInsert ? 180 : 160,
+      );
+      const easing = Cubic(.23, 1, .32, 1);
+      return AnimatedOpacity(
+        opacity: _visible ? 1 : 0,
+        duration: duration,
+        curve: easing,
+        child: AnimatedScale(
+          scale: reduceMotion || !widget.popOnInsert || _visible ? 1 : .94,
+          alignment: Alignment.bottomLeft,
+          duration: duration,
+          curve: easing,
+          child: AnimatedSlide(
+            offset: reduceMotion || _visible || widget.popOnInsert
+                ? Offset.zero
+                : Offset(message.isOwn ? .05 : -.05, .10),
+            duration: duration,
+            curve: easing,
+            child: Align(
       alignment: message.isOwn ? Alignment.centerRight : Alignment.centerLeft,
       child: GestureDetector(
-        onLongPress: onLongPress,
-        onTap: message.state == 'blocked' ? onLongPress : null,
+        onLongPress: widget.onLongPress,
+        onTap: message.state == 'blocked' ? widget.onLongPress : null,
         child: Container(
-          constraints: const BoxConstraints(maxWidth: 330),
-          margin: const EdgeInsets.symmetric(vertical: 4),
-          padding: const EdgeInsets.all(12),
+          constraints: BoxConstraints(maxWidth: maxBubbleWidth),
+          margin: const EdgeInsets.symmetric(vertical: 3),
+          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
           decoration: BoxDecoration(
             color: message.isOwn ? colors.primaryContainer : Colors.white,
             border: Border.all(color: const Color(0xFFF0E7DE)),
-            borderRadius: BorderRadius.circular(16).copyWith(
+            borderRadius: BorderRadius.circular(14).copyWith(
               bottomRight: message.isOwn ? const Radius.circular(4) : null,
               bottomLeft: message.isOwn ? null : const Radius.circular(4),
             ),
@@ -893,7 +1071,7 @@ class _MessageBubble extends StatelessWidget {
                   Flexible(
                     child: Text(
                       message.author.name,
-                      style: TextStyle(fontWeight: FontWeight.w800, color: colors.primary),
+                      style: TextStyle(fontSize: 12, fontWeight: FontWeight.w700, color: colors.primary),
                     ),
                   ),
                   if (message.author.isGroupManager) ...[
@@ -907,8 +1085,8 @@ class _MessageBubble extends StatelessWidget {
                 ],
               ),
               if (message.replyTo != null) ...[
-                const SizedBox(height: 6),
-                InkWell(onTap: onReplyTap, borderRadius: BorderRadius.circular(8), child: Container(
+                const SizedBox(height: 4),
+                InkWell(onTap: widget.onReplyTap, borderRadius: BorderRadius.circular(8), child: Container(
                   width: double.infinity,
                   padding: const EdgeInsets.all(8),
                   decoration: BoxDecoration(
@@ -923,12 +1101,12 @@ class _MessageBubble extends StatelessWidget {
                   ),
                 )),
               ],
-              const SizedBox(height: 6),
+              const SizedBox(height: 4),
               Text(
                 _content,
                 style: TextStyle(fontStyle: muted ? FontStyle.italic : null),
               ),
-              const SizedBox(height: 5),
+              const SizedBox(height: 3),
               Text(
                 '${formatTime(message.createdAt)}${message.editedAt == null ? '' : ' · diedit'}',
                 style: Theme.of(context).textTheme.labelSmall,
@@ -937,6 +1115,10 @@ class _MessageBubble extends StatelessWidget {
           ),
         ),
       ),
-    );
+            ),
+          ),
+        ),
+      );
+    });
   }
 }
