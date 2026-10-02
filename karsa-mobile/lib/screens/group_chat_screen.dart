@@ -1,10 +1,10 @@
 import 'dart:async';
-import 'dart:math';
 
 import 'package:flutter/material.dart';
 
 import '../core/api_client.dart';
 import '../core/models.dart';
+import '../core/pending_submission.dart';
 import '../widgets/common.dart';
 import 'group_reports_screen.dart';
 
@@ -17,9 +17,14 @@ class GroupChatScreen extends StatefulWidget {
   State<GroupChatScreen> createState() => _GroupChatScreenState();
 }
 
-class _GroupChatScreenState extends State<GroupChatScreen> {
+class _GroupChatScreenState extends State<GroupChatScreen> with WidgetsBindingObserver {
   final _composer = TextEditingController();
   final _scroll = ScrollController();
+  final _submission = PendingSubmission();
+  final Map<String, GlobalKey> _messageKeys = {};
+  bool _nearBottom = true;
+  bool _hasNewMessages = false;
+  bool _locking = false;
   final List<GroupMessageItem> _messages = [];
   List<GroupMessageItem> _pinnedMessages = [];
   Timer? _pollTimer;
@@ -35,6 +40,8 @@ class _GroupChatScreenState extends State<GroupChatScreen> {
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addObserver(this);
+    _scroll.addListener(_trackScroll);
     _isManager = widget.group.isManager;
     _isLocked = widget.group.isLocked;
     _loadInitial();
@@ -46,10 +53,32 @@ class _GroupChatScreenState extends State<GroupChatScreen> {
 
   @override
   void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
     _pollTimer?.cancel();
+    _scroll.removeListener(_trackScroll);
     _composer.dispose();
     _scroll.dispose();
     super.dispose();
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    _pollTimer?.cancel();
+    if (state == AppLifecycleState.resumed) {
+      _refreshLatest(silent: true);
+      _pollTimer = Timer.periodic(const Duration(seconds: 12),
+        (_) => _refreshLatest(silent: true));
+    }
+  }
+
+  void _trackScroll() {
+    if (!_scroll.hasClients) return;
+    final near = _scroll.position.extentAfter < 120;
+    if (near == _nearBottom && !(near && _hasNewMessages)) return;
+    setState(() {
+      _nearBottom = near;
+      if (near) _hasNewMessages = false;
+    });
   }
 
   Future<void> _loadInitial() async {
@@ -88,14 +117,19 @@ class _GroupChatScreenState extends State<GroupChatScreen> {
       }
       final merged = byId.values.toList()
         ..sort((a, b) => a.createdAt.compareTo(b.createdAt));
+      final oldNewest = _messages.isEmpty ? null : _messages.last.id;
+      final hasNew = merged.isNotEmpty && merged.last.id != oldNewest;
+      final follow = _nearBottom;
       setState(() {
         _messages
           ..clear()
           ..addAll(merged);
+        if (hasNew && !follow) _hasNewMessages = true;
         _pinnedMessages = page.pinnedMessages;
         _isManager = page.isManager;
         _isLocked = page.isLocked;
       });
+      if (hasNew && follow) _jumpToBottom();
     } catch (error) {
       if (!silent && mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
@@ -112,6 +146,8 @@ class _GroupChatScreenState extends State<GroupChatScreen> {
     try {
       final page = await widget.api.groupMessages(widget.group.id, cursor: cursor);
       if (!mounted) return;
+      final oldExtent = _scroll.hasClients ? _scroll.position.maxScrollExtent : 0.0;
+      final oldOffset = _scroll.hasClients ? _scroll.offset : 0.0;
       final existing = _messages.map((item) => item.id).toSet();
       setState(() {
         _messages.insertAll(
@@ -119,6 +155,11 @@ class _GroupChatScreenState extends State<GroupChatScreen> {
           page.messages.where((item) => !existing.contains(item.id)),
         );
         _nextCursor = page.nextCursor;
+      });
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (!mounted || !_scroll.hasClients) return;
+        final offset = oldOffset + _scroll.position.maxScrollExtent - oldExtent;
+        _scroll.jumpTo(offset.clamp(0.0, _scroll.position.maxScrollExtent));
       });
     } catch (error) {
       if (mounted) {
@@ -131,11 +172,6 @@ class _GroupChatScreenState extends State<GroupChatScreen> {
     }
   }
 
-  String _idempotencyKey() {
-    final random = Random.secure();
-    return '${DateTime.now().microsecondsSinceEpoch}-${random.nextInt(1 << 32)}';
-  }
-
   Future<void> _send() async {
     final text = _composer.text.trim();
     if (text.isEmpty || _sending) return;
@@ -144,9 +180,14 @@ class _GroupChatScreenState extends State<GroupChatScreen> {
       final message = await widget.api.sendGroupMessage(
         assignmentId: widget.group.id,
         text: text,
-        idempotencyKey: _idempotencyKey(),
+        idempotencyKey: _submission.keyFor({
+          'assignment': widget.group.id,
+          'text': text,
+          'reply_to': _replyTo?.id,
+        }),
         replyToId: _replyTo?.id,
       );
+      _submission.complete();
       if (!mounted) return;
       setState(() {
         _messages.removeWhere((item) => item.id == message.id);
@@ -181,11 +222,12 @@ class _GroupChatScreenState extends State<GroupChatScreen> {
   }
 
   void _jumpToBottom() {
+    _hasNewMessages = false;
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (_scroll.hasClients) {
         _scroll.animateTo(
           _scroll.position.maxScrollExtent,
-          duration: const Duration(milliseconds: 220),
+          duration: MediaQuery.disableAnimationsOf(context) ? Duration.zero : const Duration(milliseconds: 220),
           curve: Curves.easeOut,
         );
       }
@@ -193,6 +235,8 @@ class _GroupChatScreenState extends State<GroupChatScreen> {
   }
 
   Future<void> _toggleLock() async {
+    if (_locking) return;
+    setState(() => _locking = true);
     try {
       await widget.api.lockGroup(widget.group.id, !_isLocked);
       if (mounted) setState(() => _isLocked = !_isLocked);
@@ -202,7 +246,7 @@ class _GroupChatScreenState extends State<GroupChatScreen> {
           SnackBar(content: Text(friendlyError(error))),
         );
       }
-    }
+    } finally { if (mounted) setState(() => _locking = false); }
   }
 
   Future<void> _edit(GroupMessageItem message) async {
@@ -386,6 +430,57 @@ class _GroupChatScreenState extends State<GroupChatScreen> {
     }
   }
 
+  Future<void> _unblock(GroupMessageItem message) async {
+    try {
+      await widget.api.setGroupBlock(message.author.id, false);
+      await _refreshLatest();
+    } catch (error) { _showError(error); }
+  }
+
+  Future<void> _showMessageDetail(GroupMessageItem message) async {
+    if (!mounted) return;
+    await showModalBottomSheet<void>(context: context, showDragHandle: true,
+      builder: (sheetContext) => SafeArea(child: Padding(
+        padding: const EdgeInsets.fromLTRB(20, 4, 20, 28),
+        child: Column(mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start, children: [
+            Text(message.author.name, style: Theme.of(sheetContext).textTheme.titleMedium),
+            const SizedBox(height: 4),
+            Text(formatDate(message.createdAt),
+              style: const TextStyle(fontSize: 12, color: KarsaColors.muted)),
+            const SizedBox(height: 16),
+            SelectableText(message.state == 'active' ? message.text ?? '' : 'Pesan tidak tersedia.',
+              style: const TextStyle(fontSize: 16, height: 1.6)),
+            if (_messageKeys[message.id]?.currentContext != null) ...[
+              const SizedBox(height: 18),
+              OutlinedButton.icon(onPressed: () {
+                Navigator.pop(sheetContext);
+                final target = _messageKeys[message.id]?.currentContext;
+                if (target != null) Scrollable.ensureVisible(target,
+                  duration: MediaQuery.disableAnimationsOf(context) ? Duration.zero : const Duration(milliseconds: 240));
+              }, icon: const Icon(Icons.arrow_downward_rounded),
+                label: const Text('Lihat di percakapan')),
+            ],
+          ]),
+      )));
+  }
+
+  Future<void> _openReply(GroupReply reply) async {
+    final match = _messages.where((item) => item.id == reply.id);
+    if (match.isNotEmpty) {
+      await _showMessageDetail(match.first);
+    } else {
+      await showModalBottomSheet<void>(context: context, showDragHandle: true,
+        builder: (context) => SafeArea(child: Padding(padding: const EdgeInsets.fromLTRB(20, 8, 20, 28),
+          child: Column(mainAxisSize: MainAxisSize.min, crossAxisAlignment: CrossAxisAlignment.start, children: [
+            Text(reply.author.name, style: Theme.of(context).textTheme.titleMedium),
+            const SizedBox(height: 14),
+            SelectableText(reply.state == 'active' ? reply.text ?? '' : 'Pesan tidak tersedia.',
+              style: const TextStyle(fontSize: 16, height: 1.6)),
+          ]))));
+    }
+  }
+
   void _showError(Object error) {
     if (!mounted) return;
     ScaffoldMessenger.of(context).showSnackBar(
@@ -394,6 +489,19 @@ class _GroupChatScreenState extends State<GroupChatScreen> {
   }
 
   Future<void> _showActions(GroupMessageItem message) async {
+    if (message.state == 'blocked') {
+      final confirmed = await showDialog<bool>(context: context,
+        builder: (context) => AlertDialog(
+          title: Text('Buka blokir ${message.author.name}?'),
+          content: const Text('Pesan dari pengguna ini akan kembali terlihat di grup.'),
+          actions: [
+            TextButton(onPressed: () => Navigator.pop(context, false), child: const Text('Batal')),
+            FilledButton(onPressed: () => Navigator.pop(context, true), child: const Text('Buka blokir')),
+          ],
+        ));
+      if (confirmed == true) await _unblock(message);
+      return;
+    }
     if (message.state != 'active') return;
     await showModalBottomSheet<void>(
       context: context,
@@ -478,6 +586,7 @@ class _GroupChatScreenState extends State<GroupChatScreen> {
               Text(widget.group.courseName, maxLines: 1, overflow: TextOverflow.ellipsis),
               Text(
                 '${widget.group.memberCount} anggota · PJ ${widget.group.manager.name}',
+                maxLines: 1, overflow: TextOverflow.ellipsis,
                 style: Theme.of(context).textTheme.labelSmall,
               ),
             ],
@@ -499,7 +608,7 @@ class _GroupChatScreenState extends State<GroupChatScreen> {
             if (_isManager)
               IconButton(
                 tooltip: _isLocked ? 'Buka grup' : 'Kunci grup',
-                onPressed: _toggleLock,
+                onPressed: _locking ? null : _toggleLock,
                 icon: Icon(_isLocked ? Icons.lock_rounded : Icons.lock_open_rounded),
               ),
           ],
@@ -507,13 +616,19 @@ class _GroupChatScreenState extends State<GroupChatScreen> {
         body: Column(
           children: [
             if (_pinnedMessages.isNotEmpty)
-              _PinnedMessagesStrip(messages: _pinnedMessages),
+              _PinnedMessagesStrip(messages: _pinnedMessages, onTap: _showMessageDetail),
             if (_isManager &&
                 !_loading &&
                 _messages.isNotEmpty &&
                 _pinnedMessages.isEmpty)
               const _PinHint(),
-            Expanded(child: _body()),
+            Expanded(child: Stack(children: [
+              _body(),
+              if (_hasNewMessages || !_nearBottom) Positioned(right: 16, bottom: 12,
+                child: FilledButton.tonalIcon(onPressed: _jumpToBottom,
+                  icon: const Icon(Icons.arrow_downward_rounded),
+                  label: Text(_hasNewMessages ? 'Pesan baru' : 'Pesan terbaru'))),
+            ])),
             if (_replyTo != null) _ReplyComposer(message: _replyTo!, onClose: () => setState(() => _replyTo = null)),
             _composerBar(),
           ],
@@ -550,7 +665,15 @@ class _GroupChatScreenState extends State<GroupChatScreen> {
           }
           final offset = _nextCursor == null ? 0 : 1;
           final message = _messages[index - offset];
-          return _MessageBubble(message: message, onLongPress: () => _showActions(message));
+          final newDay = index - offset == 0 ||
+            formatDay(_messages[index - offset - 1].createdAt) != formatDay(message.createdAt);
+          return Column(children: [
+            if (newDay) Padding(padding: const EdgeInsets.symmetric(vertical: 14),
+              child: StatusBadge(label: formatDay(message.createdAt), color: KarsaColors.muted)),
+            _MessageBubble(key: _messageKeys.putIfAbsent(message.id, () => GlobalKey()),
+              message: message, onLongPress: () => _showActions(message),
+              onReplyTap: message.replyTo == null ? null : () => _openReply(message.replyTo!)),
+          ]);
         },
       ),
     );
@@ -623,8 +746,9 @@ class _ReplyComposer extends StatelessWidget {
 }
 
 class _PinnedMessagesStrip extends StatelessWidget {
-  const _PinnedMessagesStrip({required this.messages});
+  const _PinnedMessagesStrip({required this.messages, required this.onTap});
   final List<GroupMessageItem> messages;
+  final ValueChanged<GroupMessageItem> onTap;
 
   @override
   Widget build(BuildContext context) {
@@ -658,15 +782,19 @@ class _PinnedMessagesStrip extends StatelessWidget {
               separatorBuilder: (_, _) => const SizedBox(width: 8),
               itemBuilder: (context, index) {
                 final message = messages[index];
-                final preview = message.state == 'active'
-                    ? message.text ?? ''
-                    : 'Pesan dari pengguna yang diblokir';
+                final preview = switch (message.state) {
+                  'active' => message.text ?? '',
+                  'deleted' => 'Pesan telah dihapus',
+                  'hidden' => 'Pesan disembunyikan oleh PJ',
+                  'blocked' => 'Pesan dari pengguna yang diblokir',
+                  _ => 'Pesan tidak tersedia',
+                };
                 return SizedBox(
                   width: 250,
                   child: Card(
                     margin: EdgeInsets.zero,
                     color: colors.surfaceContainerLow,
-                    child: Padding(
+                    child: InkWell(onTap: () => onTap(message), borderRadius: BorderRadius.circular(12), child: Padding(
                       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
@@ -686,7 +814,7 @@ class _PinnedMessagesStrip extends StatelessWidget {
                           ),
                         ],
                       ),
-                    ),
+                    )),
                   ),
                 );
               },
@@ -723,9 +851,10 @@ class _PinHint extends StatelessWidget {
 }
 
 class _MessageBubble extends StatelessWidget {
-  const _MessageBubble({required this.message, required this.onLongPress});
+  const _MessageBubble({required this.message, required this.onLongPress, this.onReplyTap, super.key});
   final GroupMessageItem message;
   final VoidCallback onLongPress;
+  final VoidCallback? onReplyTap;
 
   String get _content => switch (message.state) {
         'deleted' => 'Pesan telah dihapus',
@@ -742,6 +871,7 @@ class _MessageBubble extends StatelessWidget {
       alignment: message.isOwn ? Alignment.centerRight : Alignment.centerLeft,
       child: GestureDetector(
         onLongPress: onLongPress,
+        onTap: message.state == 'blocked' ? onLongPress : null,
         child: Container(
           constraints: const BoxConstraints(maxWidth: 330),
           margin: const EdgeInsets.symmetric(vertical: 4),
@@ -778,7 +908,7 @@ class _MessageBubble extends StatelessWidget {
               ),
               if (message.replyTo != null) ...[
                 const SizedBox(height: 6),
-                Container(
+                InkWell(onTap: onReplyTap, borderRadius: BorderRadius.circular(8), child: Container(
                   width: double.infinity,
                   padding: const EdgeInsets.all(8),
                   decoration: BoxDecoration(
@@ -791,7 +921,7 @@ class _MessageBubble extends StatelessWidget {
                     overflow: TextOverflow.ellipsis,
                     style: Theme.of(context).textTheme.bodySmall,
                   ),
-                ),
+                )),
               ],
               const SizedBox(height: 6),
               Text(
@@ -800,7 +930,7 @@ class _MessageBubble extends StatelessWidget {
               ),
               const SizedBox(height: 5),
               Text(
-                '${formatDate(message.createdAt)}${message.editedAt == null ? '' : ' · diedit'}',
+                '${formatTime(message.createdAt)}${message.editedAt == null ? '' : ' · diedit'}',
                 style: Theme.of(context).textTheme.labelSmall,
               ),
             ],

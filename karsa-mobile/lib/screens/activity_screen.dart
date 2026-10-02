@@ -1,14 +1,21 @@
 import 'package:flutter/material.dart';
 
 import '../core/api_client.dart';
+import '../widgets/common.dart';
 import 'leaderboard_screen.dart';
 import 'point_history_screen.dart';
 import 'report_screen.dart';
 
 /// Hub fitur sekunder PJ agar navbar tetap ringkas.
 class ActivityScreen extends StatelessWidget {
-  const ActivityScreen({required this.api, super.key});
+  const ActivityScreen({
+    required this.api, this.onRecordPoints,
+    this.showReport = true, this.showLeaderboard = true, super.key,
+  });
   final ApiClient api;
+  final VoidCallback? onRecordPoints;
+  final bool showReport;
+  final bool showLeaderboard;
 
   void _open(BuildContext context, Widget screen) {
     Navigator.of(context).push(
@@ -37,6 +44,13 @@ class ActivityScreen extends StatelessWidget {
             padding: const EdgeInsets.fromLTRB(20, 16, 20, 28),
             sliver: SliverList(
               delegate: SliverChildListDelegate([
+                const SectionHeading(title: 'Ruang PJ', subtitle: 'Catat kontribusi, lalu pantau perkembangan kelas.'),
+                const SizedBox(height: 18),
+                if (onRecordPoints != null) ...[
+                  FilledButton.icon(onPressed: onRecordPoints,
+                    icon: const Icon(Icons.add_rounded), label: const Text('Input poin mahasiswa')),
+                  const SizedBox(height: 20),
+                ],
                 _ActivityCard(
                   icon: Icons.history_rounded,
                   title: 'Riwayat Poin',
@@ -44,14 +58,14 @@ class ActivityScreen extends StatelessWidget {
                   onTap: () => _open(context, PointHistoryScreen(api: api)),
                 ),
                 const SizedBox(height: 12),
-                _ActivityCard(
+                if (showReport) _ActivityCard(
                   icon: Icons.assessment_rounded,
                   title: 'Laporan Saya',
                   description: 'Ringkasan poin dan perkembangan keaktifan kelas.',
                   onTap: () => _open(context, ReportScreen(api: api)),
                 ),
                 const SizedBox(height: 12),
-                _ActivityCard(
+                if (showLeaderboard) _ActivityCard(
                   icon: Icons.emoji_events_rounded,
                   title: 'Peringkat Kelas',
                   description: 'Lihat peringkat keaktifan mahasiswa per mata kuliah.',

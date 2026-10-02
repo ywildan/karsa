@@ -72,6 +72,10 @@ class _SignInScreenState extends State<SignInScreen> {
   }
 
   void _nextPage() {
+    if (MediaQuery.disableAnimationsOf(context)) {
+      _pageController.jumpToPage((_page + 1) % _introductions.length);
+      return;
+    }
     _pageController.animateToPage(
       (_page + 1) % _introductions.length,
       duration: const Duration(milliseconds: 240),
@@ -129,7 +133,7 @@ class _SignInScreenState extends State<SignInScreen> {
                 children: [
                   for (var index = 0; index < _introductions.length; index++)
                     AnimatedContainer(
-                      duration: const Duration(milliseconds: 180),
+                      duration: MediaQuery.disableAnimationsOf(context) ? Duration.zero : const Duration(milliseconds: 180),
                       margin: const EdgeInsets.only(right: 6),
                       width: index == _page ? 25 : 7,
                       height: 7,
@@ -212,14 +216,19 @@ class _SignInScreenState extends State<SignInScreen> {
                   icon: busy
                       ? const SizedBox.square(dimension: 19, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
                       : const Icon(Icons.login_rounded),
-                  label: Text(busy ? 'Menyelesaikan proses masuk…' : 'Masuk dengan Google'),
+                  label: Text(busy ? (widget.controller.waitingForBrowser ? 'Menunggu login di browser…' : 'Menyiapkan akun…') : 'Masuk dengan Google'),
                 ),
               ),
+              if (widget.controller.waitingForBrowser)
+                TextButton(
+                  onPressed: widget.controller.cancelSignIn,
+                  child: const Text('Batalkan proses masuk'),
+                ),
               const SizedBox(height: 11),
               const Text(
                 'Gunakan akun @students.untidar.ac.id. Login berlangsung melalui browser; kata sandi Google tidak disimpan di aplikasi.',
                 textAlign: TextAlign.center,
-                style: TextStyle(fontSize: 11, height: 1.4, color: _muted),
+                style: TextStyle(fontSize: 12, height: 1.4, color: _muted),
               ),
             ],
           ),

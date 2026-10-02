@@ -1,5 +1,6 @@
 import 'dart:convert';
 
+import 'package:flutter/foundation.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:http/http.dart' as http;
 
@@ -30,6 +31,7 @@ class ApiClient {
   String? _accessToken;
   String? _refreshToken;
   Future<bool>? _refreshInFlight;
+  final ValueNotifier<int> pointsRevision = ValueNotifier(0);
 
   Uri endpoint(String path, [Map<String, String>? query]) =>
       Uri.parse('$apiBaseUrl/api/mobile/v1$path').replace(queryParameters: query);
@@ -122,9 +124,10 @@ class ApiClient {
         'mahasiswa_id': studentId,
         'kategori_id': categoryId,
         'poin': points,
-        'catatan': note,
+        if (note != null && note.trim().isNotEmpty) 'catatan': note.trim(),
       },
     ) as Map<String, dynamic>;
+    pointsRevision.value++;
     return data['message'] as String? ?? 'Poin berhasil dicatat.';
   }
 
@@ -137,6 +140,7 @@ class ApiClient {
 
   Future<String> deletePoint(String id) async {
     final data = await _request('DELETE', '/points/$id') as Map<String, dynamic>;
+    pointsRevision.value++;
     return data['message'] as String? ?? 'Poin berhasil dihapus.';
   }
 
@@ -249,7 +253,10 @@ class ApiClient {
     final data = await _request(
       'POST',
       '/groups/$assignmentId/messages/$messageId/hide',
-      body: {'hidden': hidden, 'reason': reason},
+      body: {
+        'hidden': hidden,
+        if (reason != null && reason.trim().isNotEmpty) 'reason': reason.trim(),
+      },
     ) as Map<String, dynamic>;
     return GroupMessageItem.fromJson(data);
   }
@@ -263,7 +270,10 @@ class ApiClient {
     final data = await _request(
       'POST',
       '/groups/$assignmentId/messages/$messageId/reports',
-      body: {'reason': reason, 'details': details},
+      body: {
+        'reason': reason,
+        if (details != null && details.trim().isNotEmpty) 'details': details.trim(),
+      },
     ) as Map<String, dynamic>;
     return data['auto_hidden'] == true;
   }
@@ -510,9 +520,12 @@ class ApiClient {
       ) as Map<String, dynamic>;
       await _storeTokens(data);
       return true;
-    } catch (_) {
-      await clearSession();
-      return false;
+    } on ApiException catch (error) {
+      if (error.statusCode == 401) {
+        await clearSession();
+        return false;
+      }
+      rethrow;
     }
   }
 

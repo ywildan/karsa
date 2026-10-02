@@ -19,6 +19,7 @@ class GroupReportsScreen extends StatefulWidget {
 
 class _GroupReportsScreenState extends State<GroupReportsScreen> {
   late Future<List<GroupReportItem>> _future;
+  final Set<String> _resolving = {};
 
   @override
   void initState() {
@@ -28,10 +29,12 @@ class _GroupReportsScreenState extends State<GroupReportsScreen> {
 
   Future<void> _reload() async {
     setState(() => _future = widget.api.groupReports(widget.assignmentId));
-    await _future;
+    try { await _future; } catch (_) { /* Rendered by FutureBuilder. */ }
   }
 
   Future<void> _resolve(GroupReportItem report, String action) async {
+    if (_resolving.contains(report.id)) return;
+    setState(() => _resolving.add(report.id));
     try {
       await widget.api.resolveGroupReport(widget.assignmentId, report.id, action);
       if (!mounted) return;
@@ -49,7 +52,7 @@ class _GroupReportsScreenState extends State<GroupReportsScreen> {
           SnackBar(content: Text(friendlyError(error))),
         );
       }
-    }
+    } finally { if (mounted) setState(() => _resolving.remove(report.id)); }
   }
 
   @override
@@ -87,7 +90,13 @@ class _GroupReportsScreenState extends State<GroupReportsScreen> {
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
                           Text(
-                            '${report.reason} · ${report.authorName}',
+                            '${switch (report.reason) {
+                              'SPAM' => 'Spam',
+                              'HARASSMENT' => 'Pelecehan atau perundungan',
+                              'INAPPROPRIATE' => 'Konten tidak pantas',
+                              'MISINFORMATION' => 'Informasi menyesatkan',
+                              _ => 'Lainnya',
+                            }} · ${report.authorName}',
                             style: const TextStyle(fontWeight: FontWeight.w800),
                           ),
                           const SizedBox(height: 6),
@@ -102,16 +111,16 @@ class _GroupReportsScreenState extends State<GroupReportsScreen> {
                             style: Theme.of(context).textTheme.bodySmall,
                           ),
                           const SizedBox(height: 12),
-                          Row(
-                            mainAxisAlignment: MainAxisAlignment.end,
+                          Wrap(
+                            alignment: WrapAlignment.end,
+                            spacing: 8, runSpacing: 8,
                             children: [
                               TextButton(
-                                onPressed: () => _resolve(report, 'DISMISS'),
+                                onPressed: _resolving.contains(report.id) ? null : () => _resolve(report, 'DISMISS'),
                                 child: const Text('Tutup laporan'),
                               ),
-                              const SizedBox(width: 8),
                               FilledButton.tonalIcon(
-                                onPressed: () => _resolve(report, 'HIDE'),
+                                onPressed: _resolving.contains(report.id) ? null : () => _resolve(report, 'HIDE'),
                                 icon: const Icon(Icons.visibility_off_outlined),
                                 label: const Text('Sembunyikan'),
                               ),

@@ -48,13 +48,19 @@ class _LeaderboardScreenState extends State<LeaderboardScreen> {
   void initState() {
     super.initState();
     _loadOptions();
+    widget.api.pointsRevision.addListener(_pointsChanged);
   }
 
   @override
   void dispose() {
     _request++;
+    widget.api.pointsRevision.removeListener(_pointsChanged);
     _scrollController.dispose();
     super.dispose();
+  }
+
+  void _pointsChanged() {
+    if (_selected == null) { _loadOptions(); } else { _select(_selected); }
   }
 
   Future<void> _loadOptions() async {
@@ -274,7 +280,9 @@ class _LeaderboardScreenState extends State<LeaderboardScreen> {
                 subtitle: 'Apresiasi untuk keaktifan di kelas.',
               ),
               const SizedBox(height: 22),
-              _Podium(entries: _rows.take(3).toList()),
+              if (_rows.any((entry) => entry.points > 0))
+                _Podium(entries: _rows.take(3).toList())
+              else const InfoNotice(message: 'Belum ada poin tercatat. Peringkat akan terlihat setelah kontribusi pertama.'),
             ],
           ),
         ),

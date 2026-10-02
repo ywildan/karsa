@@ -1,9 +1,8 @@
-import 'dart:math';
-
 import 'package:flutter/material.dart';
 
 import '../core/api_client.dart';
 import '../core/models.dart';
+import '../core/pending_submission.dart';
 import '../core/student_search.dart';
 import '../widgets/common.dart';
 
@@ -20,6 +19,8 @@ class _PointFormScreenState extends State<PointFormScreen> {
   final _noteController = TextEditingController();
   final _studentSearchController = TextEditingController();
   final _studentSearchFocusNode = FocusNode();
+  final _submission = PendingSubmission();
+  int _studentRequestVersion = 0;
   List<Assignment>? _assignments;
   List<Student>? _students;
   List<PointCategory>? _categories;
@@ -30,6 +31,7 @@ class _PointFormScreenState extends State<PointFormScreen> {
   bool _loading = true;
   bool _loadingStudents = false;
   bool _submitting = false;
+  bool _showNote = false;
   Object? _error;
 
   @override
@@ -71,6 +73,7 @@ class _PointFormScreenState extends State<PointFormScreen> {
   }
 
   Future<void> _chooseAssignment(Assignment? value) async {
+    final requestVersion = ++_studentRequestVersion;
     _studentSearchController.clear();
     setState(() {
       _assignment = value;
@@ -83,45 +86,56 @@ class _PointFormScreenState extends State<PointFormScreen> {
     }
     try {
       final students = await widget.api.students(value.id);
-      if (mounted) {
+      if (mounted && requestVersion == _studentRequestVersion) {
         setState(
           () => _students = students.where((item) => !item.isSelf).toList(),
         );
       }
     } catch (error) {
-      if (mounted) {
+      if (mounted && requestVersion == _studentRequestVersion) {
         _show(friendlyError(error));
       }
     } finally {
-      if (mounted) {
+      if (mounted && requestVersion == _studentRequestVersion) {
         setState(() => _loadingStudents = false);
       }
     }
   }
 
   Future<void> _submit() async {
+    if (_submitting) return;
     if (!_formKey.currentState!.validate() || _assignment == null || _student == null || _category == null) {
       _show('Lengkapi mata kuliah, mahasiswa, dan kategori.');
       return;
     }
+    final studentName = _student!.name;
+    final savedPoints = _points;
     setState(() => _submitting = true);
     try {
-      final nonce = Random.secure().nextInt(1 << 32).toRadixString(16);
-      final message = await widget.api.createPoint(
+      final note = _noteController.text.trim();
+      final key = _submission.keyFor({
+        'assignment': _assignment!.id,
+        'student': _student!.id,
+        'category': _category!.id,
+        'points': _points,
+        'note': note,
+      });
+      await widget.api.createPoint(
         assignmentId: _assignment!.id,
         studentId: _student!.id,
         categoryId: _category!.id,
         points: _points,
-        note: _noteController.text.trim().isEmpty ? null : _noteController.text.trim(),
-        idempotencyKey: '${DateTime.now().microsecondsSinceEpoch}-$nonce-mobile',
+        note: note,
+        idempotencyKey: key,
       );
+      _submission.complete();
       if (!mounted) {
         return;
       }
       _noteController.clear();
       _studentSearchController.clear();
       setState(() => _student = null);
-      _show(message, success: true);
+      _show('$savedPoints poin berhasil dicatat untuk $studentName.', success: true);
     } catch (error) {
       if (mounted) {
         _show(friendlyError(error));
@@ -171,7 +185,7 @@ class _PointFormScreenState extends State<PointFormScreen> {
             title: const Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text('Catat Poin Mahasiswa'),
+                Text('Input poin'),
                 Text(
                   'KARSA Academic Point-Tracking',
                   style: TextStyle(fontSize: 12, fontWeight: FontWeight.w400),
@@ -188,7 +202,7 @@ class _PointFormScreenState extends State<PointFormScreen> {
                   ),
                   child: const Padding(
                     padding: EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-                    child: Text('PJ KELAS', style: TextStyle(fontSize: 10, fontWeight: FontWeight.w800)),
+                    child: Text('PJ KELAS', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w800)),
                   ),
                 ),
               ),
@@ -212,14 +226,16 @@ class _PointFormScreenState extends State<PointFormScreen> {
         icon: Icons.school_outlined,
       );
     }
-    return SingleChildScrollView(
+    return Column(children: [
+      Expanded(child: SingleChildScrollView(
       padding: const EdgeInsets.fromLTRB(20, 12, 20, 28),
       child: Form(
         key: _formKey,
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text('Mata Kuliah', style: Theme.of(context).textTheme.labelLarge),
+            const SectionHeading(title: '1. Pilih mahasiswa', subtitle: 'Mulai dari mata kuliah yang kamu ampu.'),
+            const SizedBox(height: 16),
             const SizedBox(height: 8),
             DropdownButtonFormField<Assignment>(
               initialValue: _assignment,
@@ -314,6 +330,17 @@ class _PointFormScreenState extends State<PointFormScreen> {
                 },
               ),
             const SizedBox(height: 20),
+            if (_student != null) ...[
+              Card(color: const Color(0xFFFFF1E4), child: ListTile(
+                leading: InitialAvatar(name: _student!.name),
+                title: Text(_student!.name, style: const TextStyle(fontWeight: FontWeight.w700)),
+                subtitle: Text(studentNimLabel(_student!.nim)),
+                trailing: const Icon(Icons.check_circle_rounded, color: KarsaColors.orange),
+              )),
+              const SizedBox(height: 20),
+            ],
+            const SectionHeading(title: '2. Catat kontribusi'),
+            const SizedBox(height: 16),
             Text('Kategori', style: Theme.of(context).textTheme.labelLarge),
             const SizedBox(height: 8),
             DropdownButtonFormField<PointCategory>(
@@ -340,7 +367,12 @@ class _PointFormScreenState extends State<PointFormScreen> {
               onSelectionChanged: _submitting ? null : (value) => setState(() => _points = value.first),
             ),
             const SizedBox(height: 20),
-            TextFormField(
+            TextButton.icon(
+              onPressed: _submitting ? null : () => setState(() => _showNote = !_showNote),
+              icon: Icon(_showNote ? Icons.expand_less_rounded : Icons.add_rounded),
+              label: Text(_showNote ? 'Sembunyikan catatan' : _noteController.text.trim().isNotEmpty ? 'Lihat catatan yang disertakan' : 'Tambahkan catatan (opsional)'),
+            ),
+            if (_showNote) TextFormField(
               controller: _noteController,
               enabled: !_submitting,
               maxLength: 500,
@@ -350,21 +382,35 @@ class _PointFormScreenState extends State<PointFormScreen> {
                 alignLabelWithHint: true,
               ),
             ),
-            const SizedBox(height: 12),
-            SizedBox(
-              width: double.infinity,
-              height: 52,
-              child: FilledButton.icon(
-                onPressed: _submitting ? null : _submit,
-                icon: _submitting
-                    ? const SizedBox.square(dimension: 20, child: CircularProgressIndicator(strokeWidth: 2))
-                    : const Icon(Icons.check_rounded),
-                label: Text(_submitting ? 'Menyimpan…' : 'Simpan poin'),
-              ),
-            ),
+            if (!_showNote && _noteController.text.trim().isNotEmpty)
+              Text('Catatan akan disertakan: ${_noteController.text.trim()}',
+                maxLines: 2, overflow: TextOverflow.ellipsis,
+                style: const TextStyle(fontSize: 12, color: KarsaColors.muted)),
+            const SizedBox(height: 20),
+            const SectionHeading(title: '3. Simpan poin'),
+            const SizedBox(height: 8),
+            if (_student != null) Padding(padding: const EdgeInsets.only(bottom: 12),
+              child: Text('$_points poin · ${_student!.name}', style: const TextStyle(color: KarsaColors.muted))),
+            const SizedBox(height: 8),
           ],
         ),
-      ),
-    );
+      )),
+      SafeArea(top: false, child: Container(
+        padding: const EdgeInsets.fromLTRB(20, 12, 20, 14),
+        decoration: const BoxDecoration(
+          color: Colors.white,
+          border: Border(top: BorderSide(color: KarsaColors.border)),
+        ),
+        child: SizedBox(width: double.infinity, height: 52,
+          child: FilledButton.icon(
+            onPressed: _submitting ? null : _submit,
+            icon: _submitting
+                ? const SizedBox.square(dimension: 20, child: CircularProgressIndicator(strokeWidth: 2))
+                : const Icon(Icons.check_rounded),
+            label: Text(_submitting ? 'Menyimpan…' : 'Simpan poin'),
+          ),
+        ),
+      )),
+    ]);
   }
 }

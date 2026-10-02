@@ -1,10 +1,14 @@
 import 'dart:async';
+import 'dart:ui';
 
 import 'package:flutter/material.dart';
 
 import '../core/api_client.dart';
 import '../core/models.dart';
 import '../widgets/common.dart';
+import '../widgets/lib_report_dialog.dart';
+import 'karsa_lib_editor_screen.dart';
+import 'karsa_lib_author_request_screen.dart';
 import 'karsa_lib_article_screen.dart';
 import 'karsa_lib_author_screen.dart';
 import 'karsa_lib_vault_screen.dart';
@@ -25,7 +29,7 @@ class _KarsaLibScreenState extends State<KarsaLibScreen> {
   Timer? _searchDebounce;
   String _sort = 'latest';
   String _searchQuery = '';
-  bool _searchOpen = false;
+
 
   @override
   void initState() {
@@ -64,18 +68,6 @@ class _KarsaLibScreenState extends State<KarsaLibScreen> {
     _searchDebounce?.cancel();
     _searchDebounce = Timer(const Duration(milliseconds: 350), () {
       if (mounted) _applySearch(value);
-    });
-  }
-
-  void _toggleSearch() {
-    _searchDebounce?.cancel();
-    setState(() {
-      _searchOpen = !_searchOpen;
-      if (!_searchOpen) {
-        _searchController.clear();
-        _searchQuery = '';
-        _feed = _requestFeed();
-      }
     });
   }
 
@@ -122,12 +114,28 @@ class _KarsaLibScreenState extends State<KarsaLibScreen> {
             ],
           ),
           actions: [
-            IconButton(
-              tooltip: _searchOpen ? 'Tutup pencarian' : 'Cari artikel',
-              onPressed: _toggleSearch,
-              icon: Icon(_searchOpen ? Icons.close_rounded : Icons.search_rounded),
-            ),
-            const SizedBox(width: 6),
+            FutureBuilder<LibBootstrap>(future: _bootstrap, builder: (context, snapshot) {
+              final bootstrap = snapshot.data;
+              if (bootstrap?.profile == null) return const SizedBox.shrink();
+              final pending = bootstrap!.latestRequest?['status'] == 'PENDING';
+              return PopupMenuButton<String>(
+                tooltip: 'Menu Karsa Lib',
+                onSelected: (value) {
+                  if (value == 'vault') _openVault();
+                  if (value == 'request') _authorRequest();
+                  if (value == 'profile') Navigator.of(context).push<void>(MaterialPageRoute(
+                    builder: (_) => KarsaLibAuthorScreen(api: widget.api, authorId: widget.user.id)));
+                },
+                itemBuilder: (_) => [
+                  if (bootstrap.canWrite) ...[
+                    const PopupMenuItem(value: 'vault', child: Text('Tulisan saya')),
+                    const PopupMenuItem(value: 'profile', child: Text('Profil penulis saya')),
+                  ] else PopupMenuItem(value: 'request', enabled: !pending,
+                      child: Text(pending ? 'Permohonan sedang ditinjau' : 'Ajukan akses penulis')),
+                  const PopupMenuItem(enabled: false, child: Text('Fakultas dan prodi dikunci')),
+                ],
+              );
+            }),
           ],
         ),
         floatingActionButton: FutureBuilder<LibBootstrap>(
@@ -164,9 +172,12 @@ class _KarsaLibScreenState extends State<KarsaLibScreen> {
           physics: const AlwaysScrollableScrollPhysics(),
           slivers: [
             SliverToBoxAdapter(child: _welcome(bootstrap)),
-            if (!bootstrap.canWrite) SliverToBoxAdapter(child: _writerAccessCard(bootstrap)),
-            SliverToBoxAdapter(child: _feedHeader(bootstrap)),
-            if (_searchOpen) SliverToBoxAdapter(child: _searchField()),
+            if (!bootstrap.canWrite)
+              SliverToBoxAdapter(child: _writerAccessCard(bootstrap)),
+            SliverPersistentHeader(pinned: true, delegate: _FeedControls(
+              height: 138 + (MediaQuery.textScalerOf(context).scale(14) - 14).clamp(0, 40).toDouble(),
+              child: Column(children: [_searchField(), _feedHeader(bootstrap)]),
+            )),
             FutureBuilder<List<LibArticle>>(
               future: _feed,
               builder: (context, snapshot) {
@@ -209,95 +220,56 @@ class _KarsaLibScreenState extends State<KarsaLibScreen> {
       );
   }
 
-  Widget _welcome(LibBootstrap bootstrap) => Padding(
-        padding: const EdgeInsets.fromLTRB(18, 16, 18, 2),
-        child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-          Text('RUANG BERBAGI ILMU', style: TextStyle(color: Theme.of(context).colorScheme.primary, fontSize: 10, letterSpacing: 1.4, fontWeight: FontWeight.w800)),
-          const SizedBox(height: 6),
-          Text('Beranda', style: Theme.of(context).textTheme.headlineMedium?.copyWith(fontWeight: FontWeight.w600, letterSpacing: -.8)),
-          const SizedBox(height: 4),
-          Text('Cerita dan pengetahuan dari teman satu prodimu.', style: Theme.of(context).textTheme.bodySmall?.copyWith(color: Colors.black54)),
-          const SizedBox(height: 15),
-          Container(
-            width: double.infinity,
-            padding: const EdgeInsets.all(17),
-            decoration: BoxDecoration(
-              borderRadius: BorderRadius.circular(18),
-              border: Border.all(color: const Color(0xFFF1DFCE)),
-              gradient: const LinearGradient(colors: [Color(0xFFF9E8D8), Color(0xFFFFF2E6)]),
-            ),
-            child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-              Row(children: [Icon(Icons.wb_sunny_outlined, size: 15, color: Theme.of(context).colorScheme.primary), const SizedBox(width: 6), Text('PERPUSTAKAAN GAGASANMU', style: TextStyle(color: Theme.of(context).colorScheme.primary, fontSize: 9, letterSpacing: 1, fontWeight: FontWeight.w800))]),
-              const SizedBox(height: 9),
-              Text('Ilmu kecil, dibagikan bersama.', style: Theme.of(context).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.w600, height: 1.15)),
-              const SizedBox(height: 6),
-              Text('Temukan pengalaman dan pengetahuan yang tumbuh dari teman satu program studimu.', style: Theme.of(context).textTheme.bodySmall?.copyWith(color: const Color(0xFF71675E), height: 1.5)),
-            ]),
-          ),
-        ]),
-      );
+  Widget _welcome(LibBootstrap bootstrap) {
+    final names = bootstrap.programs.where((p) => p.id == bootstrap.profile!.programId);
+    final program = names.isEmpty ? 'Program studimu' : names.first.name;
+    return Padding(padding: const EdgeInsets.fromLTRB(20, 14, 20, 12),
+      child: SectionHeading(title: program, subtitle: 'Tulisan dan pengalaman dari teman satu prodi.'),
+    );
+  }
 
   Widget _writerAccessCard(LibBootstrap bootstrap) {
     final request = bootstrap.latestRequest;
-    final status = request?['status'] as String?;
-    if (status == 'PENDING') {
-      return Padding(
-        padding: const EdgeInsets.fromLTRB(16, 14, 16, 0),
-        child: Card(color: const Color(0xFFFFF5E9), child: const ListTile(leading: Icon(Icons.hourglass_top_rounded), title: Text('Permohonan sedang ditinjau'), subtitle: Text('Kami akan memperbarui akses menulismu setelah admin meninjau permohonan.'))),
-      );
-    }
-    return Padding(
-      padding: const EdgeInsets.fromLTRB(16, 14, 16, 0),
-      child: Card(
-        child: ListTile(
-          leading: const Icon(Icons.draw_outlined),
-          title: const Text('Punya ilmu untuk dibagikan?'),
-          subtitle: const Text('Ajukan akses penulis untuk mulai membuat artikel.'),
+    final status = request?['status'];
+    if (status == null) {
+      return Padding(padding: const EdgeInsets.fromLTRB(20, 0, 20, 12),
+        child: Card(child: ListTile(
+          leading: const Icon(Icons.edit_note_rounded, color: KarsaColors.orange),
+          title: const Text('Ingin berbagi tulisan?'),
+          subtitle: const Text('Ajukan akses penulis Karsa Lib.'),
           trailing: const Icon(Icons.chevron_right_rounded),
-          onTap: () => _authorRequest(),
-        ),
+          onTap: _authorRequest,
+        )));
+    }
+    return Padding(padding: const EdgeInsets.fromLTRB(20, 0, 20, 12),
+      child: InfoNotice(
+        icon: status == 'PENDING' ? Icons.hourglass_top_rounded : Icons.info_outline_rounded,
+        title: status == 'PENDING' ? 'Permohonan sedang ditinjau' : 'Permohonan belum disetujui',
+        message: status == 'PENDING'
+          ? 'Kamu tetap bisa membaca dan berdiskusi. Tarik layar untuk memperbarui status akses.'
+          : (request?['decision_note'] as String?) ?? 'Lihat kembali permohonanmu. Kamu bisa mengajukan ulang lewat menu Karsa Lib.',
       ),
     );
   }
 
   Widget _feedHeader(LibBootstrap bootstrap) => Padding(
-        padding: const EdgeInsets.fromLTRB(18, 23, 16, 9),
-        child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-          Row(children: [
-            Expanded(child: Text(bootstrap.profile!.faculty, maxLines: 1, overflow: TextOverflow.ellipsis, style: Theme.of(context).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w700))),
-            PopupMenuButton<String>(
-              tooltip: 'Menu Karsa Lib',
-              icon: const Icon(Icons.more_horiz_rounded),
-              onSelected: (value) {
-                if (value == 'vault') _openVault();
-                if (value == 'request') _authorRequest();
-              },
-              itemBuilder: (context) => [
-                if (bootstrap.canWrite) const PopupMenuItem(value: 'vault', child: ListTile(leading: Icon(Icons.inventory_2_outlined), title: Text('Vault penulis'))),
-                if (!bootstrap.canWrite) const PopupMenuItem(value: 'request', child: ListTile(leading: Icon(Icons.draw_outlined), title: Text('Ajukan jadi penulis'))),
-                const PopupMenuItem(enabled: false, child: Text('Profil prodi dikunci')),
-              ],
-            ),
-          ]),
-          const SizedBox(height: 4),
-          SingleChildScrollView(
-            scrollDirection: Axis.horizontal,
-            child: Row(children: [
-              _sortChip('Terbaru', 'latest'),
-              _sortChip('Trending 7 hari', 'trending_7d'),
-              _sortChip('Trending 30 hari', 'trending_30d'),
-            ]),
-          ),
-        ]),
-      );
+    padding: const EdgeInsets.symmetric(horizontal: 18),
+    child: SingleChildScrollView(scrollDirection: Axis.horizontal,
+      child: Row(children: [
+        _sortChip('Terbaru', 'latest'),
+        _sortChip('Trending 7 hari', 'trending_7d'),
+        _sortChip('Trending 30 hari', 'trending_30d'),
+      ]),
+    ),
+  );
 
   Widget _searchField() => Padding(
         padding: const EdgeInsets.fromLTRB(18, 2, 18, 12),
         child: TextField(
           controller: _searchController,
-          autofocus: true,
+          autofocus: false,
           maxLength: 100,
-          onChanged: _onSearchChanged,
+          onChanged: (value) { setState(() {}); _onSearchChanged(value); },
           onSubmitted: (value) {
             _searchDebounce?.cancel();
             _applySearch(value);
@@ -328,7 +300,7 @@ class _KarsaLibScreenState extends State<KarsaLibScreen> {
           label: Text(label),
           selected: _sort == value,
           onSelected: (_) => _selectSort(value),
-          labelStyle: const TextStyle(fontSize: 10, fontWeight: FontWeight.w600),
+          labelStyle: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600),
           visualDensity: VisualDensity.compact,
           padding: EdgeInsets.zero,
           side: BorderSide.none,
@@ -361,84 +333,50 @@ class _KarsaLibScreenState extends State<KarsaLibScreen> {
   }
 
   Future<void> _compose(BuildContext context) async {
-    final title = TextEditingController();
-    final body = TextEditingController();
-    await showModalBottomSheet<void>(
-      context: context,
-      isScrollControlled: true,
-      showDragHandle: true,
-      builder: (context) => Padding(
-        padding: EdgeInsets.fromLTRB(20, 8, 20, MediaQuery.viewInsetsOf(context).bottom + 22),
-        child: SafeArea(child: SingleChildScrollView(child: Column(mainAxisSize: MainAxisSize.min, crossAxisAlignment: CrossAxisAlignment.start, children: [
-          Text('Tulis artikel', style: Theme.of(context).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.w700)),
-          const SizedBox(height: 6), const Text('Artikelmu akan dibagikan ke mahasiswa prodimu.', style: TextStyle(color: Colors.black54, fontSize: 12)),
-          const SizedBox(height: 18), TextField(controller: title, maxLength: 120, decoration: const InputDecoration(labelText: 'Judul artikel', hintText: 'Contoh: Cara memahami jurnal umum')),
-          const SizedBox(height: 12), TextField(controller: body, minLines: 7, maxLines: 12, maxLength: 20000, decoration: const InputDecoration(labelText: 'Isi artikel', hintText: 'Mulai tulis pengalaman atau pengetahuanmu...')),
-          const SizedBox(height: 10), SizedBox(width: double.infinity, child: FilledButton.icon(onPressed: () async {
-            try {
-              await widget.api.createLibArticle(title: title.text, body: body.text);
-              if (context.mounted) Navigator.pop(context);
-              if (mounted) { await _refresh(); _message('Draf disimpan di vault.'); }
-            } catch (error) { if (context.mounted) _message(friendlyError(error)); }
-          }, icon: const Icon(Icons.save_outlined), label: const Text('Simpan draf'))),
-        ]))),
-      ),
-    );
-    title.dispose(); body.dispose();
+    final saved = await Navigator.of(context).push<bool>(MaterialPageRoute(
+      builder: (_) => KarsaLibEditorScreen(api: widget.api)));
+    if (mounted && saved == true) {
+      await _refresh();
+      _message('Draf disimpan di Tulisan saya.');
+    }
   }
 
   Future<void> _authorRequest() async {
-    final motivation = TextEditingController();
-    final topics = TextEditingController();
-    var accepted = false;
-    await showModalBottomSheet<void>(
-      context: context,
-      isScrollControlled: true,
-      showDragHandle: true,
-      builder: (sheetContext) => StatefulBuilder(builder: (context, setModalState) => Padding(
-        padding: EdgeInsets.fromLTRB(20, 8, 20, MediaQuery.viewInsetsOf(context).bottom + 18),
-        child: SafeArea(child: SingleChildScrollView(child: Column(crossAxisAlignment: CrossAxisAlignment.start, mainAxisSize: MainAxisSize.min, children: [
-          Text('Ajukan akses penulis', style: Theme.of(context).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.w700)),
-          const SizedBox(height: 5), Text('${widget.user.name ?? 'Mahasiswa'} · ${widget.user.email}', style: const TextStyle(fontSize: 11, color: Colors.black54)),
-          const SizedBox(height: 14), TextField(controller: motivation, minLines: 3, maxLines: 5, maxLength: 2000, decoration: const InputDecoration(labelText: 'Mengapa ingin menjadi penulis?', hintText: 'Ceritakan singkat tujuanmu berbagi ilmu.')),
-          const SizedBox(height: 10), TextField(controller: topics, maxLength: 500, decoration: const InputDecoration(labelText: 'Topik artikel yang ingin ditulis', hintText: 'Contoh: akuntansi dasar, pajak, tips belajar')),
-          CheckboxListTile(contentPadding: EdgeInsets.zero, value: accepted, onChanged: (value) => setModalState(() => accepted = value ?? false), title: const Text('Saya setuju mengikuti panduan komunitas Karsa Lib.', style: TextStyle(fontSize: 11)), controlAffinity: ListTileControlAffinity.leading),
-          SizedBox(width: double.infinity, child: FilledButton(onPressed: !accepted ? null : () async {
-            try {
-              await widget.api.requestLibAuthor(motivation: motivation.text, topics: topics.text);
-              if (sheetContext.mounted) Navigator.pop(sheetContext);
-              if (mounted) { await _refresh(); _message('Permohonan terkirim untuk ditinjau.'); }
-            } catch (error) { if (sheetContext.mounted) _message(friendlyError(error)); }
-          }, child: const Text('Kirim permohonan'))),
-        ]))),
-      )),
-    );
-    motivation.dispose(); topics.dispose();
+    final sent = await Navigator.of(context).push<bool>(MaterialPageRoute(
+      builder: (_) => KarsaLibAuthorRequestScreen(api: widget.api)));
+    if (mounted && sent == true) {
+      await _refresh();
+      _message('Permohonan terkirim untuk ditinjau.');
+    }
   }
 
   Future<void> _reportArticle(LibArticle article) async {
-    await showDialog<void>(context: context, builder: (dialogContext) {
-      String? reason;
-      final details = TextEditingController();
-      return StatefulBuilder(builder: (context, setDialogState) => AlertDialog(
-        title: const Text('Laporkan artikel'),
-        content: Column(mainAxisSize: MainAxisSize.min, children: [
-          Text(article.title, maxLines: 2, overflow: TextOverflow.ellipsis, style: const TextStyle(fontSize: 12)),
-          const SizedBox(height: 14), DropdownButtonFormField<String>(value: reason, decoration: const InputDecoration(labelText: 'Alasan'), items: const [DropdownMenuItem(value: 'MISINFORMATION', child: Text('Informasi keliru')), DropdownMenuItem(value: 'INAPPROPRIATE', child: Text('Konten tidak pantas')), DropdownMenuItem(value: 'SPAM', child: Text('Spam atau promosi')), DropdownMenuItem(value: 'COPYRIGHT', child: Text('Hak cipta')), DropdownMenuItem(value: 'OTHER', child: Text('Lainnya'))], onChanged: (value) => setDialogState(() => reason = value)),
-          const SizedBox(height: 10), TextField(controller: details, maxLines: 3, maxLength: 1000, decoration: const InputDecoration(labelText: 'Keterangan (opsional)')),
-        ]),
-        actions: [TextButton(onPressed: () => Navigator.pop(dialogContext), child: const Text('Batal')), FilledButton(onPressed: reason == null ? null : () async {
-          try { await widget.api.reportLibContent(articleId: article.id, reason: reason!, details: details.text); if (dialogContext.mounted) Navigator.pop(dialogContext); if (mounted) _message('Laporan terkirim untuk ditinjau.'); }
-          catch (error) { if (dialogContext.mounted) _message(friendlyError(error)); }
-        }, child: const Text('Kirim'))],
-      ));
-    });
+    final sent = await showLibReportDialog(context, api: widget.api, articleId: article.id);
+    if (mounted && sent == true) _message('Laporan terkirim untuk ditinjau.');
   }
 
   void _message(String text) {
     if (!mounted) return;
     ScaffoldMessenger.of(context)..hideCurrentSnackBar()..showSnackBar(SnackBar(content: Text(text), behavior: SnackBarBehavior.floating));
   }
+}
+
+class _FeedControls extends SliverPersistentHeaderDelegate {
+  const _FeedControls({required this.child, required this.height});
+  final Widget child;
+  final double height;
+  @override
+  double get minExtent => height;
+  @override
+  double get maxExtent => height;
+  @override
+  Widget build(BuildContext context, double shrinkOffset, bool overlapsContent) => ClipRect(
+    child: BackdropFilter(filter: ImageFilter.blur(sigmaX: 12, sigmaY: 12),
+      child: Container(color: KarsaColors.background.withValues(alpha: .94),
+        padding: const EdgeInsets.only(top: 8), child: child)),
+  );
+  @override
+  bool shouldRebuild(covariant _FeedControls oldDelegate) => true;
 }
 
 class _ArticleCard extends StatelessWidget {
@@ -448,56 +386,55 @@ class _ArticleCard extends StatelessWidget {
   final VoidCallback onAuthor;
   final VoidCallback onReport;
   final String? viewPeriodLabel;
-
   @override
-  Widget build(BuildContext context) {
-    final colors = Theme.of(context).colorScheme;
-    final initials = article.authorName.trim().split(RegExp(r'\s+')).take(2).map((word) => word.isEmpty ? '' : word[0]).join().toUpperCase();
-    return Card(
-      child: Padding(
-        padding: const EdgeInsets.fromLTRB(15, 14, 15, 11),
-        child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-          InkWell(onTap: onAuthor, borderRadius: BorderRadius.circular(12), child: Padding(padding: const EdgeInsets.symmetric(vertical: 2), child: Row(children: [
-            CircleAvatar(radius: 18, backgroundColor: colors.primaryContainer, foregroundColor: colors.onPrimaryContainer, child: Text(initials.isEmpty ? 'K' : initials, style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w700))),
-            const SizedBox(width: 10), Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [Text(article.authorName, style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w700)), const SizedBox(height: 2), Text('${article.authorProgramName ?? 'Satu prodi'} · ${article.publishedAt == null ? '' : formatRelativeTime(article.publishedAt!)}', style: const TextStyle(fontSize: 10, color: Colors.black54))])),
-            const Icon(Icons.chevron_right_rounded, size: 19, color: Colors.black38),
-          ]))),
-          const SizedBox(height: 12),
-          Container(padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 5), decoration: BoxDecoration(color: const Color(0xFFF4EFE9), borderRadius: BorderRadius.circular(6)), child: const Text('ARTIKEL', style: TextStyle(fontSize: 8, letterSpacing: .8, fontWeight: FontWeight.w800, color: Color(0xFF777065)))),
-          const SizedBox(height: 8),
-          InkWell(onTap: onOpen, child: Text(article.title, style: const TextStyle(fontFamily: 'Georgia', fontSize: 19, height: 1.25, fontWeight: FontWeight.w600))),
-          const SizedBox(height: 6),
-          InkWell(onTap: onOpen, child: Text(article.body, maxLines: 3, overflow: TextOverflow.ellipsis, style: const TextStyle(fontFamily: 'Georgia', fontSize: 12, height: 1.6, color: Color(0xFF6E6A62)))),
-          const Divider(height: 22),
-          Wrap(
-            alignment: WrapAlignment.spaceBetween,
-            crossAxisAlignment: WrapCrossAlignment.center,
-            spacing: 8,
-            children: [
-              Row(mainAxisSize: MainAxisSize.min, children: [
-                Icon(Icons.visibility_outlined, size: 15, color: colors.onSurfaceVariant),
-                const SizedBox(width: 5),
-                Text(
-                  viewPeriodLabel == null ? '${article.views} pembaca' : '${article.periodViews ?? 0} pembaca / $viewPeriodLabel',
-                  style: TextStyle(fontSize: 10, color: colors.onSurfaceVariant),
-                ),
-                const SizedBox(width: 12),
-                Icon(Icons.mode_comment_outlined, size: 14, color: colors.onSurfaceVariant),
-                const SizedBox(width: 5),
-                Text('${article.commentsCount}', style: TextStyle(fontSize: 10, color: colors.onSurfaceVariant)),
-              ]),
-              TextButton.icon(
-                onPressed: onReport,
-                icon: const Icon(Icons.flag_outlined, size: 14),
-                label: const Text('Laporkan'),
-                style: TextButton.styleFrom(visualDensity: VisualDensity.compact, foregroundColor: Colors.black54, textStyle: const TextStyle(fontSize: 10)),
-              ),
-            ],
-          ),
+  Widget build(BuildContext context) => Card(
+    clipBehavior: Clip.antiAlias,
+    child: Padding(padding: const EdgeInsets.all(18), child: Column(
+      crossAxisAlignment: CrossAxisAlignment.start, children: [
+        Row(children: [
+          Expanded(child: InkWell(onTap: onAuthor, borderRadius: BorderRadius.circular(12),
+            child: Padding(padding: const EdgeInsets.symmetric(vertical: 6), child: Row(children: [
+              InitialAvatar(name: article.authorName, radius: 18),
+              const SizedBox(width: 10),
+              Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                Text(article.authorName, style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w700)),
+                Text(article.publishedAt == null ? article.authorProgramName ?? 'Satu prodi'
+                  : formatRelativeTime(article.publishedAt!), style: const TextStyle(fontSize: 12, color: KarsaColors.muted)),
+              ])),
+            ])),
+          )),
+          PopupMenuButton<String>(tooltip: 'Opsi artikel', onSelected: (_) => onReport(),
+            itemBuilder: (_) => [const PopupMenuItem(value: 'report', child: Text('Laporkan artikel'))]),
         ]),
-      ),
-    );
-  }
+        const SizedBox(height: 12),
+        InkWell(onTap: onOpen, borderRadius: BorderRadius.circular(8),
+          child: Padding(padding: const EdgeInsets.symmetric(vertical: 4), child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start, children: [
+              Text(article.title, style: const TextStyle(fontSize: 20, height: 1.35, fontWeight: FontWeight.w700)),
+              const SizedBox(height: 8),
+              Text(article.body, maxLines: 3, overflow: TextOverflow.ellipsis,
+                style: const TextStyle(fontSize: 14, height: 1.65, color: KarsaColors.muted)),
+            ])),
+        ),
+        const Divider(height: 28),
+        InkWell(onTap: onOpen, child: Padding(padding: const EdgeInsets.symmetric(vertical: 6),
+          child: Wrap(spacing: 18, runSpacing: 8, crossAxisAlignment: WrapCrossAlignment.center, children: [
+            Row(mainAxisSize: MainAxisSize.min, children: [
+              const Icon(Icons.visibility_outlined, size: 17, color: KarsaColors.muted),
+              const SizedBox(width: 6),
+              Text(viewPeriodLabel == null ? '${article.views} pembaca' : '${article.periodViews ?? 0} pembaca / $viewPeriodLabel',
+                style: const TextStyle(fontSize: 12, color: KarsaColors.muted)),
+            ]),
+            Row(mainAxisSize: MainAxisSize.min, children: [
+              const Icon(Icons.mode_comment_outlined, size: 17, color: KarsaColors.muted),
+              const SizedBox(width: 6),
+              Text('${article.commentsCount} komentar', style: const TextStyle(fontSize: 12, color: KarsaColors.muted)),
+            ]),
+          ]),
+        )),
+      ],
+    )),
+  );
 }
 
 class _ProfileSetup extends StatefulWidget {
@@ -528,17 +465,17 @@ class _ProfileSetupState extends State<_ProfileSetup> {
         const SizedBox(height: 14),
         Text('Siapkan ruang belajarmu', textAlign: TextAlign.center, style: Theme.of(context).textTheme.headlineSmall?.copyWith(fontWeight: FontWeight.w700)),
         const SizedBox(height: 7),
-        const Text('Pilih identitas program studi agar feed Karsa Lib menampilkan artikel yang tepat untukmu.', textAlign: TextAlign.center, style: TextStyle(color: Colors.black54, fontSize: 12, height: 1.5)),
+        const Text('Pilih identitas program studi agar feed Karsa Lib menampilkan artikel yang tepat untukmu.', textAlign: TextAlign.center, style: TextStyle(color: Colors.black54, fontSize: 14, height: 1.5)),
         const SizedBox(height: 22),
-        TextField(controller: _name, textCapitalization: TextCapitalization.words, maxLength: 80, onChanged: (_) => setState(() {}), decoration: const InputDecoration(labelText: 'Nama yang ditampilkan', prefixIcon: Icon(Icons.person_outline))),
+        TextField(enabled: !_saving, controller: _name, textCapitalization: TextCapitalization.words, maxLength: 80, onChanged: (_) => setState(() {}), decoration: const InputDecoration(labelText: 'Nama yang ditampilkan', prefixIcon: Icon(Icons.person_outline))),
         const SizedBox(height: 12),
-        DropdownButtonFormField<String>(value: _facultyId, isExpanded: true, decoration: const InputDecoration(labelText: 'Fakultas'), items: widget.bootstrap.faculties.map((faculty) => DropdownMenuItem(value: faculty.id, child: Text(faculty.name, overflow: TextOverflow.ellipsis))).toList(), onChanged: (value) => setState(() { _facultyId = value; _programId = null; _classId = null; })),
+        DropdownButtonFormField<String>(initialValue: _facultyId, isExpanded: true, decoration: const InputDecoration(labelText: 'Fakultas'), items: widget.bootstrap.faculties.map((faculty) => DropdownMenuItem(value: faculty.id, child: Text(faculty.name, overflow: TextOverflow.ellipsis))).toList(), onChanged: _saving ? null : (value) => setState(() { _facultyId = value; _programId = null; _classId = null; })),
         const SizedBox(height: 12),
-        DropdownButtonFormField<String>(value: _programId, isExpanded: true, decoration: const InputDecoration(labelText: 'Program studi'), items: widget.bootstrap.programs.where((program) => program.facultyId == _facultyId).map((program) => DropdownMenuItem(value: program.id, child: Text(program.name, overflow: TextOverflow.ellipsis))).toList(), onChanged: (value) => setState(() { _programId = value; _classId = null; })),
-        if (widget.bootstrap.faculties.isEmpty || widget.bootstrap.programs.where((program) => program.facultyId == _facultyId).isEmpty)
-          const Padding(padding: EdgeInsets.only(top: 7), child: Text('Pilihan fakultas/prodi belum tersedia. Admin Karsa perlu mengatur Fakultas dan menghubungkan Prodi terlebih dahulu.', style: TextStyle(fontSize: 11, color: Colors.black54, height: 1.4))),
+        DropdownButtonFormField<String>(key: ValueKey('program-$_facultyId'), initialValue: _programId, isExpanded: true, decoration: const InputDecoration(labelText: 'Program studi'), items: widget.bootstrap.programs.where((program) => program.facultyId == _facultyId).map((program) => DropdownMenuItem(value: program.id, child: Text(program.name, overflow: TextOverflow.ellipsis))).toList(), onChanged: _saving || _facultyId == null ? null : (value) => setState(() { _programId = value; _classId = null; })),
+        if (widget.bootstrap.faculties.isEmpty || (_facultyId != null && widget.bootstrap.programs.where((program) => program.facultyId == _facultyId).isEmpty))
+          const Padding(padding: EdgeInsets.only(top: 7), child: Text('Pilihan fakultas/prodi belum tersedia. Admin Karsa perlu mengatur Fakultas dan menghubungkan Prodi terlebih dahulu.', style: TextStyle(fontSize: 13, color: Colors.black54, height: 1.4))),
         const SizedBox(height: 12),
-        DropdownButtonFormField<String>(value: _classId, isExpanded: true, decoration: const InputDecoration(labelText: 'Kelas (opsional)'), items: [const DropdownMenuItem<String>(value: null, child: Text('Tidak memilih kelas')), ...widget.bootstrap.classes.where((item) => item.programId == _programId).map((item) => DropdownMenuItem(value: item.id, child: Text('${item.name}${item.semesterName == null ? '' : ' · ${item.semesterName}'}', overflow: TextOverflow.ellipsis)))], onChanged: (value) => setState(() => _classId = value)),
+        DropdownButtonFormField<String>(key: ValueKey('class-$_programId'), initialValue: _classId, isExpanded: true, decoration: const InputDecoration(labelText: 'Kelas (opsional)'), items: [const DropdownMenuItem<String>(value: null, child: Text('Tidak memilih kelas')), ...widget.bootstrap.classes.where((item) => item.programId == _programId).map((item) => DropdownMenuItem(value: item.id, child: Text('${item.name}${item.semesterName == null ? '' : ' · ${item.semesterName}'}', overflow: TextOverflow.ellipsis)))], onChanged: _saving || _programId == null ? null : (value) => setState(() => _classId = value)),
         const SizedBox(height: 15),
         Container(padding: const EdgeInsets.all(13), decoration: BoxDecoration(color: const Color(0xFFFFF4E9), borderRadius: BorderRadius.circular(13), border: Border.all(color: const Color(0xFFF1DFCE))), child: const Row(crossAxisAlignment: CrossAxisAlignment.start, children: [Icon(Icons.lock_outline, size: 17, color: Color(0xFF9B4B18)), SizedBox(width: 9), Expanded(child: Text('Fakultas dan program studimu tidak dapat diubah setelah disimpan. Pilihan prodi menentukan artikel yang bisa kamu lihat.', style: TextStyle(fontSize: 11, height: 1.5, color: Color(0xFF735C49))))])),
         const SizedBox(height: 18),
@@ -546,6 +483,18 @@ class _ProfileSetupState extends State<_ProfileSetup> {
       ]);
 
   Future<void> _save() async {
+    if (_saving) return;
+    final faculty = widget.bootstrap.faculties.firstWhere((f) => f.id == _facultyId).name;
+    final program = widget.bootstrap.programs.firstWhere((p) => p.id == _programId).name;
+    final confirmed = await showDialog<bool>(context: context, builder: (context) => AlertDialog(
+      title: const Text('Identitasmu sudah benar?'),
+      content: Text('${_name.text.trim()}\n$faculty\n$program\n\nFakultas dan prodi tidak dapat diganti setelah disimpan.'),
+      actions: [
+        TextButton(onPressed: () => Navigator.pop(context, false), child: const Text('Periksa kembali')),
+        FilledButton(onPressed: () => Navigator.pop(context, true), child: const Text('Ya, simpan')),
+      ],
+    ));
+    if (!mounted || confirmed != true) return;
     setState(() => _saving = true);
     try {
       await widget.api.createLibProfile(displayName: _name.text.trim(), facultyId: _facultyId!, programId: _programId!, classId: _classId);

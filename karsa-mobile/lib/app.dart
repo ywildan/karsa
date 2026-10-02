@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'core/app_controller.dart';
 import 'screens/home_shell.dart';
 import 'screens/sign_in_screen.dart';
+import 'widgets/common.dart';
 
 class KarsaApp extends StatelessWidget {
   const KarsaApp({required this.controller, super.key});
@@ -15,6 +16,7 @@ class KarsaApp extends StatelessWidget {
     final scheme = ColorScheme.fromSeed(
       seedColor: seed,
       brightness: Brightness.light,
+      primary: KarsaColors.orange,
       surface: const Color(0xFFFFFBF7),
     );
     return MaterialApp(
@@ -23,11 +25,33 @@ class KarsaApp extends StatelessWidget {
       theme: ThemeData(
         colorScheme: scheme,
         useMaterial3: true,
+        textTheme: const TextTheme(
+          headlineMedium: TextStyle(fontSize: 28, fontWeight: FontWeight.w800, color: KarsaColors.ink),
+          headlineSmall: TextStyle(fontSize: 24, fontWeight: FontWeight.w800, color: KarsaColors.ink),
+          titleLarge: TextStyle(fontSize: 21, fontWeight: FontWeight.w800, color: KarsaColors.ink),
+          titleMedium: TextStyle(fontSize: 17, fontWeight: FontWeight.w700, color: KarsaColors.ink),
+          bodyLarge: TextStyle(fontSize: 16, height: 1.6, color: KarsaColors.ink),
+          bodyMedium: TextStyle(fontSize: 14, height: 1.5, color: KarsaColors.ink),
+          bodySmall: TextStyle(fontSize: 12, height: 1.5, color: KarsaColors.muted),
+          labelLarge: TextStyle(fontSize: 14, fontWeight: FontWeight.w700),
+          labelSmall: TextStyle(fontSize: 12, color: KarsaColors.muted),
+        ),
+        filledButtonTheme: FilledButtonThemeData(
+          style: FilledButton.styleFrom(
+            minimumSize: const Size(48, 50),
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+          ),
+        ),
+        snackBarTheme: const SnackBarThemeData(
+          behavior: SnackBarBehavior.floating,
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.all(Radius.circular(12))),
+        ),
         scaffoldBackgroundColor: const Color(0xFFFFFBF7),
         appBarTheme: const AppBarTheme(
           backgroundColor: Color(0xFFFFFBF7),
           surfaceTintColor: Colors.transparent,
           centerTitle: false,
+          titleTextStyle: TextStyle(color: KarsaColors.ink, fontSize: 21, fontWeight: FontWeight.w800),
         ),
         cardTheme: const CardThemeData(
           elevation: 0,
@@ -39,6 +63,11 @@ class KarsaApp extends StatelessWidget {
           ),
         ),
         inputDecorationTheme: const InputDecorationTheme(
+          contentPadding: EdgeInsets.symmetric(horizontal: 16, vertical: 16),
+          enabledBorder: OutlineInputBorder(
+            borderRadius: BorderRadius.all(Radius.circular(14)),
+            borderSide: BorderSide(color: KarsaColors.border),
+          ),
           filled: true,
           fillColor: Colors.white,
           border: OutlineInputBorder(
@@ -55,6 +84,12 @@ class KarsaApp extends StatelessWidget {
         animation: controller,
         builder: (context, _) => switch (controller.state) {
           SessionState.loading => const _SplashScreen(),
+          SessionState.unavailable => Scaffold(
+            body: ErrorState(
+              message: controller.error ?? 'Sesi belum dapat diperiksa.',
+              onRetry: controller.retrySession,
+            ),
+          ),
           SessionState.signedOut || SessionState.authenticating =>
             SignInScreen(controller: controller),
           SessionState.signedIn => HomeShell(controller: controller),

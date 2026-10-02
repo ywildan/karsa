@@ -20,24 +20,29 @@ class _KarsaLibAuthorScreenState extends State<KarsaLibAuthorScreen> {
   @override
   void initState() { super.initState(); _future = widget.api.libAuthorProfile(widget.authorId); }
 
+  Future<void> _reload() async {
+    setState(() => _future = widget.api.libAuthorProfile(widget.authorId));
+    try { await _future; } catch (_) { /* Rendered by FutureBuilder. */ }
+  }
+
   @override
   Widget build(BuildContext context) => Scaffold(
         backgroundColor: const Color(0xFFFFFBF7),
         appBar: AppBar(title: const Text('Profil penulis')),
-        body: FutureBuilder<LibAuthorProfile>(future: _future, builder: (context, snapshot) {
+        body: RefreshIndicator(onRefresh: _reload, child: FutureBuilder<LibAuthorProfile>(future: _future, builder: (context, snapshot) {
           if (snapshot.connectionState != ConnectionState.done) return const Center(child: CircularProgressIndicator());
           if (snapshot.hasError) return ErrorState(message: friendlyError(snapshot.error!), onRetry: () => setState(() => _future = widget.api.libAuthorProfile(widget.authorId)));
           final profile = snapshot.data!;
-          final initials = profile.name.trim().split(RegExp(r'\s+')).take(2).map((part) => part.isEmpty ? '' : part[0]).join().toUpperCase();
+
           return CustomScrollView(slivers: [
             SliverToBoxAdapter(child: Padding(padding: const EdgeInsets.fromLTRB(18, 18, 18, 20), child: Column(children: [
-              CircleAvatar(radius: 38, backgroundColor: Theme.of(context).colorScheme.primaryContainer, foregroundColor: Theme.of(context).colorScheme.onPrimaryContainer, backgroundImage: profile.image == null ? null : NetworkImage(profile.image!), child: profile.image == null ? Text(initials.isEmpty ? 'K' : initials, style: const TextStyle(fontSize: 20, fontWeight: FontWeight.w700)) : null),
+              InitialAvatar(name: profile.name, image: profile.image, radius: 38),
               const SizedBox(height: 12), Text(profile.name, style: Theme.of(context).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.w700)),
-              const SizedBox(height: 4), Text(profile.programName, textAlign: TextAlign.center, style: const TextStyle(color: Colors.black54, fontSize: 12)),
-              Text(profile.faculty, textAlign: TextAlign.center, style: const TextStyle(color: Colors.black45, fontSize: 10)),
+              const SizedBox(height: 4), Text(profile.programName, textAlign: TextAlign.center, style: const TextStyle(color: Colors.black54, fontSize: 14)),
+              Text(profile.faculty, textAlign: TextAlign.center, style: const TextStyle(color: Colors.black45, fontSize: 12)),
               const SizedBox(height: 17),
               Row(children: [Expanded(child: _StatTile(value: profile.articleCount.toString(), label: 'Artikel terbit', icon: Icons.auto_stories_outlined)), const SizedBox(width: 10), Expanded(child: _StatTile(value: profile.totalViews.toString(), label: 'Total pembaca', icon: Icons.visibility_outlined))]),
-              const SizedBox(height: 9), const Text('Total pembaca adalah jumlah pembaca unik pada tiap artikel.', textAlign: TextAlign.center, style: TextStyle(color: Colors.black45, fontSize: 10)),
+              const SizedBox(height: 9), const Text('Total pembaca adalah jumlah pembaca unik pada tiap artikel.', textAlign: TextAlign.center, style: TextStyle(color: KarsaColors.muted, fontSize: 12)),
             ]))),
             SliverPadding(padding: const EdgeInsets.fromLTRB(18, 5, 18, 9), sliver: SliverToBoxAdapter(child: Text('Tulisan ${profile.name.split(' ').first}', style: Theme.of(context).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w700)))),
             if (profile.articles.isEmpty)
@@ -50,19 +55,19 @@ class _KarsaLibAuthorScreenState extends State<KarsaLibAuthorScreen> {
                   separatorBuilder: (_, _) => const SizedBox(height: 10),
                   itemBuilder: (context, index) => _ProfileArticleCard(
                     article: profile.articles[index],
-                    onTap: () => Navigator.of(context).push<void>(
+                    onTap: () async { await Navigator.of(context).push<void>(
                       MaterialPageRoute(
                         builder: (_) => KarsaLibArticleScreen(
                           api: widget.api,
                           articleId: profile.articles[index].id,
                         ),
                       ),
-                    ),
+                    ); if (mounted) await _reload(); },
                   ),
                 ),
               ),
           ]);
-        }),
+        })),
       );
 }
 
@@ -72,7 +77,7 @@ class _StatTile extends StatelessWidget {
   final String label;
   final IconData icon;
   @override
-  Widget build(BuildContext context) => Card(child: Padding(padding: const EdgeInsets.symmetric(vertical: 15, horizontal: 11), child: Row(children: [Icon(icon, color: Theme.of(context).colorScheme.primary, size: 19), const SizedBox(width: 9), Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [Text(value, style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w800)), Text(label, style: const TextStyle(fontSize: 9, color: Colors.black54))]))])));
+  Widget build(BuildContext context) => Card(child: Padding(padding: const EdgeInsets.symmetric(vertical: 15, horizontal: 11), child: Row(children: [Icon(icon, color: Theme.of(context).colorScheme.primary, size: 19), const SizedBox(width: 9), Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [Text(value, style: const TextStyle(fontSize: 22, fontWeight: FontWeight.w800)), Text(label, style: const TextStyle(fontSize: 12, color: Colors.black54))]))])));
 }
 
 class _ProfileArticleCard extends StatelessWidget {
@@ -81,8 +86,8 @@ class _ProfileArticleCard extends StatelessWidget {
   final VoidCallback onTap;
   @override
   Widget build(BuildContext context) => Card(child: InkWell(borderRadius: BorderRadius.circular(20), onTap: onTap, child: Padding(padding: const EdgeInsets.all(15), child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-    Text(article.title, style: const TextStyle(fontFamily: 'Georgia', fontSize: 17, height: 1.3, fontWeight: FontWeight.w600)),
-    const SizedBox(height: 6), Text(article.body, maxLines: 2, overflow: TextOverflow.ellipsis, style: const TextStyle(fontFamily: 'Georgia', fontSize: 11, height: 1.5, color: Colors.black54)),
-    const SizedBox(height: 12), Row(children: [Icon(Icons.visibility_outlined, size: 15, color: Theme.of(context).colorScheme.onSurfaceVariant), const SizedBox(width: 5), Text('${article.views} pembaca', style: TextStyle(fontSize: 10, color: Theme.of(context).colorScheme.onSurfaceVariant)), const Spacer(), Text(article.publishedAt == null ? '' : formatRelativeTime(article.publishedAt!), style: const TextStyle(fontSize: 10, color: Colors.black45))]),
+    Text(article.title, style: const TextStyle(fontSize: 19, height: 1.3, fontWeight: FontWeight.w600)),
+    const SizedBox(height: 6), Text(article.body, maxLines: 2, overflow: TextOverflow.ellipsis, style: const TextStyle(fontFamily: 'Georgia', fontSize: 14, height: 1.5, color: Colors.black54)),
+    const SizedBox(height: 12), Row(children: [Icon(Icons.visibility_outlined, size: 15, color: Theme.of(context).colorScheme.onSurfaceVariant), const SizedBox(width: 5), Text('${article.views} pembaca', style: TextStyle(fontSize: 12, color: Theme.of(context).colorScheme.onSurfaceVariant)), const Spacer(), Text(article.publishedAt == null ? '' : formatRelativeTime(article.publishedAt!), style: const TextStyle(fontSize: 12, color: Colors.black45))]),
   ]))));
 }
