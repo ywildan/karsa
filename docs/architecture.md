@@ -228,6 +228,13 @@
 └─────────────────────────────────────────────────────────────────────────────┘
 ```
 
+> **Catatan cakupan:** diagram di atas hanya entity akademik inti. Entity lain
+> yang sudah ada di `prisma/schema.prisma` dan tidak digambar di sini:
+> `VerificationToken`, `Semester`, `Prodi`, `Matkul`, `KategoriPoin`, `AuditLog`,
+> `MobileAuthRequest`, `MobileSession`, `GroupMessage`, `GroupReport`,
+> `GroupBlock`. Detail field/relasi/index/index unik/CHECK dirinci di
+> `docs/erd.md`.
+
 ---
 
 ## 6. Security Architecture
@@ -330,7 +337,7 @@
 |-----------|------|---------|
 | Error tracking | Vercel Logs | Server errors, build failures |
 | Auth logging | NextAuth callbacks | Login/logout events |
-| Audit trail | AuditLog table | Event sistemik poin dan PJ; admin dapat memfilter kelas, aksi, aktor, dan pencarian |
+| Audit trail | AuditLog table | Aksi admin (KELAS_*, MATKUL_*, PRODI_*, SEMESTER_*, MAHASISWA_*), poin PJ (POIN_INPUT/DELETE, PJ_ASSIGN/REPLACE/REMOVE), dan aksi grup mobile (GROUP_MESSAGE_EDIT/DELETE/PIN/UNPIN/HIDE/UNHIDE/REPORT, GROUP_LOCK/UNLOCK, GROUP_REPORT_ACTION/DISMISS); admin dapat memfilter kelas, aksi, aktor, dan pencarian |
 | Performance | Vercel Analytics | Page load, API latency |
 
 ---

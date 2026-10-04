@@ -36,11 +36,6 @@ export const MOBILE_ROUTE_PREFIXES = [
   "/poin-saya",
 ] as const;
 
-/** Nilai cookie yang dikenal. Nilai lain (mis. rusak/dimanipulasi) → auto-detect. */
-export function isChannel(value: unknown): value is Channel {
-  return value === "mobile" || value === "desktop";
-}
-
 /** True bila path termasuk rute channel mobile (juga sub-route seperti `/catat-poin/[id]`). */
 export function isMobilePath(pathname: string): boolean {
   return MOBILE_ROUTE_PREFIXES.some(

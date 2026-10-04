@@ -158,8 +158,34 @@ CREATE INDEX "AuditLog_created_at_idx" ON "AuditLog" ("created_at" DESC);
 | **Kelas** | `KELAS_CREATE` | Kelas | Admin buat kelas |
 | | `KELAS_UPDATE` | Kelas | Admin edit kelas |
 | | `KELAS_DELETE` | Kelas | Admin hapus kelas |
-| **Matkul** | `MATKUL_ASSIGN` | KelasMatkul | Assign matkul ke kelas |
-| **Semester** | `SEMESTER_SET_ACTIVE` | Semester | Admin set semester aktif |
+| **Matkul** | `MATKUL_CREATE` | Matkul | Admin buat mata kuliah |
+| | `MATKUL_UPDATE` | Matkul | Admin edit mata kuliah |
+| | `MATKUL_DELETE` | Matkul | Admin hapus mata kuliah |
+| **Prodi** | `PRODI_CREATE` | Prodi | Admin buat prodi |
+| | `PRODI_UPDATE` | Prodi | Admin edit prodi |
+| | `PRODI_DELETE` | Prodi | Admin hapus prodi |
+| **Semester** | `SEMESTER_CREATE` | Semester | Admin buat semester |
+| | `SEMESTER_UPDATE` | Semester | Admin edit semester |
+| | `SEMESTER_DELETE` | Semester | Admin hapus semester |
+| | `SEMESTER_SET_ACTIVE` | Semester | Admin set semester aktif |
+| **Group (mobile-only)** | `GROUP_MESSAGE_EDIT` | GroupMessage | Penulis edit ≤ 15 menit |
+| | `GROUP_MESSAGE_DELETE` | GroupMessage | Soft delete oleh penulis |
+| | `GROUP_MESSAGE_PIN` | GroupMessage | PJ pin pesan di grup-nya |
+| | `GROUP_MESSAGE_UNPIN` | GroupMessage | PJ lepas pin |
+| | `GROUP_MESSAGE_HIDE` | GroupMessage | PJ sembunyikan pesan anggota |
+| | `GROUP_MESSAGE_UNHIDE` | GroupMessage | PJ tampilkan kembali pesan |
+| | `GROUP_LOCK` | KelasMatkul | PJ kunci grup |
+| | `GROUP_UNLOCK` | KelasMatkul | PJ buka kunci grup |
+| | `GROUP_MESSAGE_REPORT` | GroupReport | Anggota mengirim laporan |
+| | `GROUP_REPORT_ACTION` | GroupReport | PJ resolve dengan tindakan |
+| | `GROUP_REPORT_DISMISS` | GroupReport | PJ menolak laporan |
+
+> Catatan revisi: daftar di atas adalah taksonomi yang benar-benar dipicu kode
+> saat ini (`lib/services/group-service.ts`, `actions/*.ts`). Action
+> `MATKUL_ASSIGN` yang pernah direncanakan untuk penugasan matkul ke kelas
+> tidak pernah diimplementasikan dan tidak pernah muncul di `AuditLog`.
+> Helper `emitAudit` tidak menormalisasi kategori, sehingga menambah action
+> baru berarti ikut menambah baris pada tabel ini.
 
 ### Detail Per Action
 

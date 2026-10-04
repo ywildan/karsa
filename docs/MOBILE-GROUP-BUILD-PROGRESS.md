@@ -55,7 +55,9 @@
 - Stream pesan per mata kuliah dengan reply-to.
 - Pagination berbasis cursor.
 - Edit maksimal 15 menit.
-- Soft delete, pin, lock, hide, mute/block, dan report.
+- Soft delete, pin, lock, hide, block, dan report (mute grup/pengguna diturunkan
+  dari MVP; hanya block yang diimplementasikan dan tidak ada jalur unmute dari
+  UI Flutter pada milestone ini).
 - Tanpa upload, gambar, file, HTML, link preview, typing indicator, presence,
   read receipt, direct message, dan push notification.
 - MVP tidak memakai Supabase Realtime; pembaruan memakai refresh/polling adaptif
@@ -203,9 +205,10 @@ dibutuhkan:
 
 - Policy keamanan grup dipisahkan menjadi fungsi murni yang juga dipakai oleh
   service API, sehingga test menguji aturan yang benar-benar dieksekusi aplikasi.
-- Enam test otomatis mencakup fail-closed untuk admin/user tanpa kelas,
+- Tujuh test otomatis mencakup fail-closed untuk admin/user tanpa kelas,
   otoritas PJ per-grup, lock bypass hanya oleh PJ grup tersebut, batas edit
-  tepat 15 menit, ambang auto-hide tiga laporan, dan larangan self-moderation.
+  tepat 15 menit, ambang auto-hide tiga laporan, larangan self-moderation, dan
+  batas masa aktif pin tepat pada 40 × 24 jam.
 - `npm run test:groups` dan TypeScript typecheck berhasil tanpa instalasi lokal.
 - Test tersebut ditambahkan ke job `Validate mobile API` di GitHub Actions.
 - Final test/build run `36011022654` selesai sukses untuk commit `779c2dc`.
@@ -243,6 +246,21 @@ dibutuhkan:
 - `karsa_backup` memiliki akses SELECT ke ketiga tabel, sehingga backup
   terenkripsi berikutnya tetap mencakup data grup.
 - M12 selesai. Branch belum digabung dan backend production belum dideploy.
+
+#### Catatan cakupan angka grant/RLS/policy
+
+- `prisma/mobile-groups.sql` mendefinisikan 9 policy runtime dan mengaktifkan
+  RLS pada 3 tabel grup. `prisma/init.sql` menambahkan toggle RLS untuk
+  `AuditLog` (4 RLS total dari repo). `prisma/mobile-native.sql` tidak memuat
+  RLS maupun policy untuk `MobileAuthRequest`/`MobileSession`.
+- Angka production 17 RLS dan 26 policy (assertion CI `17|17|26` pada workflow
+  `Verify Database Restore`) mencakup hardening tambahan yang diterapkan
+  manual melalui Supabase SQL Editor, sebagaimana dicatat pada
+  `docs/SECURITY-HARDENING-LOG.md` Step 3, bukan hasil eksekusi file SQL di
+  repo. Diff antara 4 RLS / 9 policy repo ↔ 17 RLS / 26 policy production
+  merupakan pekerjaan manual yang belum dipromosikan menjadi migrasi
+  idempotent. Mengembalikan database production hanya dari file SQL repo tidak
+  akan memulihkan policy pre-group.
 
 ### 24 September 2026 — Integrasi backup schema grup
 

@@ -9,7 +9,7 @@
  * `auth()` membaca cookie JWT dan — karena `callbacks.jwt` di `auth.ts` —
  * me-refresh klaim (id, nim, is_admin, kelas_id, is_pj) dari database pada
  * request itu juga. Jadi helper di sini TIDAK perlu query DB lagi (tidak ada
- * query ganda); kecuali `getCurrentUser()` yang memang meminta data penuh.
+ * query ganda).
  * Jika refresh gagal, `authorization_verified` bernilai false dan guard role
  * menolak akses (fail-closed).
  *
@@ -23,14 +23,6 @@ import type { Session } from "next-auth";
 import { auth } from "@/auth";
 import { resolveChannel, type Channel } from "@/lib/channel";
 import { HOME_DEFAULT, LOGIN_PATH } from "@/lib/roles";
-import {
-  loadUserSnapshot,
-  loadUserSnapshotByEmail,
-  type UserSnapshot,
-} from "@/lib/user-snapshot";
-
-export { loadUserSnapshot, loadUserSnapshotByEmail };
-export type { UserSnapshot };
 
 /** Tipe `session.user` Karsa (lihat augmentasi di `types/next-auth.d.ts`). */
 export type SessionUser = Session["user"];
@@ -41,24 +33,6 @@ export type SessionUser = Session["user"];
  */
 export async function getSession(): Promise<Session | null> {
   return auth();
-}
-
-/** True bila ada user login (tanpa redirect). */
-export async function isAuthenticated(): Promise<boolean> {
-  const session = await auth();
-  return Boolean(session?.user?.id);
-}
-
-/**
- * Profil lengkap dari DB (nama, email, image, nim, is_admin, kelas_id, is_pj).
- * Mengembalikan `null` bila belum login atau user sudah tidak ada di DB.
- */
-export async function getCurrentUser(): Promise<UserSnapshot | null> {
-  const session = await auth();
-  const userId = session?.user?.id;
-  if (!userId) return null;
-
-  return loadUserSnapshot(userId);
 }
 
 /**

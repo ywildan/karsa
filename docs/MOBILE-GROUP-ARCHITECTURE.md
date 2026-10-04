@@ -97,9 +97,14 @@ Preferensi pengguna untuk menyembunyikan pesan anggota tertentu:
 - `created_at`
 - CHECK konseptual: pengguna tidak boleh memblokir dirinya sendiri
 
-Block hanya memengaruhi penyajian untuk blocker. Karena konteksnya akademik,
-client menampilkan placeholder yang dapat dibuka manual agar informasi penting
-tidak hilang diam-diam.
+Block hanya memengaruhi penyajian untuk blocker. Pada build Flutter saat ini
+`block` bersifat satu arah: bubble pesan terblokir dirender sebagai placeholder
+statis (`group_chat_screen.dart:733`), long-press tidak membuka menu tindakan
+(`_showActions` langsung `return` untuk state non-active), dan tidak ada UI
+untuk membuka/menyembunyikan pesan blokir atau melepas blokir. Endpoint backend
+`DELETE /groups/blocks/{userId}` tersedia dan di- exercised lewat test, tetapi
+belum dipanggil dari client. "Placeholder yang dapat dibuka manual" dipertahan-
+kan sebagai keputusan desain untuk iterasi berikutnya, bukan perilaku saat ini.
 
 ## 3. Kontrak API Mobile
 
@@ -152,8 +157,10 @@ DELETE mengisi `deleted_at` dan `updated_at`, bukan menghapus row.
 
 ### Pin dan lock
 
-- `POST /groups/{assignmentId}/messages/{messageId}/pin`
-- `POST /groups/{assignmentId}/lock`
+- `POST /groups/{assignmentId}/messages/{messageId}/pin` — body `{ pinned: true|false }`
+  (endpoint yang sama dipakai untuk pin dan unpin; state pin juga otomatis lepas
+  setelah 40 × 24 jam dan dibersihkan oleh job retensi).
+- `POST /groups/{assignmentId}/lock` — body `{ locked: true|false }`.
 
 Keduanya memerlukan `actor.id = KelasMatkul.pj_id`. PJ mata kuliah lain menerima
 403 walaupun `capabilities.record_points = true`.
@@ -164,8 +171,13 @@ di atas percakapan untuk semua anggota grup.
 
 ### Hide, report, block
 
-- `POST /groups/{assignmentId}/messages/{messageId}/hide`
-- `POST /groups/{assignmentId}/messages/{messageId}/reports`
+- `POST /groups/{assignmentId}/messages/{messageId}/hide` — body `{ hidden: true|false, reason }`; `reason` wajib saat hidden=true (≤ 120 char).
+- `POST /groups/{assignmentId}/messages/{messageId}/reports` — body `{ reason, details? }`.
+- `GET  /groups/{assignmentId}/reports` — daftar laporan `OPEN` pada pesan milik
+  anggota lain di grup (hanya PJ utama; pesan milik PJ sendiri dikecualikan).
+- `POST /groups/{assignmentId}/reports/{reportId}/resolve` — body `{ action: "DISMISS" | "HIDE" }`.
+  PJ tidak dapat menyelesaikan laporan terhadap pesannya sendiri (403
+  `SELF_MODERATION_FORBIDDEN`).
 - `PUT /groups/blocks/{userId}`
 - `DELETE /groups/blocks/{userId}`
 
@@ -174,20 +186,31 @@ bagi seluruh anggota. Endpoint tidak pernah tersedia di namespace admin/web.
 
 ## 4. Response dan Error Contract
 
-Kode error minimum:
+Kode error yang benar-benar di-emit service/route (lihat
+`lib/services/group-service.ts` dan `app/api/mobile/v1/groups/**`):
 
 | HTTP | Code | Makna |
 |---:|---|---|
 | 400 | `INVALID_INPUT` | Body/query/header tidak valid |
+| 400 | `IDEMPOTENCY_REQUIRED` | Header `Idempotency-Key` hilang atau bukan 16–128 karakter alfanumerik (`[A-Za-z0-9._:-]`) |
 | 401 | `UNAUTHENTICATED` | Bearer session tidak valid |
-| 403 | `GROUP_FORBIDDEN` | Actor bukan anggota kelas |
+| 403 | `GROUP_FORBIDDEN` | Actor admin ATAU tanpa `kelas_id` (fail-closed) |
 | 403 | `GROUP_MANAGER_REQUIRED` | Actor bukan PJ utama grup |
+| 403 | `MESSAGE_FORBIDDEN` | Penulis bukan actor saat edit/hapus pesan |
+| 403 | `SELF_REPORT_FORBIDDEN` | Actor mencoba melaporkan pesan sendiri |
+| 403 | `SELF_MODERATION_FORBIDDEN` | PJ mencoba hide/resolve pada pesannya sendiri |
 | 404 | `GROUP_NOT_FOUND` | Grup tidak ditemukan dalam scope actor |
 | 404 | `MESSAGE_NOT_FOUND` | Pesan tidak ditemukan dalam scope grup |
+| 404 | `REPORT_NOT_FOUND` | Laporan `OPEN` tidak ditemukan dalam grup |
+| 404 | `USER_NOT_FOUND` | Target block tidak ada di kelas actor |
 | 409 | `GROUP_LOCKED` | Grup terkunci untuk anggota biasa |
 | 409 | `EDIT_WINDOW_EXPIRED` | Batas edit 15 menit lewat |
-| 422 | `MESSAGE_REJECTED` | Write gagal aturan domain |
-| 429 | `RATE_LIMITED` | Batas request terlampaui |
+| 409 | `IDEMPOTENCY_CONFLICT` | Kunci idempotensi sudah dipakai di grup berbeda |
+| 409 | `MESSAGE_UNAVAILABLE` | Pesan hidden/deleted tidak dapat diubah |
+| 422 | `MESSAGE_REJECTED` | Write gagal aturan domain (mis. reply lintas grup) |
+| 429 | `RATE_LIMITED` | > 12 pesan/menit per actor |
+| 500 | `INTERNAL_ERROR` | Galat tak terduga (handler `withMobileApiErrors`) |
+| 503 | `DATABASE_UNAVAILABLE` | Koneksi/pool Prisma gagal; menyertakan `Retry-After: 5` |
 
 Error tidak menyertakan query, stack, token, body pesan, atau detail database.
 

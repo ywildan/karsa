@@ -12,7 +12,7 @@
 
 1. **Kode aktual = sumber kebenaran.** Jika dokumen ini bertentangan dengan repo, **kode menang**. Laporkan perbedaan, jangan ikut dokumen buta.
 2. **Jangan overhaul** struktur folder, schema Prisma, atau konfigurasi NextAuth yang sudah jalan tanpa perintah eksplisit.
-3. **Jangan operasi destruktif:** tidak ada `db push`, `migrate`, `seed` ke Neon, `git push`, atau hapus file tanpa perintah.
+3. **Jangan operasi destruktif:** tidak ada `db push`, `migrate`, `seed` ke Supabase, `git push`, atau hapus file tanpa perintah.
 4. **Jangan tampilkan secret** (`.env`, token, connection string) di dokumen/log/jawaban.
 5. **Verifikasi sebelum klaim selesai:** `npx tsc --noEmit` + `npm run lint` + `npm run build`.
 6. **Otorisasi di server.** UI hanya UX, bukan keamanan.
@@ -123,9 +123,9 @@ Styling     : Tailwind CSS + shadcn/ui
 Animasi     : Framer Motion (popup overlay & micro-interaction)
 Notif       : Sonner
 ORM         : Prisma 6
-Database    : PostgreSQL (Neon serverless)
+Database    : PostgreSQL (Supabase)
 Auth        : NextAuth v5 (Google OAuth, JWT)
-Excel       : xlsx
+Excel       : exceljs
 PWA         : manifest + icon (minimal, no offline mode)
 ```
 
@@ -439,7 +439,7 @@ actions/rekap.ts       ❌ ← Fase 5
 | **Fase 4A — Rapor mahasiswa (desktop)** | `BELUM` | — |
 | **Fase 4C — Leaderboard (masked)** | `BELUM` | — |
 | **Fase 5 — Rekap & export admin** | `BELUM` | — |
-| Schema push ke Supabase/Postgres | `SELESAI` | Dikonfirmasi user: Supabase live, 11 tabel. Skema yang sama (`prisma/init.sql`) direplikasi di Postgres lokal saat verifikasi Fase 1. |
+| Schema push ke Supabase/Postgres | `SELESAI` | Dikonfirmasi user: Supabase live. Total 17 model Prisma (11 master + `MobileAuthRequest`, `MobileSession`, `AuditLog` + tiga tabel grup `GroupMessage`, `GroupReport`, `GroupBlock`); skema sumber di `prisma/schema.prisma`, DDL di `prisma/init.sql`, migrasi fitur di `prisma/mobile-native.sql` dan `prisma/mobile-groups.sql`. |
 | Seed di Supabase/Postgres | `SELESAI` | Dikonfirmasi user: 5 test user + data uji lengkap. Idempoten, teruji ulang Fase 1. |
 
 **Label:** `SELESAI` · `SEBAGIAN` · `BELUM` · `BUTUH VERIFIKASI`.
@@ -510,7 +510,7 @@ actions/rekap.ts       ❌ ← Fase 5
 - Audit struktur repo vs §12.
 - Jalankan `tsc`, `lint`, `build`.
 - Cek `.env.example` lengkap.
-- Cek schema Neon sinkron (baca saja).
+- Cek schema Supabase sinkron (baca saja).
 - Cek seed ada.
 
 **Acceptance:**

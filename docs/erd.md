@@ -2,6 +2,12 @@
 
 **Sistem Pencatatan Poin Keaktifan Mahasiswa UNTIDAR**
 
+> **Cakupan diagram §1:** hanya entity akademik inti. Entity tambahan —
+> `VerificationToken`, `MobileAuthRequest`, `MobileSession`, `AuditLog`,
+> dan tiga entity grup chat (`GroupMessage`, `GroupReport`, `GroupBlock`) —
+> tidak digambar tetapi dirinci pada §2 sampai §5 sesuai `prisma/schema.prisma`
+> dan `prisma/mobile-groups.sql`.
+
 ---
 
 ## 1. Entity Relationship Diagram (ERD)
@@ -148,6 +154,8 @@
 | kelas_id | TEXT | FK → Kelas | Class |
 | matkul_id | TEXT | FK → Matkul | Course |
 | pj_id | TEXT | FK → User | Person in charge |
+| group_locked_at | TIMESTAMP | NULLABLE | Lock aktif grup percakapan (mobile-only) |
+| group_locked_by_id | TEXT | FK → User, NULLABLE, SET NULL | PJ yang mengunci grup |
 | created_at | TIMESTAMP | DEFAULT now() | Creation date |
 | updated_at | TIMESTAMP | DEFAULT now(), AUTO UPDATE | Last update |
 
@@ -223,6 +231,84 @@ Indexes: `(kelas_id, created_at DESC)`, `(action, created_at DESC)`,
 | userId | TEXT | FK → User | Linked user |
 | expires | TIMESTAMP | NOT NULL | Expiry |
 
+### VerificationToken
+| Column | Type | Constraint | Description |
+|--------|------|------------|-------------|
+| identifier | TEXT | NOT NULL | Target identifier |
+| token | TEXT | UNIQUE | Verification token |
+| expires | TIMESTAMP | NOT NULL | Expiry |
+| — | — | @@unique([identifier, token]) | Composite uniqueness |
+
+### MobileAuthRequest
+| Column | Type | Constraint | Description |
+|--------|------|------------|-------------|
+| id | TEXT | PRIMARY KEY (cuid) | Request ID |
+| state | TEXT | NOT NULL | CSRF state (OAuth native) |
+| code_challenge | TEXT | NOT NULL | PKCE challenge |
+| redirect_uri | TEXT | NOT NULL | Redirect target (mis. `karsa://auth/callback`) |
+| user_id | TEXT | FK → User, NULLABLE, ON DELETE CASCADE | User setelah consent |
+| code_hash | TEXT | UNIQUE, NULLABLE | Hash authorization code |
+| expires_at | TIMESTAMP | NOT NULL | Kedaluwarsa request |
+| consumed_at | TIMESTAMP | NULLABLE | Saat code ditukar |
+| created_at | TIMESTAMP | DEFAULT now() | Creation date |
+
+### MobileSession
+| Column | Type | Constraint | Description |
+|--------|------|------------|-------------|
+| id | TEXT | PRIMARY KEY (cuid) | Session ID |
+| user_id | TEXT | FK → User, NOT NULL, ON DELETE CASCADE | Pemilik sesi |
+| access_token_hash | TEXT | UNIQUE | SHA-256 access token (raw token tidak disimpan) |
+| refresh_token_hash | TEXT | UNIQUE | SHA-256 refresh token |
+| access_expires_at | TIMESTAMP | NOT NULL | 15 menit sejak issued |
+| refresh_expires_at | TIMESTAMP | NOT NULL | 30 hari sejak issued |
+| revoked_at | TIMESTAMP | NULLABLE | Set oleh logout/revoke server-side |
+| last_used_at | TIMESTAMP | DEFAULT now() | Probe aktivitas |
+| device_name | TEXT | NULLABLE | Label perangkat |
+| created_at | TIMESTAMP | DEFAULT now() | Creation date |
+| updated_at | TIMESTAMP | DEFAULT now(), AUTO UPDATE | Last update |
+
+### GroupMessage
+| Column | Type | Constraint | Description |
+|--------|------|------------|-------------|
+| id | TEXT | PRIMARY KEY (cuid) | Message ID |
+| kelas_matkul_id | TEXT | FK → KelasMatkul, ON DELETE CASCADE | Grup sumber |
+| author_id | TEXT | FK → User, ON DELETE RESTRICT | Penulis |
+| reply_to_id | TEXT | FK → GroupMessage, NULLABLE, ON DELETE SET NULL | Pesan yang dibalas |
+| body | TEXT | NULLABLE hanya setelah purge retensi; CHECK `char_length(btrim) BETWEEN 1 AND 2000` ATAU (`NULL` DAN `deleted_at/hidden_at NOT NULL`) | Isi pesan |
+| idempotency_key | TEXT | UNIQUE, NOT NULL | Format `{actor_id}:{client_key}` (16–128 karakter dari header) |
+| edited_at | TIMESTAMP | NULLABLE | Penanda edit |
+| deleted_at | TIMESTAMP | NULLABLE | Soft delete oleh penulis |
+| hidden_at | TIMESTAMP | NULLABLE | Disembunyikan PJ atau auto-hide |
+| hidden_by_id | TEXT | FK → User, NULLABLE, ON DELETE SET NULL | PJ yang menyembunyikan |
+| hidden_reason | TEXT | NULLABLE; CHECK 1–120 karakter | Alasan hide |
+| pinned_at | TIMESTAMP | NULLABLE | Pin kedaluwarsa otomatis 40×24 jam |
+| pinned_by_id | TEXT | FK → User, NULLABLE, ON DELETE SET NULL | PJ yang mem-pin |
+| created_at | TIMESTAMP | DEFAULT now() | Urutan pesan |
+| updated_at | TIMESTAMP | DEFAULT now(), AUTO UPDATE | Sinkronisasi edit/delete/moderasi |
+
+### GroupReport
+| Column | Type | Constraint | Description |
+|--------|------|------------|-------------|
+| id | TEXT | PRIMARY KEY (cuid) | Report ID |
+| message_id | TEXT | FK → GroupMessage, ON DELETE CASCADE | Pesan yang dilaporkan |
+| reporter_id | TEXT | FK → User, ON DELETE RESTRICT | Pelapor |
+| reason | TEXT | CHECK IN ('SPAM','HARASSMENT','INAPPROPRIATE','MISINFORMATION','OTHER') | Alasan allowlist |
+| details | TEXT | NULLABLE; CHECK ≤ 500 karakter | Detail opsional |
+| status | TEXT | DEFAULT 'OPEN'; CHECK IN ('OPEN','DISMISSED','ACTIONED') | Status laporan |
+| resolved_at | TIMESTAMP | NULLABLE | Waktu resolusi |
+| resolved_by_id | TEXT | FK → User, NULLABLE, ON DELETE SET NULL | PJ penyelesai |
+| created_at | TIMESTAMP | DEFAULT now() | Creation date |
+| updated_at | TIMESTAMP | DEFAULT now(), AUTO UPDATE | Last update |
+
+### GroupBlock
+| Column | Type | Constraint | Description |
+|--------|------|------------|-------------|
+| blocker_id | TEXT | FK → User, ON DELETE CASCADE | Pemilik preferensi |
+| blocked_id | TEXT | FK → User, ON DELETE CASCADE | Target blokir |
+| created_at | TIMESTAMP | DEFAULT now() | Creation date |
+| — | — | PRIMARY KEY (blocker_id, blocked_id) | Kunci komposit |
+| — | — | CHECK `blocker_id <> blocked_id` | Tidak boleh self-block |
+
 ---
 
 ## 3. Relationships
@@ -241,6 +327,19 @@ Indexes: `(kelas_id, created_at DESC)`, `(action, created_at DESC)`,
 | Matkul | KelasMatkul | 1:N | RESTRICT | @relation |
 | KelasMatkul | PoinLog | 1:N | CASCADE | @relation |
 | KategoriPoin | PoinLog | 1:N | RESTRICT | @relation |
+| User | MobileAuthRequest | 1:N | CASCADE | @relation |
+| User | MobileSession | 1:N | CASCADE | @relation |
+| User | KelasMatkul (group locker) | 1:N | SET NULL | @relation("KelasMatkulGroupLocker") |
+| KelasMatkul | GroupMessage | 1:N | CASCADE | @relation |
+| User | GroupMessage (author) | 1:N | RESTRICT | @relation("GroupMessageAuthor") |
+| GroupMessage | GroupMessage (replies) | 1:N | SET NULL | @relation("GroupMessageReplies") |
+| User | GroupMessage (hiddenBy) | 1:N | SET NULL | @relation("GroupMessageHiddenBy") |
+| User | GroupMessage (pinnedBy) | 1:N | SET NULL | @relation("GroupMessagePinnedBy") |
+| GroupMessage | GroupReport | 1:N | CASCADE | @relation |
+| User | GroupReport (reporter) | 1:N | RESTRICT | @relation("GroupReportReporter") |
+| User | GroupReport (resolvedBy) | 1:N | SET NULL | @relation("GroupReportResolver") |
+| User | GroupBlock (blocker) | 1:N | CASCADE | @relation("GroupBlocker") |
+| User | GroupBlock (blocked) | 1:N | CASCADE | @relation("GroupBlocked") |
 
 ---
 
@@ -266,6 +365,25 @@ Indexes: `(kelas_id, created_at DESC)`, `(action, created_at DESC)`,
 | PoinLog | @@index | created_at | Fast sort by date |
 | PoinLog | @@index | kelas_matkul_id, mahasiswa_id | Fast class+student lookup |
 | Semester | @@unique (partial) | is_active WHERE is_active=true | Max 1 active semester |
+| KelasMatkul | @@index | group_locked_by_id | Fast lookup pengunci grup |
+| GroupMessage | @@index | kelas_matkul_id, created_at DESC, id DESC | Cursor utama timeline grup |
+| GroupMessage | @@index | kelas_matkul_id, updated_at DESC | Sinkronisasi delta |
+| GroupMessage | @@index | author_id | Lookup pesan penulis |
+| GroupMessage | @@index | reply_to_id | Lookup balasan |
+| GroupMessage | @@index | kelas_matkul_id, pinned_at DESC | Strip pesan tersemat |
+| GroupMessage | @unique | idempotency_key | Dedup write |
+| GroupReport | @@unique | message_id, reporter_id | Satu laporan per pengguna per pesan |
+| GroupReport | @@index | message_id, status | Hitung laporan OPEN (auto-hide) |
+| GroupReport | @@index | reporter_id, created_at DESC | Riwayat laporan pengguna |
+| GroupReport | @@index | resolved_by_id | Audit resolusi |
+| GroupBlock | @@index | blocked_id | Lookup daftar pem-blokir |
+| MobileAuthRequest | @@index | expires_at | Retensi request kadaluarsa |
+| MobileAuthRequest | @@index | user_id | Lookup per user |
+| MobileAuthRequest | @unique | code_hash | Anti-replay |
+| MobileSession | @unique | access_token_hash | Lookup bearer |
+| MobileSession | @unique | refresh_token_hash | Lookup refresh |
+| MobileSession | @@index | user_id, revoked_at | Revocation check |
+| MobileSession | @@index | refresh_expires_at | Retensi sesi |
 
 ---
 
@@ -288,6 +406,14 @@ Indexes: `(kelas_id, created_at DESC)`, `(action, created_at DESC)`,
 | PoinLog_poin_check | PoinLog | poin BETWEEN 1 AND 4 |
 | Semester_rentang_check | Semester | end_date > start_date |
 | Semester_satu_aktif_key | Semester | Only 1 active semester |
+| GroupMessage_body_check | GroupMessage | body bukan-NULL 1–2000 char ATAU NULL dengan deleted_at/hidden_at terisi |
+| GroupMessage_hidden_reason_check | GroupMessage | hidden_reason NULL ATAU 1–120 char setelah trim |
+| GroupMessage_idempotency_key_key | GroupMessage | idempotency_key unique |
+| GroupReport_reason_check | GroupReport | reason ∈ allowlist |
+| GroupReport_details_check | GroupReport | details NULL ATAU ≤ 500 char |
+| GroupReport_status_check | GroupReport | status ∈ {OPEN, DISMISSED, ACTIONED} |
+| GroupReport_message_id_reporter_id_key | GroupReport | Satu laporan per reporter per message |
+| GroupBlock_not_self_check | GroupBlock | blocker_id ≠ blocked_id |
 
 ---
 

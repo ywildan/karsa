@@ -4,16 +4,13 @@
  * Logika peran & home channel (PRD §6, §7).
  *
  * Modul ini SENGAJA murni — tanpa Prisma, tanpa `next-auth`, tanpa DOM — karena
- * dipakai di tiga runtime sekaligus:
+ * dipakai di dua runtime:
  *   · `auth.config.ts` → dipakai `middleware.ts` (Edge Runtime, tidak boleh
  *     menyentuh Prisma)
  *   · `lib/auth-helpers.ts` → Server Component / Server Action (Node runtime)
- *   · komponen UI (label peran)
  */
 
 import { DESKTOP_HOME, MOBILE_HOME, type Channel } from "@/lib/channel";
-
-export type Role = "admin" | "pj" | "mahasiswa" | "tanpa_kelas";
 
 /** Klaim minimum untuk menentukan peran & home channel. */
 export interface RoleClaims {
@@ -74,33 +71,4 @@ export function homePathForUser(
     return MOBILE_HOME;
   }
   return HOME_DEFAULT;
-}
-
-/**
- * Prioritas peran untuk label UI (PRD §6): admin > PJ > mahasiswa > tanpa kelas.
- * Catatan: Budi adalah PJ **sekaligus** mahasiswa, jadi `is_pj` menang.
- *
- * Ini HANYA untuk label. Untuk otorisasi & routing, `is_admin` dan `is_pj`
- * dipakai terpisah — sejak Fase 3A admin boleh merangkap PJ, jadi dua klaim
- * itu tidak saling meniadakan (lihat `homePathForUser`).
- */
-export function roleOf(claims: RoleClaims | null | undefined): Role {
-  if (claims?.is_admin) return "admin";
-  if (claims?.is_pj) return "pj";
-  if (claims?.kelas_id) return "mahasiswa";
-  return "tanpa_kelas";
-}
-
-/** Label peran siap tampil. Admin yang merangkap PJ ditulis "Admin · PJ". */
-export function roleLabel(claims: RoleClaims | null | undefined): string {
-  switch (roleOf(claims)) {
-    case "admin":
-      return claims?.is_pj ? "Admin · PJ" : "Admin";
-    case "pj":
-      return "PJ (Penanggung Jawab)";
-    case "mahasiswa":
-      return "Mahasiswa";
-    default:
-      return "Belum ada kelas";
-  }
 }

@@ -30,6 +30,19 @@ Backup mencakup seluruh objek dan data aplikasi di schema `public`, termasuk:
 - konfigurasi RLS;
 - 26 policy `karsa_runtime`.
 
+Angka 17 RLS dan 26 policy adalah keadaan production saat ini, bukan hasil yang
+direproduksi dari SQL di repository. `prisma/mobile-groups.sql` hanya
+mendefinisikan 9 policy runtime dan mengaktifkan RLS pada 3 tabel grup,
+`prisma/init.sql` menambahkan toggle RLS untuk `AuditLog`, dan
+`prisma/mobile-native.sql` tidak memuat RLS/policy untuk `MobileAuthRequest`
+maupun `MobileSession`. Sisanya — 13 toggle RLS dan 17 policy pre-group —
+diterapkan manual melalui Supabase SQL Editor sebagaimana dicatat di
+`docs/SECURITY-HARDENING-LOG.md` Step 3 dan belum dikodifikasi menjadi migrasi
+idempotent. Konsekuensinya, membangun database baru dari file SQL repo saja
+tidak akan memenuhi assertion `17|17|26` pada workflow **Verify Database
+Restore**; hanya restore dari artifact backup logis yang memulihkan keadaan
+tersebut secara utuh.
+
 Backup tidak mencakup schema internal Supabase seperti `auth`, `storage`, dan
 `realtime`. Karsa saat ini memakai tabel autentikasi aplikasinya sendiri di
 `public`. Jika aplikasi kelak memakai Supabase Auth atau Storage, strategi

@@ -1,0 +1,391 @@
+<!doctype html>
+<html lang="id">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#fbf7f2">
+  <title>Demo Input Poin — Karsa Mobile</title>
+  <style>
+    :root {
+      --orange: #cf6a12;
+      --orange-dark: #a94e0b;
+      --orange-soft: #fff0e1;
+      --ink: #302820;
+      --muted: #776b61;
+      --line: #eadfd4;
+      --paper: #fffdfa;
+      --ease-out: cubic-bezier(.23, 1, .32, 1);
+      --ease-in-out: cubic-bezier(.77, 0, .175, 1);
+      color-scheme: light;
+    }
+    * { box-sizing: border-box; }
+    [hidden] { display: none !important; }
+    html { background: #f4eee7; }
+    body { margin: 0; color: var(--ink); font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; }
+    button, input, select, textarea { font: inherit; }
+    button { cursor: pointer; }
+    button:disabled { cursor: not-allowed; }
+    :focus-visible { outline: 3px solid #edab6d; outline-offset: 3px; }
+    .layout { min-height: 100svh; display: grid; grid-template-columns: minmax(310px, .8fr) minmax(390px, 1fr); align-items: center; gap: clamp(30px, 6vw, 112px); max-width: 1180px; margin: auto; padding: 42px clamp(24px, 5vw, 70px); }
+    .brief { max-width: 460px; align-self: center; }
+    .eyebrow { display: inline-flex; align-items: center; gap: 8px; color: var(--orange-dark); font-size: 11px; font-weight: 800; letter-spacing: .14em; text-transform: uppercase; }
+    .eyebrow::before { content: ""; width: 7px; height: 7px; border-radius: 50%; background: var(--orange); }
+    .brief h1 { margin: 18px 0 18px; font-family: Georgia, "Times New Roman", serif; font-size: clamp(43px, 5vw, 70px); line-height: 1.04; font-weight: 500; letter-spacing: -.055em; }
+    .brief h1 em { color: var(--orange); font-style: normal; }
+    .intro { margin: 0; max-width: 420px; color: var(--muted); font-size: 16px; line-height: 1.7; }
+    .steps { margin: 34px 0 0; padding: 0; list-style: none; border-top: 1px solid #dacbc0; }
+    .steps li { display: flex; align-items: center; gap: 16px; min-height: 64px; border-bottom: 1px solid #dacbc0; color: #92877d; transition: color 150ms ease; }
+    .steps li.active { color: var(--orange-dark); font-weight: 700; }
+    .steps li.done { color: var(--ink); }
+    .step-number { width: 25px; font-size: 11px; font-weight: 800; letter-spacing: .05em; }
+    .step-done { margin-left: auto; color: var(--orange); font-size: 16px; opacity: 0; }
+    .steps li.done .step-done { opacity: 1; }
+    .demo-note { display: flex; align-items: flex-start; gap: 10px; margin-top: 27px; color: #786a5f; font-size: 12px; line-height: 1.6; }
+    .demo-note svg { flex: none; margin-top: 2px; }
+    .phone-wrap { justify-self: center; width: min(100%, 440px); }
+    .phone { position: relative; width: 100%; height: min(840px, calc(100svh - 40px)); min-height: 690px; overflow: hidden; border: 9px solid #282522; border-radius: 47px; background: #fffaf5; box-shadow: 0 35px 90px rgba(53, 31, 11, .18), 0 8px 24px rgba(53, 31, 11, .11); display: flex; flex-direction: column; }
+    .phone::before { content: ""; position: absolute; top: 10px; left: 50%; z-index: 3; width: 100px; height: 20px; transform: translateX(-50%); border-radius: 20px; background: #282522; }
+    .app-top { flex: none; position: relative; z-index: 2; display: flex; justify-content: space-between; align-items: flex-end; min-height: 105px; padding: 40px 22px 17px; border-bottom: 1px solid #eee4db; background: rgba(255, 250, 245, .94); }
+    .app-brand { display: flex; align-items: center; gap: 10px; }
+    .brand-mark { display: grid; place-items: center; width: 35px; height: 35px; border-radius: 11px; background: var(--orange); color: white; font-family: Georgia, serif; font-size: 24px; }
+    .app-name { display: block; font-size: 19px; font-weight: 800; letter-spacing: -.04em; }
+    .app-sub { display: block; margin-top: 1px; color: var(--muted); font-size: 11px; }
+    .demo-pill { padding: 6px 9px; border: 1px solid #f1d4b7; border-radius: 7px; color: var(--orange-dark); font-size: 10px; font-weight: 800; letter-spacing: .07em; }
+    .app-body { flex: 1; min-height: 0; overflow: auto; overscroll-behavior: contain; display: flex; flex-direction: column; padding-block: 12px; scrollbar-width: thin; scrollbar-color: #dec7b2 transparent; }
+    .form-card { position: relative; flex: none; width: calc(100% - 32px); height: auto; margin: auto 16px; overflow: hidden; border: 1px solid #e9ded3; border-radius: 24px; background: var(--paper); box-shadow: 0 13px 38px rgba(77, 52, 27, .10); transition: height 200ms var(--ease-out), box-shadow 160ms ease; }
+    .card-content { padding: 22px 21px 23px; }
+    .card-head { display: flex; align-items: flex-start; gap: 12px; margin-bottom: 20px; }
+    .head-icon { display: grid; place-items: center; flex: none; width: 39px; height: 39px; border-radius: 12px; color: var(--orange); background: var(--orange-soft); }
+    .card-head h2 { margin: 0; font-size: 19px; line-height: 1.25; letter-spacing: -.03em; }
+    .card-head p { margin: 5px 0 0; color: var(--muted); font-size: 12px; line-height: 1.4; }
+    .form-card.has-student .field-hint { display: none; }
+    .reset { margin-left: auto; border: 0; background: transparent; color: var(--orange-dark); font-size: 12px; font-weight: 700; padding: 4px 0 8px 8px; }
+    .field-label { display: block; margin-bottom: 8px; font-size: 12px; font-weight: 800; }
+    .field-hint { margin: 7px 0 0; color: var(--muted); font-size: 11px; line-height: 1.45; }
+    .select-wrap { position: relative; }
+    .select-wrap::after { content: "⌄"; position: absolute; top: 11px; right: 15px; color: #846d5a; font-size: 20px; pointer-events: none; }
+    select, .search-input, textarea { width: 100%; border: 1px solid #dfd2c7; border-radius: 12px; outline: none; background: #fff; color: var(--ink); transition: border-color 150ms ease, box-shadow 150ms ease; }
+    select { height: 47px; appearance: none; padding: 0 39px 0 13px; font-size: 13px; }
+    .search-input { height: 45px; padding: 0 12px 0 40px; font-size: 13px; }
+    select:focus, .search-input:focus, textarea:focus { border-color: var(--orange); box-shadow: 0 0 0 3px #f7d9be; }
+    .section { margin-top: 19px; padding-top: 18px; border-top: 1px solid #eee5dc; }
+    .section-enter { opacity: 0; transform: translateY(8px); transition: opacity 200ms var(--ease-out), transform 200ms var(--ease-out); }
+    .section-enter.visible { opacity: 1; transform: translateY(0); }
+    .section-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 9px; }
+    .section-header .field-label { margin: 0; }
+    .mini-step { color: var(--orange); font-size: 10px; font-weight: 800; letter-spacing: .08em; text-transform: uppercase; }
+    .search-wrap { position: relative; }
+    .search-wrap svg { position: absolute; top: 13px; left: 13px; color: #8c7e71; pointer-events: none; }
+    .results { height: 106px; margin-top: 8px; overflow: auto; border: 1px solid #eee4da; border-radius: 11px; background: #fff; scrollbar-width: thin; }
+    .student-option { width: 100%; display: flex; align-items: center; gap: 9px; min-height: 50px; padding: 7px 10px; border: 0; border-bottom: 1px solid #f4eee8; background: transparent; color: var(--ink); text-align: left; }
+    .student-option:last-child { border-bottom: 0; }
+    .student-option.selected { background: #fff3e7; }
+    .student-option svg { margin-left: auto; color: var(--orange); flex: none; }
+    .avatar { flex: none; display: grid; place-items: center; width: 29px; height: 29px; border-radius: 50%; background: #f1e7de; color: #805639; font-size: 10px; font-weight: 800; }
+    .student-option.selected .avatar { background: #f7d6b6; }
+    .student-copy { min-width: 0; display: grid; gap: 2px; }
+    .student-copy strong { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 11px; }
+    .student-copy small { color: var(--muted); font-size: 10px; }
+    .empty-result { display: grid; place-items: center; height: 100%; padding: 10px; color: var(--muted); text-align: center; font-size: 11px; }
+    .selected-student { display: flex; align-items: center; gap: 9px; min-width: 0; padding: 9px 10px; border-radius: 10px; background: var(--orange-soft); color: #79502e; font-size: 11px; }
+    .selected-student .avatar { background: #f7d6b6; }
+    .selected-student .student-copy { flex: 1; }
+    .change-student { flex: none; padding: 5px 0 5px 8px; border: 0; background: transparent; color: var(--orange-dark); font-size: 11px; font-weight: 800; }
+    .two-columns { display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: end; gap: 13px; }
+    .point-row { display: flex; gap: 6px; }
+    .point-choice { width: 38px; height: 45px; border: 1px solid #dfd2c7; border-radius: 10px; background: #fff; color: var(--ink); font-size: 13px; font-weight: 800; transition: background-color 120ms ease, color 120ms ease, border-color 120ms ease; }
+    .point-choice[aria-pressed="true"] { border-color: var(--orange); background: var(--orange); color: white; }
+    .notes-toggle { display: flex; align-items: center; gap: 5px; width: 100%; min-height: 35px; margin-top: 12px; padding: 0; border: 0; background: transparent; color: var(--orange-dark); text-align: left; font-size: 12px; font-weight: 700; }
+    .notes-toggle .chevron { margin-left: auto; transition: transform 200ms var(--ease-out); }
+    .notes-toggle[aria-expanded="true"] .chevron { transform: rotate(180deg); }
+    .notes-field { margin-top: 5px; }
+    textarea { min-height: 88px; resize: vertical; padding: 11px 12px; font-size: 12px; line-height: 1.5; }
+    .action-bar { flex: none; position: relative; z-index: 2; padding: 11px 16px 9px; border-top: 1px solid #eee4db; background: rgba(255, 253, 250, .97); box-shadow: 0 -8px 20px rgba(77, 52, 27, .05); }
+    .submit { display: flex; align-items: center; justify-content: center; gap: 8px; width: 100%; min-height: 49px; margin: 0; padding: 11px 16px; border: 0; border-radius: 12px; background: var(--orange); color: white; font-size: 13px; font-weight: 800; transition: background-color 150ms ease, transform 120ms ease; }
+    .submit:disabled { background: #e6c9b1; }
+    .submit-feedback { min-height: 14px; margin: 5px 0 0; color: #9d311e; text-align: center; font-size: 11px; line-height: 1.3; }
+    .app-bottom { flex: none; display: flex; justify-content: space-around; min-height: 69px; padding: 9px 7px 7px; border-top: 1px solid #eee4db; background: white; }
+    .tab { display: grid; justify-items: center; gap: 3px; min-width: 68px; color: #9b8b7e; font-size: 10px; font-weight: 600; }
+    .tab svg { width: 19px; height: 19px; }
+    .tab.active { color: var(--orange); }
+    .toast { position: absolute; z-index: 5; left: 16px; right: 16px; bottom: 81px; padding: 13px 15px; border-radius: 13px; background: #302820; color: white; font-size: 12px; line-height: 1.5; box-shadow: 0 12px 24px #30282030; opacity: 0; transform: translateY(10px); pointer-events: none; transition: opacity 200ms var(--ease-out), transform 200ms var(--ease-out); }
+    .phone.has-action .toast { bottom: 178px; }
+    .toast.show { opacity: 1; transform: translateY(0); }
+    @media (hover: hover) and (pointer: fine) {
+      .reset:hover, .notes-toggle:hover, .change-student:hover { color: #763707; }
+      .student-option:hover { background: #fff8f1; }
+      .student-option.selected:hover { background: #fff0e0; }
+      .point-choice:hover:not([aria-pressed="true"]) { border-color: var(--orange); }
+      .submit:hover:not(:disabled) { background: var(--orange-dark); }
+    }
+    .submit:active:not(:disabled) { transform: scale(.98); }
+    @media (max-width: 800px) {
+      html, body { background: #fffaf5; }
+      .layout { display: block; padding: 0; }
+      .brief { display: none; }
+      .phone-wrap { width: 100%; }
+      .phone { width: 100%; height: 100dvh; min-height: 0; border: 0; border-radius: 0; box-shadow: none; }
+      .phone::before { display: none; }
+      .app-top { min-height: 77px; padding-top: 17px; }
+      .app-bottom { padding-bottom: max(7px, env(safe-area-inset-bottom)); }
+    }
+    @media (max-width: 390px) {
+      .two-columns { grid-template-columns: 1fr; }
+    }
+    @media (prefers-reduced-motion: reduce) {
+      .form-card { transition: none; }
+      .section-enter { transform: none; transition: opacity 120ms ease; }
+      .notes-toggle .chevron { transition: none; }
+      .toast { transform: none; transition: opacity 120ms ease; }
+      .steps li, .point-choice, .submit, select, .search-input, textarea { transition-duration: 0ms; }
+    }
+  </style>
+</head>
+<body>
+  <main class="layout">
+    <aside class="brief" aria-label="Penjelasan demo">
+      <span class="eyebrow">Karsa Mobile / Demo interaksi</span>
+      <h1>Satu card,<br><em>mengikuti alurmu.</em></h1>
+      <p class="intro">Pilih mata kuliah lebih dulu. Form akan membuka langkah berikutnya dan tetap berada di tengah layar selama ukurannya masih muat.</p>
+      <ol class="steps" id="steps">
+        <li class="active"><span class="step-number">01</span><span>Pilih mata kuliah</span><span class="step-done" aria-hidden="true">✓</span></li>
+        <li><span class="step-number">02</span><span>Cari dan pilih mahasiswa</span><span class="step-done" aria-hidden="true">✓</span></li>
+        <li><span class="step-number">03</span><span>Isi kategori dan poin</span><span class="step-done" aria-hidden="true">✓</span></li>
+        <li><span class="step-number">04</span><span>Catatan opsional, lalu simpan</span><span class="step-done" aria-hidden="true">✓</span></li>
+      </ol>
+      <p class="demo-note"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M12 11v5m0-8h.01"/></svg>Ini demo tampilan. Tombol simpan menampilkan contoh konfirmasi dan tidak mengirim data ke Karsa.</p>
+    </aside>
+    <div class="phone-wrap">
+      <section class="phone" aria-label="Demo layar Input Poin Karsa Mobile">
+        <header class="app-top">
+          <div class="app-brand"><span class="brand-mark" aria-hidden="true">k</span><span><strong class="app-name">Input poin</strong><small class="app-sub">Catat kontribusi mahasiswa</small></span></div>
+          <span class="demo-pill">PJ KELAS</span>
+        </header>
+        <div class="app-body" id="appBody">
+          <div class="form-card" id="formCard">
+            <div class="card-content" id="cardContent">
+              <div class="card-head"><div class="head-icon" aria-hidden="true">✦</div><div><h2>Pilih mata kuliah</h2><p>Mulai dari kelas yang kamu ampu.</p></div><button type="button" class="reset" id="reset" hidden>Ulangi</button></div>
+              <label class="field-label" for="course">Mata kuliah</label>
+              <div class="select-wrap"><select id="course"><option value="">Pilih mata kuliah</option><option value="akuntansi">Akuntansi Dasar · 1A</option><option value="perpajakan">Pengantar Perpajakan · 2B</option><option value="manajemen">Manajemen Keuangan · 3A</option></select></div>
+              <p class="field-hint">Setelah memilih, pencarian mahasiswa akan terbuka.</p>
+              <div id="progressive"></div>
+            </div>
+          </div>
+        </div>
+        <div class="action-bar" id="actionBar" hidden>
+          <button type="button" class="submit" id="submit" disabled><span aria-hidden="true">✓</span> Input poin</button>
+          <p class="submit-feedback" id="submitFeedback" aria-live="polite">Pilih kategori sebelum menyimpan poin.</p>
+        </div>
+        <nav class="app-bottom" aria-label="Navigasi contoh">
+          <span class="tab"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><path d="M4 11.5 12 5l8 6.5V20H4z"/></svg>Karsa Lib</span>
+          <span class="tab"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><path d="M4 5h16v12H8l-4 3z"/></svg>Grup</span>
+          <span class="tab active" aria-current="page"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M12 7v10m-5-5h10"/></svg>Input poin</span>
+          <span class="tab"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><circle cx="12" cy="8" r="3"/><path d="M5 20c.5-4 3-6 7-6s6.5 2 7 6"/></svg>Akun</span>
+        </nav>
+        <div class="toast" id="toast" role="status" aria-live="polite"></div>
+      </section>
+    </div>
+  </main>
+  <script>
+    const catalog = {
+      akuntansi: [
+        { id: "2601060068", name: "Nadia Putri Ramadhani" },
+        { id: "2601060023", name: "Rizky Aditya Pratama" },
+        { id: "2601060041", name: "Alya Safira" },
+        { id: "2601060072", name: "Dimas Fadhil" }
+      ],
+      perpajakan: [
+        { id: "2520106041", name: "Fira Zahra" },
+        { id: "2520106042", name: "Raka Aditya" },
+        { id: "2520106077", name: "Tasya Maharani" }
+      ],
+      manajemen: [
+        { id: "2420106012", name: "Dewi Anggraini" },
+        { id: "2420106038", name: "Fahri Maulana" },
+        { id: "2420106051", name: "Salma Nabila" }
+      ]
+    };
+    const state = { course: "", student: null, query: "", category: "", points: 1, notesOpen: false, note: "" };
+    const card = document.getElementById("formCard");
+    const phone = document.querySelector(".phone");
+    const content = document.getElementById("cardContent");
+    const progressive = document.getElementById("progressive");
+    const course = document.getElementById("course");
+    const reset = document.getElementById("reset");
+    const actionBar = document.getElementById("actionBar");
+    const submit = document.getElementById("submit");
+    const submitFeedback = document.getElementById("submitFeedback");
+    const toast = document.getElementById("toast");
+    const reduceMotion = matchMedia("(prefers-reduced-motion: reduce)");
+    let toastTimer;
+
+    function escapeHtml(value) {
+      return String(value).replace(/[&<>"']/g, (character) => ({
+        "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;"
+      })[character]);
+    }
+    function initials(name) {
+      return name.split(" ").slice(0, 2).map((part) => part[0]).join("").toUpperCase();
+    }
+    function setCardHeight(instant = false) {
+      if (instant || reduceMotion.matches) card.style.transitionDuration = "0ms";
+      card.style.height = content.scrollHeight + "px";
+      if (instant || reduceMotion.matches) requestAnimationFrame(() => { card.style.transitionDuration = ""; });
+    }
+    new ResizeObserver(() => setCardHeight()).observe(content);
+    function updateSteps() {
+      const level = state.course ? (state.student ? (state.category ? 3 : 2) : 1) : 0;
+      document.querySelectorAll("#steps li").forEach((item, index) => {
+        item.classList.toggle("active", index === level);
+        item.classList.toggle("done", index < level);
+      });
+    }
+    function showToast(message) {
+      toast.textContent = message;
+      toast.classList.add("show");
+      clearTimeout(toastTimer);
+      toastTimer = setTimeout(() => toast.classList.remove("show"), 3200);
+    }
+    function studentRow(student) {
+      const selected = state.student?.id === student.id;
+      return '<button type="button" class="student-option' + (selected ? ' selected' : '') +
+        '" data-student="' + student.id + '" aria-pressed="' + selected + '">' +
+        '<span class="avatar">' + initials(student.name) + '</span><span class="student-copy"><strong>' +
+        escapeHtml(student.name) + '</strong><small>' + student.id + '</small></span>' +
+        (selected ? '<svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="m5 12 4 4L19 6"/></svg>' : '') + '</button>';
+    }
+    function renderResults(query = "") {
+      const list = document.getElementById("results");
+      if (!list) return;
+      const term = query.trim().toLocaleLowerCase("id-ID");
+      const matches = catalog[state.course].filter((student) =>
+        student.name.toLocaleLowerCase("id-ID").includes(term) || student.id.endsWith(term) || student.id.includes(term)
+      );
+      list.innerHTML = matches.length ? matches.map(studentRow).join("") : '<div class="empty-result">Mahasiswa tidak ditemukan. Coba nama atau akhir NIM.</div>';
+    }
+    function revealSections() {
+      requestAnimationFrame(() => requestAnimationFrame(() => {
+        progressive.querySelectorAll(".section-enter").forEach((node) => node.classList.add("visible"));
+      }));
+    }
+    function render() {
+      const search = state.course && !state.student ? `
+        <div class="section section-enter">
+          <div class="section-header"><label class="field-label" for="studentSearch">Cari mahasiswa</label><span class="mini-step">02 / MAHASISWA</span></div>
+          <div class="search-wrap">
+            <svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><circle cx="10.8" cy="10.8" r="6.7"/><path d="m16 16 5 5"/></svg>
+            <input class="search-input" id="studentSearch" type="search" inputmode="search" autocomplete="off" placeholder="Nama atau akhir NIM" aria-controls="results" value="${escapeHtml(state.query)}">
+          </div>
+          <div class="results" id="results" aria-label="Hasil pencarian mahasiswa"></div>
+        </div>` : state.student ? `
+        <div class="section section-enter">
+          <div class="section-header"><span class="field-label">Mahasiswa terpilih</span><span class="mini-step">02 / MAHASISWA</span></div>
+          <div class="selected-student"><span class="avatar" aria-hidden="true">${initials(state.student.name)}</span><span class="student-copy"><strong>${escapeHtml(state.student.name)}</strong><small>${state.student.id}</small></span><button type="button" class="change-student" id="changeStudent">Ganti</button></div>
+        </div>` : "";
+      const details = state.student ? `
+        <div class="section section-enter">
+          <div class="section-header"><span class="field-label">Input poin</span><span class="mini-step">03 / KONTRIBUSI</span></div>
+          <div class="two-columns">
+            <div><label class="field-label" for="category">Kategori</label><div class="select-wrap"><select id="category"><option value="">Pilih kategori</option><option value="Bertanya" ${state.category === "Bertanya" ? "selected" : ""}>Bertanya</option><option value="Menjawab" ${state.category === "Menjawab" ? "selected" : ""}>Menjawab</option><option value="Diskusi" ${state.category === "Diskusi" ? "selected" : ""}>Diskusi</option></select></div></div>
+            <div><span class="field-label">Jumlah poin</span><div class="point-row" role="group" aria-label="Jumlah poin">${[1, 2, 3, 4].map((value) => `<button type="button" class="point-choice" data-points="${value}" aria-pressed="${state.points === value}">${value}</button>`).join("")}</div></div>
+          </div>
+          <button type="button" class="notes-toggle" id="notesToggle" aria-expanded="${state.notesOpen}" aria-controls="notesField"><span aria-hidden="true">＋</span> Catatan (opsional) <span class="chevron" aria-hidden="true">⌄</span></button>
+          ${state.notesOpen ? `<div class="notes-field section-enter" id="notesField"><label class="field-label" for="note">Catatan singkat</label><textarea id="note" maxlength="500" placeholder="Contoh: menjelaskan materi di depan kelas...">${escapeHtml(state.note)}</textarea></div>` : ""}
+        </div>` : "";
+      progressive.innerHTML = search + details;
+      reset.hidden = !state.course;
+      card.classList.toggle("has-student", !!state.student);
+      actionBar.hidden = !state.student;
+      phone.classList.toggle("has-action", !!state.student);
+      submit.disabled = !state.category;
+      submitFeedback.textContent = state.category ? "" : "Pilih kategori sebelum menyimpan poin.";
+      if (state.course) renderResults(state.query);
+      updateSteps();
+      revealSections();
+      setCardHeight();
+    }
+    course.addEventListener("change", () => {
+      state.course = course.value;
+      state.student = null;
+      state.query = "";
+      state.category = "";
+      state.points = 1;
+      state.note = "";
+      state.notesOpen = false;
+      render();
+    });
+    reset.addEventListener("click", () => {
+      course.value = "";
+      state.course = "";
+      state.student = null;
+      state.query = "";
+      state.category = "";
+      state.points = 1;
+      state.note = "";
+      state.notesOpen = false;
+      render();
+      course.focus({ preventScroll: true });
+    });
+    progressive.addEventListener("input", (event) => {
+      if (event.target.id === "studentSearch") {
+        state.query = event.target.value;
+        renderResults(state.query);
+      }
+      if (event.target.id === "note") state.note = event.target.value;
+    });
+    progressive.addEventListener("change", (event) => {
+      if (event.target.id === "category") {
+        state.category = event.target.value;
+        submit.disabled = !state.category;
+        submitFeedback.textContent = state.category ? "" : "Pilih kategori sebelum menyimpan poin.";
+        updateSteps();
+      }
+    });
+    progressive.addEventListener("click", (event) => {
+      if (event.target.closest("#changeStudent")) {
+        state.student = null;
+        state.query = "";
+        state.category = "";
+        state.points = 1;
+        state.note = "";
+        state.notesOpen = false;
+        render();
+        document.getElementById("studentSearch")?.focus({ preventScroll: true });
+        return;
+      }
+      const studentButton = event.target.closest("[data-student]");
+      if (studentButton) {
+        state.student = catalog[state.course].find((item) => item.id === studentButton.dataset.student);
+        render();
+        return;
+      }
+      const pointsButton = event.target.closest("[data-points]");
+      if (pointsButton) {
+        state.points = Number(pointsButton.dataset.points);
+        progressive.querySelectorAll("[data-points]").forEach((button) => {
+          button.setAttribute("aria-pressed", String(Number(button.dataset.points) === state.points));
+        });
+        return;
+      }
+      if (event.target.closest("#notesToggle")) {
+        state.notesOpen = !state.notesOpen;
+        render();
+        if (state.notesOpen) document.getElementById("note")?.focus({ preventScroll: true });
+        return;
+      }
+    });
+    submit.addEventListener("click", () => {
+      if (state.category && state.student) {
+        showToast(state.points + " poin dicatat untuk " + state.student.name + ". Ini hanya demo.");
+      }
+    });
+    progressive.addEventListener("keydown", (event) => {
+      if (event.target.id === "studentSearch" && event.key === "Enter") {
+        event.preventDefault();
+        document.querySelector("#results .student-option")?.click();
+      }
+    });
+    setCardHeight(true);
+  </script>
+</body>
+</html>
