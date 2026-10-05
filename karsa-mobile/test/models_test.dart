@@ -98,6 +98,9 @@ void main() {
     expect(maskNim('123456789'), '123******');
     expect(maskNim('12'), '12');
     expect(maskNim(null), '');
+    // Server sudah menyamarkan NIM orang lain; masker kedua harus
+    // meneruskannya apa adanya, bukan jadi "•••*****".
+    expect(maskNim('••••••••'), '••••••••');
   });
 
   test('GroupSummary membaca hak PJ hanya pada grup terkait', () {
@@ -215,5 +218,47 @@ void main() {
     expect(formatRelativeTime(now.add(const Duration(minutes: 1))), 'Baru saja');
     expect(formatRelativeTime(now.subtract(const Duration(minutes: 5))), '5 menit lalu');
     expect(formatRelativeTime(now.subtract(const Duration(days: 2))), '2 hari lalu');
+  });
+
+  test('model toleran pada timestamp hilang/rusak dan objek nested kosong', () {
+    // created_at tidak valid → fallback epoch, bukan crash.
+    final point = PointHistory.fromJson({
+      'id': 'p-1',
+      'poin': 2,
+      'mahasiswa': {'name': 'Budi'},
+      'kategori': {'name': 'Bertanya'},
+      'matkul': {'name': 'Basis Data'},
+      'kelas': {'name': 'A'},
+      'created_at': 'bukan-tanggal',
+    });
+    expect(point.createdAt, const DateTime(1970));
+
+    // capabilities hilang → semua kapabilitas false.
+    final user = AppUser.fromJson({'id': 'u-1', 'email': 'u@example.com'});
+    expect(user.capabilities.recordPoints, isFalse);
+    expect(user.capabilities.viewKarsaLib, isFalse);
+
+    // pj hilang → manager placeholder, tidak crash.
+    final group = GroupSummary.fromJson({
+      'id': 'g-1',
+      'matkul': {'name': 'Basis Data', 'code': 'IF201'},
+      'kelas': {'name': 'A'},
+    });
+    expect(group.manager.id, '');
+    expect(group.manager.name, 'Tanpa nama');
+
+    // messages null → daftar kosong.
+    final page = GroupMessagePage.fromJson({'group': {}, 'messages': null});
+    expect(page.messages, isEmpty);
+
+    // pesan tanpa author/timestamp → placeholder + epoch.
+    final message = GroupMessageItem.fromJson({
+      'id': 'm-1',
+      'state': 'active',
+      'text': 'hai',
+    });
+    expect(message.author.id, '');
+    expect(message.createdAt, const DateTime(1970));
+    expect(message.updatedAt, const DateTime(1970));
   });
 }

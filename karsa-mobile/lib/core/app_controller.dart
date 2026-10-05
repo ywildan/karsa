@@ -20,7 +20,11 @@ class AppController extends ChangeNotifier {
     AppLinks? appLinks,
     FlutterSecureStorage? storage,
   })  : _appLinks = appLinks ?? AppLinks(),
-        _storage = storage ?? const FlutterSecureStorage();
+        _storage = storage ?? const FlutterSecureStorage() {
+    // Didaftarkan dari konstruktor agar tetap aktif walau initialize()
+    // belum sempat berjalan, misalnya ketika diuji secara langsung.
+    api.sessionExpired.addListener(_handleSessionExpired);
+  }
 
   final ApiClient api;
   final AppLinks _appLinks;
@@ -44,7 +48,11 @@ class AppController extends ChangeNotifier {
       final initialLink = await _appLinks.getInitialLink();
       if (initialLink != null && _isAuthLink(initialLink)) {
         await handleAuthLink(initialLink);
-        return;
+        // Android STILL menyimpan intent callback yang lama pada task yang
+        // sama. Bila pertukaran kodenya gagal (tautan basi, kode habis,
+        // jaringan putus), langsung periksa sesi tersimpan agar token yang
+        // sah tidak terlempar hanya karena tautan basi.
+        if (state == SessionState.signedIn) return;
       }
       await retrySession();
     } catch (_) {
@@ -111,11 +119,13 @@ class AppController extends ChangeNotifier {
       if (!opened && attempt == _authAttempt) {
         state = SessionState.signedOut;
         _setError('Browser tidak dapat dibuka. Coba lagi.');
+        await _clearOAuthValues();
       }
     } catch (exception) {
       if (attempt == _authAttempt) {
         state = SessionState.signedOut;
         _setError(_message(exception));
+        await _clearOAuthValues();
       }
     }
   }
@@ -171,6 +181,10 @@ class AppController extends ChangeNotifier {
       if (attempt == _authAttempt) {
         state = SessionState.signedOut;
         error = _message(exception);
+        // Bersihkan juga saat gagal. Kalau tidak, state dan verifier
+        // lama masih cocok dengan tautan basi padaKemajuan berikutnya
+        // sehingga kode yang sudah dipakai dikirim ulang terus-menerus.
+        await _clearOAuthValues();
       }
     } finally {
       if (attempt == _authAttempt) {
@@ -190,6 +204,7 @@ class AppController extends ChangeNotifier {
   Future<void> signOut() async {
     ++_authAttempt;
     _exchanging = false;
+    error = null;
     state = SessionState.loading;
     notifyListeners();
     try {
@@ -199,8 +214,23 @@ class AppController extends ChangeNotifier {
     } finally {
       user = null;
       state = SessionState.signedOut;
+      // Jangan biarkan percobaan OAuth menggantung di perangkat.
+      await _clearOAuthValues();
       notifyListeners();
     }
+  }
+
+  /// Dipanggil ApiClient saat refresh token ditolak server. Tanpa ini
+  /// aplikasi tetap menampilkan data pengguna yang sudah basi padahal
+  /// tiap permintaan berikutnya akan gagal 401.
+  void _handleSessionExpired() {
+    if (state != SessionState.signedIn) return;
+    ++_authAttempt;
+    _exchanging = false;
+    user = null;
+    state = SessionState.signedOut;
+    error = 'Sesi kamu sudah berakhir. Silakan masuk kembali.';
+    notifyListeners();
   }
 
   void clearError() {
@@ -232,6 +262,7 @@ class AppController extends ChangeNotifier {
 
   @override
   void dispose() {
+    api.sessionExpired.removeListener(_handleSessionExpired);
     _linkSubscription?.cancel();
     super.dispose();
   }

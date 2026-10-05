@@ -40,7 +40,11 @@ class _AccountScreenState extends State<AccountScreen> {
     try {
       final pubspec = await rootBundle.loadString('pubspec.yaml');
       final match = RegExp(r'^version:\s*(.+)$', multiLine: true).firstMatch(pubspec);
-      return match?.group(1)?.trim() ?? '';
+      final raw = match?.group(1)?.trim() ?? '';
+      // Sembunyikan build number (+N): angka itu hanya penghitung
+      // instalasi Android, bukan bagian dari versi yang dipublikasikan.
+      final plus = raw.indexOf('+');
+      return plus < 0 ? raw : raw.substring(0, plus);
     } catch (_) { return ''; }
   }
 

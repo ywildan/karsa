@@ -469,9 +469,16 @@ class _ProfileSetupState extends State<_ProfileSetup> {
         const SizedBox(height: 22),
         TextField(enabled: !_saving, controller: _name, textCapitalization: TextCapitalization.words, maxLength: 80, onChanged: (_) => setState(() {}), decoration: const InputDecoration(labelText: 'Nama yang ditampilkan', prefixIcon: Icon(Icons.person_outline))),
         const SizedBox(height: 12),
-        DropdownButtonFormField<String>(initialValue: _facultyId, isExpanded: true, decoration: const InputDecoration(labelText: 'Fakultas'), items: widget.bootstrap.faculties.map((faculty) => DropdownMenuItem(value: faculty.id, child: Text(faculty.name, overflow: TextOverflow.ellipsis))).toList(), onChanged: _saving ? null : (value) => setState(() { _facultyId = value; _programId = null; _classId = null; })),
+        DropdownButtonFormField<String>(initialValue: _facultyId, isExpanded: true, decoration: const InputDecoration(labelText: 'Fakultas'), items: widget.bootstrap.faculties.map((faculty) => DropdownMenuItem(value: faculty.id, child: Text(faculty.name, overflow: TextOverflow.ellipsis))).toList(), onChanged: _saving ? null : (value) { // DropdownButton tetap memanggil onChanged walau item yang sama diketuk; tanpa guard, prodi dan kelas ke-reset sendiri.
+        if (value == _facultyId) return;
+        setState(() { _facultyId = value; _programId = null; _classId = null; });
+      }),
         const SizedBox(height: 12),
-        DropdownButtonFormField<String>(key: ValueKey('program-$_facultyId'), initialValue: _programId, isExpanded: true, decoration: const InputDecoration(labelText: 'Program studi'), items: widget.bootstrap.programs.where((program) => program.facultyId == _facultyId).map((program) => DropdownMenuItem(value: program.id, child: Text(program.name, overflow: TextOverflow.ellipsis))).toList(), onChanged: _saving || _facultyId == null ? null : (value) => setState(() { _programId = value; _classId = null; })),
+        DropdownButtonFormField<String>(key: ValueKey('program-$_facultyId'), initialValue: _programId, isExpanded: true, decoration: const InputDecoration(labelText: 'Program studi'), items: widget.bootstrap.programs.where((program) => program.facultyId == _facultyId).map((program) => DropdownMenuItem(value: program.id, child: Text(program.name, overflow: TextOverflow.ellipsis))).toList(), onChanged: _saving || _facultyId == null ? null : (value) {
+        // Mengetuk prodi yang sama tidak boleh menghapus kelas pilihan.
+        if (value == _programId) return;
+        setState(() { _programId = value; _classId = null; });
+      }),
         if (widget.bootstrap.faculties.isEmpty || (_facultyId != null && widget.bootstrap.programs.where((program) => program.facultyId == _facultyId).isEmpty))
           const Padding(padding: EdgeInsets.only(top: 7), child: Text('Pilihan fakultas/prodi belum tersedia. Admin Karsa perlu mengatur Fakultas dan menghubungkan Prodi terlebih dahulu.', style: TextStyle(fontSize: 13, color: Colors.black54, height: 1.4))),
         const SizedBox(height: 12),

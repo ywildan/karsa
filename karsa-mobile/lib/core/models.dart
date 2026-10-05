@@ -1,3 +1,12 @@
+/// Fallback epoch dipakai bila field timestamp hilang atau tidak valid,
+/// sehingga payload yang aneh menampilkan layar error, bukan crash.
+const _kEpoch = DateTime(1970);
+
+DateTime _readDateTime(dynamic raw) {
+  final value = raw is String ? DateTime.tryParse(raw) : null;
+  return value ?? _kEpoch;
+}
+
 class Capabilities {
   const Capabilities({
     required this.recordPoints,
@@ -54,7 +63,7 @@ class AppUser {
             ? LibProfileInfo.fromJson(json['lib_profile'] as Map<String, dynamic>)
             : null,
         capabilities: Capabilities.fromJson(
-          json['capabilities'] as Map<String, dynamic>,
+          json['capabilities'] as Map<String, dynamic>? ?? const {},
         ),
       );
 }
@@ -375,7 +384,7 @@ class PointHistory {
     return PointHistory(
       id: json['id'] as String,
       points: (json['poin'] as num?)?.toInt() ?? 0,
-      createdAt: DateTime.parse(json['created_at'] as String).toLocal(),
+      createdAt: _readDateTime(json['created_at']).toLocal(),
       studentName: student['name'] as String? ?? 'Tanpa nama',
       studentNim: student['nim'] as String?,
       categoryName: category['name'] as String? ?? 'Kategori',
@@ -406,7 +415,7 @@ class ReportPoint {
         category:
             (json['kategori'] as Map<String, dynamic>?)?['name'] as String? ??
                 'Kategori',
-        createdAt: DateTime.parse(json['created_at'] as String).toLocal(),
+        createdAt: _readDateTime(json['created_at']).toLocal(),
         note: json['catatan'] as String?,
       );
 }
@@ -515,7 +524,7 @@ class GroupPerson {
   final String? image;
 
   factory GroupPerson.fromJson(Map<String, dynamic> json) => GroupPerson(
-        id: json['id'] as String,
+        id: json['id'] as String? ?? '',
         name: json['name'] as String? ?? 'Tanpa nama',
         image: json['image'] as String?,
       );
@@ -552,7 +561,7 @@ class GroupSummary {
       courseName: course['name'] as String? ?? 'Mata kuliah',
       courseCode: course['code'] as String? ?? '',
       className: classData['name'] as String? ?? 'Kelas',
-      manager: GroupPerson.fromJson(json['pj'] as Map<String, dynamic>),
+      manager: GroupPerson.fromJson(json['pj'] as Map<String, dynamic>? ?? const {}),
       memberCount: (json['member_count'] as num?)?.toInt() ?? 0,
       isManager: json['is_manager'] == true,
       isLocked: json['is_locked'] == true,
@@ -583,7 +592,7 @@ class GroupMessagePreview {
         authorName:
             (json['author'] as Map<String, dynamic>?)?['name'] as String? ??
                 'Tanpa nama',
-        createdAt: DateTime.parse(json['created_at'] as String).toLocal(),
+        createdAt: _readDateTime(json['created_at']).toLocal(),
       );
 }
 
@@ -598,7 +607,7 @@ class GroupMessageAuthor extends GroupPerson {
 
   factory GroupMessageAuthor.fromJson(Map<String, dynamic> json) =>
       GroupMessageAuthor(
-        id: json['id'] as String,
+        id: json['id'] as String? ?? '',
         name: json['name'] as String? ?? 'Tanpa nama',
         image: json['image'] as String?,
         isGroupManager: json['is_group_manager'] == true,
@@ -622,7 +631,7 @@ class GroupReply {
         state: json['state'] as String? ?? 'active',
         text: json['text'] as String?,
         author: GroupMessageAuthor.fromJson(
-          json['author'] as Map<String, dynamic>,
+          json['author'] as Map<String, dynamic>? ?? const {},
         ),
       );
 }
@@ -668,16 +677,16 @@ class GroupMessageItem {
       hiddenReason: json['hidden_reason'] as String?,
       editedAt: json['edited_at'] == null
           ? null
-          : DateTime.parse(json['edited_at'] as String).toLocal(),
-      createdAt: DateTime.parse(json['created_at'] as String).toLocal(),
-      updatedAt: DateTime.parse(json['updated_at'] as String).toLocal(),
+          : _readDateTime(json['edited_at']).toLocal(),
+      createdAt: _readDateTime(json['created_at']).toLocal(),
+      updatedAt: _readDateTime(json['updated_at']).toLocal(),
       isPinned: json['is_pinned'] == true,
       isOwn: json['is_own'] == true,
       canEdit: json['can_edit'] == true,
       canDelete: json['can_delete'] == true,
       canManage: json['can_manage'] == true,
       author: GroupMessageAuthor.fromJson(
-        json['author'] as Map<String, dynamic>,
+        json['author'] as Map<String, dynamic>? ?? const {},
       ),
       replyTo: reply == null ? null : GroupReply.fromJson(reply),
     );
@@ -701,7 +710,7 @@ class GroupMessagePage {
   factory GroupMessagePage.fromJson(Map<String, dynamic> json) {
     final group = json['group'] as Map<String, dynamic>? ?? const {};
     return GroupMessagePage(
-      messages: (json['messages'] as List)
+      messages: ((json['messages'] as List?) ?? const [])
           .map((item) =>
               GroupMessageItem.fromJson(item as Map<String, dynamic>))
           .toList(),
@@ -744,9 +753,9 @@ class GroupReportItem {
       id: json['id'] as String,
       reason: json['reason'] as String? ?? 'OTHER',
       details: json['details'] as String?,
-      createdAt: DateTime.parse(json['created_at'] as String).toLocal(),
+      createdAt: _readDateTime(json['created_at']).toLocal(),
       reporterName: reporter['name'] as String? ?? 'Tanpa nama',
-      messageId: message['id'] as String,
+      messageId: message['id'] as String? ?? '',
       authorName: author['name'] as String? ?? 'Tanpa nama',
       messageText: message['body'] as String?,
     );

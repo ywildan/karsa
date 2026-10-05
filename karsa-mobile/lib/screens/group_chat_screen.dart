@@ -109,6 +109,7 @@ class _GroupChatScreenState extends State<GroupChatScreen>
         _messages
           ..clear()
           ..addAll(page.messages);
+        _pruneMessageKeys();
         _pinnedMessages = page.pinnedMessages;
         _nextCursor = page.nextCursor;
         _isManager = page.isManager;
@@ -141,8 +142,18 @@ class _GroupChatScreenState extends State<GroupChatScreen>
       for (final message in page.messages) {
         byId[message.id] = message;
       }
+      final previousIndex = <String, int>{
+        for (var i = 0; i < _messages.length; i += 1) _messages[i].id: i,
+      };
       final merged = byId.values.toList()
-        ..sort((a, b) => a.createdAt.compareTo(b.createdAt));
+        ..sort((a, b) {
+          final byTime = a.createdAt.compareTo(b.createdAt);
+          if (byTime != 0) return byTime;
+          // Pesan dengan timestamp sama menjaga urutan aslinya supaya
+          // balon tidak bertukar posisi saat polling.
+          return (previousIndex[a.id] ?? previousIndex.length) -
+              (previousIndex[b.id] ?? previousIndex.length);
+        });
       final oldNewest = _messages.isEmpty ? null : _messages.last.id;
       final hasNew = merged.isNotEmpty && merged.last.id != oldNewest;
       final follow = _nearBottom;
@@ -150,6 +161,10 @@ class _GroupChatScreenState extends State<GroupChatScreen>
         _messages
           ..clear()
           ..addAll(merged);
+        _pruneMessageKeys();
+        // Refresh background yang sukses membuktikan grup kembali
+        // terjangkau; jangan biarkan ErrorState lama bertahan.
+        _error = null;
         if (hasNew && !follow) _hasNewMessages = true;
         _pinnedMessages = page.pinnedMessages;
         _isManager = page.isManager;
@@ -265,6 +280,7 @@ class _GroupChatScreenState extends State<GroupChatScreen>
       setState(() {
         _messages.removeWhere((item) => item.id == message.id);
         _messages.add(message);
+        _pruneMessageKeys();
         _composer.clear();
         _replyTo = null;
         _flyingText = null;
@@ -283,7 +299,17 @@ class _GroupChatScreenState extends State<GroupChatScreen>
     }
   }
 
+  /// Buang GlobalKey milik pesan yang sudah tidak ada di daftar,
+  /// sehingga peta kunci tidak membesar tanpa batas saat sesi panjang.
+  void _pruneMessageKeys() {
+    final ids = _messages.map((message) => message.id).toSet();
+    _messageKeys.removeWhere((id, _) => !ids.contains(id));
+  }
+
   void _replace(GroupMessageItem message) {
+    // Semua pemanggil datang dari await request; user bisa saja menekan
+    // tombol back selagi permintaan masih berjalan.
+    if (!mounted) return;
     final index = _messages.indexWhere((item) => item.id == message.id);
     setState(() {
       if (index >= 0) _messages[index] = message;

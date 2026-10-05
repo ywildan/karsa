@@ -194,6 +194,9 @@ String formatRelativeTime(DateTime date) {
 String maskNim(String? nim) {
   final value = nim?.trim() ?? '';
   if (value.isEmpty) return '';
+  // Server sudah menyamarkan NIM orang lain sebelum mengirimnya. Tanpa
+  // pemeriksaan ini, masker kedua mengubah "••••••••" menjadi "•••*****".
+  if (value.contains('•')) return value;
   if (value.length <= 3) return value;
   return '${value.substring(0, 3)}${List.filled(value.length - 3, '*').join()}';
 }
