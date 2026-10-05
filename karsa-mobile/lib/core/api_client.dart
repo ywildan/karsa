@@ -33,8 +33,19 @@ class ApiClient {
   Future<bool>? _refreshInFlight;
   final ValueNotifier<int> pointsRevision = ValueNotifier(0);
 
-  Uri endpoint(String path, [Map<String, String>? query]) =>
-      Uri.parse('$apiBaseUrl/api/mobile/v1$path').replace(queryParameters: query);
+  /// Dinaikkan saat refresh token ditolak server dan sesi lokal sudah
+  /// dihapus. AppController mendengarkan ini supaya layar langsung
+  /// kembali ke halaman masuk, bukan menampilkan data basi selamanya.
+  final ValueNotifier<int> sessionExpired = ValueNotifier<int>(0);
+
+  Uri endpoint(String path, [Map<String, String>? query]) {
+    final base = Uri.parse('$apiBaseUrl/api/mobile/v1$path');
+    if (query == null || query.isEmpty) return base;
+    // Gabungkan, jangan timpa: path kadang sudah membawa query sendiri
+    // (mis. cursor paginasi) dan parameter tambahan tidak boleh
+    // menghapusnya.
+    return base.replace(queryParameters: {...base.queryParameters, ...query});
+  }
 
   Future<bool> restoreSession() async {
     _accessToken = await _storage.read(key: 'access_token');
@@ -462,7 +473,10 @@ class ApiClient {
     }
 
     final streamed = await _http.send(request).timeout(const Duration(seconds: 20));
-    final response = await http.Response.fromStream(streamed);
+    // Timeout kedua menjaga badan respons yang menggantung setelah
+    // header diterima; tanpa ini pembacaan stream bisa menunggu selamanya.
+    final response =
+        await http.Response.fromStream(streamed).timeout(const Duration(seconds: 20));
     if (response.statusCode == 401 && authenticated && retry && await _refresh()) {
       return _request(
         method,
@@ -523,6 +537,7 @@ class ApiClient {
     } on ApiException catch (error) {
       if (error.statusCode == 401) {
         await clearSession();
+        sessionExpired.value++;
         return false;
       }
       rethrow;

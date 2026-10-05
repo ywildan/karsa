@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../core/app_controller.dart';
+import '../core/models.dart';
 import 'account_screen.dart';
 import 'activity_screen.dart';
 import 'group_list_screen.dart';
@@ -25,11 +26,10 @@ class _HomeShellState extends State<HomeShell> {
     _visited.add(id);
   });
 
-  @override
-  Widget build(BuildContext context) {
+  List<_HomeDestination> _buildTabs() {
     final user = widget.controller.user!;
     final api = widget.controller.api;
-    final tabs = <_HomeDestination>[
+    return <_HomeDestination>[
       if (user.capabilities.viewKarsaLib)
         _HomeDestination('lib', 'Karsa Lib', Icons.auto_stories_outlined,
             Icons.auto_stories, () => KarsaLibScreen(api: api, user: user)),
@@ -56,15 +56,30 @@ class _HomeShellState extends State<HomeShell> {
       _HomeDestination('account', 'Akun', Icons.person_outline,
           Icons.person, () => AccountScreen(controller: widget.controller)),
     ];
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final tabs = _buildTabs();
     var index = tabs.indexWhere((tab) => tab.id == _selected);
     if (index < 0) {
-      _selected = tabs.first.id;
       index = 0;
+      final fallback = tabs.first.id;
+      if (_selected != fallback) {
+        // Tab aktif tidak lagi tersedia (mis. kapabilitas berubah).
+        // Sinkronkan _selected di luar fase build agar tidak memodifikasi
+        // state sementara frame berjalan.
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          if (mounted && _selected != fallback) {
+            setState(() => _selected = fallback);
+          }
+        });
+      }
     }
-    _visited.add(_selected);
+    _visited.add(tabs[index].id);
 
     return PopScope(
-      canPop: _selected == tabs.first.id,
+      canPop: tabs[index].id == tabs.first.id,
       onPopInvokedWithResult: (didPop, result) {
         if (!didPop) _select(tabs.first.id);
       },

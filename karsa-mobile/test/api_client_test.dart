@@ -158,4 +158,15 @@ void main() {
     await expectLater(api.logout(), throwsA(isA<http.ClientException>()));
     expect(await api.restoreSession(), isFalse);
   });
+
+  test('endpoint menggabungkan query baru tanpa membuang parameter lama', () {
+    // ApiClient bukan kelas const (constructor-nya membuat http.Client),
+    // jadi instansinya tidak boleh dipanggil dengan `const`.
+    final api = ApiClient();
+    final uri = api.endpoint('/groups/g-1/messages?cursor=abc', {'scope': 'latest'});
+    expect(uri.path, '/api/mobile/v1/groups/g-1/messages');
+    expect(uri.queryParameters['cursor'], 'abc');
+    expect(uri.queryParameters['scope'], 'latest');
+    expect(api.endpoint('/me').query, isEmpty);
+  });
 }

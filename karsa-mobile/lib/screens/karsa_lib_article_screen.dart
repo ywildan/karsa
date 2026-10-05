@@ -32,15 +32,28 @@ class _KarsaLibArticleScreenState extends State<KarsaLibArticleScreen> {
   void dispose() { _comment.dispose(); _focus.dispose(); super.dispose(); }
   void _load() {
     _article = widget.api.libArticle(widget.articleId);
-    _comments = widget.api.libComments(widget.articleId);
+    _comments = widget.api.libComments(widget.articleId)
+        .then((rows) {
+          _updateCommentCount(rows);
+          return rows;
+        });
     _commentCount = null;
   }
   Future<void> _reloadComments() async {
     if (!mounted) return;
-    final next = widget.api.libComments(widget.articleId);
+    final next = widget.api.libComments(widget.articleId).then((rows) {
+      _updateCommentCount(rows);
+      return rows;
+    });
     setState(() => _comments = next);
-    final rows = await next;
-    if (mounted) setState(() => _commentCount = rows.fold<int>(0,
+    await next;
+  }
+  /// Hitung komentar yang terlihat (lewat load awal maupun reload)
+  /// agar angkanya tidak melompat dari total mentah ke jumlah yang
+  /// ditampilkan setelah refresh.
+  void _updateCommentCount(List<LibComment> rows) {
+    if (!mounted) return;
+    setState(() => _commentCount = rows.fold<int>(0,
       (total, row) => total + (row.isDeleted ? 0 : 1) + row.replies.where((reply) => !reply.isDeleted).length));
   }
   void _jumpToDiscussion() {

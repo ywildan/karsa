@@ -72,4 +72,33 @@ void main() {
     expect(controller.state, SessionState.signedOut);
     expect(controller.user, isNull);
   });
+
+  test('token kedaluwarsa mengembalikan layar ke signedOut', () async {
+    final api = SessionApi();
+    final controller = AppController(api);
+    addTearDown(controller.dispose);
+    await controller.retrySession();
+    expect(controller.state, SessionState.signedIn);
+
+    // ApiClient menaikkan sessionExpired setelah refresh ditolak server
+    // dan token lokal dihapus. Aplikasi tidak boleh tetap menampilkan
+    // data basi dengan state signedIn.
+    api.sessionExpired.value++;
+    expect(controller.state, SessionState.signedOut);
+    expect(controller.user, isNull);
+    expect(controller.error, isNotNull);
+  });
+
+  test('token kedaluwarsa saat sudah signedOut tidak mengubah apa pun', () async {
+    final api = SessionApi()..cleared = true;
+    final controller = AppController(api);
+    addTearDown(controller.dispose);
+    await controller.retrySession();
+    expect(controller.state, SessionState.signedOut);
+    expect(controller.error, isNull);
+
+    api.sessionExpired.value++;
+    expect(controller.state, SessionState.signedOut);
+    expect(controller.error, isNull);
+  });
 }
