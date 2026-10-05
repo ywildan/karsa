@@ -1,6 +1,8 @@
 /// Fallback epoch dipakai bila field timestamp hilang atau tidak valid,
 /// sehingga payload yang aneh menampilkan layar error, bukan crash.
-const _kEpoch = DateTime(1970);
+/// DateTime tidak punya constructor const di Dart, jadi nilai ini harus
+/// `final`; memakai `const` di sini menggagalkan kompilasi.
+final _kEpoch = DateTime(1970);
 
 DateTime _readDateTime(dynamic raw) {
   final value = raw is String ? DateTime.tryParse(raw) : null;

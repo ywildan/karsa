@@ -231,7 +231,7 @@ void main() {
       'kelas': {'name': 'A'},
       'created_at': 'bukan-tanggal',
     });
-    expect(point.createdAt, const DateTime(1970));
+    expect(point.createdAt, DateTime(1970));
 
     // capabilities hilang → semua kapabilitas false.
     final user = AppUser.fromJson({'id': 'u-1', 'email': 'u@example.com'});
@@ -258,7 +258,7 @@ void main() {
       'text': 'hai',
     });
     expect(message.author.id, '');
-    expect(message.createdAt, const DateTime(1970));
-    expect(message.updatedAt, const DateTime(1970));
+    expect(message.createdAt, DateTime(1970));
+    expect(message.updatedAt, DateTime(1970));
   });
 }
