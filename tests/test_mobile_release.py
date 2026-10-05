@@ -85,6 +85,15 @@ class ApkCompatibilityTest(unittest.TestCase):
         with self.assertRaises(ValueError):
             signing_certificate(signature.replace('Number of signers: 1', 'Number of signers: 2'))
 
+    def test_scheme_labelled_certificates_from_current_sdk(self):
+        signature = ('Verifies\nNumber of signers: 1\n'
+                     f'V2 Signer: certificate SHA-256 digest: {self.cert}\n'
+                     f'V3.1 Signer (minSdkVersion=33, maxSdkVersion=2147483647): certificate SHA-256 digest: {self.cert}\n'
+                     f'V2 Signer: public key SHA-256 digest: {"b" * 64}\n')
+        self.assertEqual(signing_certificate(signature), self.cert)
+        with self.assertRaises(ValueError):
+            signing_certificate(signature.replace(self.cert, 'b' * 64, 1))
+
     def test_expected_install_metadata(self):
         verify_metadata(self.badging, self.signature, '2.0.8', 2065, 'arm64-v8a', self.cert)
 

@@ -11,10 +11,10 @@ ABI_CODES = {"armeabi-v7a": 1, "arm64-v8a": 2, "x86_64": 4}
 
 
 def signing_certificate(signature: str):
-    # apksigner prints SDK ranges instead of signer numbers for v3.1 signatures.
-    # The same certificate can appear once for each supported SDK range.
+    # SDK releases label certificates by signer number, SDK range, or scheme.
+    # The same certificate can appear once for each supported SDK range/scheme.
     fingerprints = re.findall(
-        r"^Signer (?:#[0-9]+|\(minSdkVersion=[^\n]+\)) certificate SHA-256 digest:\s*([a-fA-F0-9]{64})\s*$",
+        r"^(?:Signer (?:#[0-9]+|\(minSdkVersion=[^\n]+\))|V[1-4](?:\.[0-9]+)? Signer(?: #[0-9]+)?(?: \([^\n]+\))?:) certificate SHA-256 digest:\s*([a-fA-F0-9]{64})\s*$",
         signature, re.M)
     signer_count = re.search(r"^Number of signers:\s*([0-9]+)\s*$", signature, re.M)
     certificates = {value.lower() for value in fingerprints}
@@ -28,7 +28,7 @@ def verify_metadata(badging: str, signature: str, version: str, code: int, abi: 
     sdk = re.search(r"^sdkVersion:'([0-9]+)'", badging, re.M)
     native = re.search(r"^native-code:\s*'([^']+)'\s*$", badging, re.M)
     if not package or package.groups() != ("ac.id.untidar.karsa_mobile", str(code), version):
-        raise ValueError("APK package/version does not match release inputs")
+        raise ValueError(f"APK package/version does not match release inputs: expected {version}/{code}\n{badging}")
     if not sdk or sdk[1] != "24" or not native or native[1] != abi:
         raise ValueError("APK Android/ABI requirements changed")
     if signing_certificate(signature) != expected_cert.lower():
