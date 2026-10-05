@@ -5,7 +5,7 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / 'scripts'))
 from mobile_release import build_config, normalize_origin
-from verify_mobile_apk import verify_metadata, verify_manifest_security
+from verify_mobile_apk import signing_certificate, verify_metadata, verify_manifest_security
 
 
 class ReleaseGuardsTest(unittest.TestCase):
@@ -73,7 +73,17 @@ class ApkCompatibilityTest(unittest.TestCase):
     def setUp(self):
         self.cert = 'a' * 64
         self.badging = "package: name='ac.id.untidar.karsa_mobile' versionCode='2065' versionName='2.0.8'\nsdkVersion:'24'\nnative-code: 'arm64-v8a'\n"
-        self.signature = f'Signer #1 certificate SHA-256 digest: {self.cert}\n'
+        self.signature = f'Number of signers: 1\nSigner #1 certificate SHA-256 digest: {self.cert}\n'
+
+    def test_v31_sdk_range_certificates(self):
+        signature = ('Number of signers: 1\n'
+                     f'Signer (minSdkVersion=33, maxSdkVersion=2147483647) certificate SHA-256 digest: {self.cert}\n'
+                     f'Signer (minSdkVersion=24, maxSdkVersion=32) certificate SHA-256 digest: {self.cert}\n')
+        self.assertEqual(signing_certificate(signature), self.cert)
+        with self.assertRaises(ValueError):
+            signing_certificate(signature.replace(self.cert, 'b' * 64, 1))
+        with self.assertRaises(ValueError):
+            signing_certificate(signature.replace('Number of signers: 1', 'Number of signers: 2'))
 
     def test_expected_install_metadata(self):
         verify_metadata(self.badging, self.signature, '2.0.8', 2065, 'arm64-v8a', self.cert)
@@ -101,7 +111,7 @@ class ApkCompatibilityTest(unittest.TestCase):
         with self.assertRaises(ValueError):
             verify_metadata(self.badging, self.signature, '2.0.8', 2065, 'arm64-v8a', 'b' * 64)
         with self.assertRaises(ValueError):
-            verify_metadata(self.badging, self.signature * 2, '2.0.8', 2065, 'arm64-v8a', self.cert)
+            verify_metadata(self.badging, self.signature.replace('Number of signers: 1', 'Number of signers: 2'), '2.0.8', 2065, 'arm64-v8a', self.cert)
 
 
 if __name__ == '__main__':

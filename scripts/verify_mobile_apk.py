@@ -10,16 +10,28 @@ from pathlib import Path
 ABI_CODES = {"armeabi-v7a": 1, "arm64-v8a": 2, "x86_64": 4}
 
 
+def signing_certificate(signature: str):
+    # apksigner prints SDK ranges instead of signer numbers for v3.1 signatures.
+    # The same certificate can appear once for each supported SDK range.
+    fingerprints = re.findall(
+        r"^Signer (?:#[0-9]+|\(minSdkVersion=[^\n]+\)) certificate SHA-256 digest:\s*([a-fA-F0-9]{64})\s*$",
+        signature, re.M)
+    signer_count = re.search(r"^Number of signers:\s*([0-9]+)\s*$", signature, re.M)
+    certificates = {value.lower() for value in fingerprints}
+    if not signer_count or signer_count[1] != "1" or len(certificates) != 1:
+        raise ValueError("Expected exactly one APK signing identity")
+    return certificates.pop()
+
+
 def verify_metadata(badging: str, signature: str, version: str, code: int, abi: str, expected_cert: str):
     package = re.search(r"^package: name='([^']+)' versionCode='([0-9]+)' versionName='([^']+)'", badging, re.M)
     sdk = re.search(r"^sdkVersion:'([0-9]+)'", badging, re.M)
     native = re.search(r"^native-code:\s*'([^']+)'\s*$", badging, re.M)
-    fingerprints = re.findall(r"^Signer #[0-9]+ certificate SHA-256 digest:\s*([a-fA-F0-9]+)\s*$", signature, re.M)
     if not package or package.groups() != ("ac.id.untidar.karsa_mobile", str(code), version):
         raise ValueError("APK package/version does not match release inputs")
     if not sdk or sdk[1] != "24" or not native or native[1] != abi:
         raise ValueError("APK Android/ABI requirements changed")
-    if [value.lower() for value in fingerprints] != [expected_cert.lower()]:
+    if signing_certificate(signature) != expected_cert.lower():
         raise ValueError("APK signing certificate does not match the existing release; updates would fail")
 
 
@@ -52,14 +64,12 @@ def main():
         xmltree = subprocess.check_output([str(build_tools / "aapt"), "dump", "xmltree", str(apk), "AndroidManifest.xml"], text=True)
         # Keep Flutter split APK versionCodes compatible with the published 2.0.7.
         code = abi_code * 1000 + args.build_number
-        actual_certs = re.findall(r"^Signer #[0-9]+ certificate SHA-256 digest:\s*([a-fA-F0-9]+)\s*$", signature, re.M)
-        if len(actual_certs) != 1:
-            raise ValueError("Expected exactly one APK signer")
-        expected_cert = actual_certs[0] if args.validation_build else cert
+        actual_cert = signing_certificate(signature)
+        expected_cert = actual_cert if args.validation_build else cert
         verify_metadata(badging, signature, args.version, code, abi, expected_cert)
         verify_manifest_security(xmltree)
         artifacts.append({"file": apk.name, "versionCode": code, "abi": abi,
-                          "sha256": hashlib.sha256(apk.read_bytes()).hexdigest(), "certificateSha256": actual_certs[0]})
+                          "sha256": hashlib.sha256(apk.read_bytes()).hexdigest(), "certificateSha256": actual_cert})
     (args.apk_dir / "release-metadata.json").write_text(json.dumps({"version": args.version, "productionSigning": not args.validation_build, "apks": artifacts}, indent=2) + "\n")
     print(f"Verified signatures and install metadata for {len(artifacts)} APKs")
 
