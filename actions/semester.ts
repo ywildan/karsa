@@ -17,12 +17,11 @@
  * Aturan "hanya 1 semester aktif" (PRD §9) dijaga transaksi di
  * `setActiveSemester` dan partial unique index di DB (prisma/init.sql).
  */
-import { revalidatePath } from "next/cache";
 import { z } from "zod";
 
 import type { ActionResult } from "@/lib/action-utils";
-import { mapPrismaKnownError, zodFirstError } from "@/lib/action-utils";
-import { logAudit } from "@/lib/audit";
+import { mapPrismaKnownError, revalidatePaths, zodFirstError } from "@/lib/action-utils";
+import { auditActor, logAudit } from "@/lib/audit";
 import { requireAdmin } from "@/lib/auth-helpers";
 import { prisma } from "@/lib/prisma";
 
@@ -62,10 +61,6 @@ type SemesterInput = {
 
 const REVALIDATE = ["/admin/semester", "/admin/dashboard"] as const;
 
-function revalidateAll() {
-  for (const path of REVALIDATE) revalidatePath(path);
-}
-
 /** Tambah semester baru (default tidak aktif). */
 export async function createSemester(input: SemesterInput): Promise<ActionResult> {
   const admin = await requireAdmin();
@@ -82,11 +77,7 @@ export async function createSemester(input: SemesterInput): Promise<ActionResult
 
       await logAudit(
         {
-          actor: {
-            id: admin.id,
-            name: admin.name?.trim() || admin.email?.trim() || "Administrator",
-            is_admin: admin.is_admin,
-          },
+          actor: auditActor(admin),
           action: "SEMESTER_CREATE",
           entity: { type: "Semester", id: created.id, label: name },
           after: {
@@ -110,7 +101,7 @@ export async function createSemester(input: SemesterInput): Promise<ActionResult
     };
   }
 
-  revalidateAll();
+  revalidatePaths(REVALIDATE);
   return { ok: true, message: `Semester "${name}" berhasil ditambahkan.` };
 }
 
@@ -143,11 +134,7 @@ export async function updateSemester(
 
       await logAudit(
         {
-          actor: {
-            id: admin.id,
-            name: admin.name?.trim() || admin.email?.trim() || "Administrator",
-            is_admin: admin.is_admin,
-          },
+          actor: auditActor(admin),
           action: "SEMESTER_UPDATE",
           entity: { type: "Semester", id, label: name },
           before: {
@@ -180,7 +167,7 @@ export async function updateSemester(
     };
   }
 
-  revalidateAll();
+  revalidatePaths(REVALIDATE);
   return { ok: true, message: `Semester "${name}" berhasil diperbarui.` };
 }
 
@@ -218,11 +205,7 @@ export async function deleteSemester(id: string): Promise<ActionResult> {
 
       await logAudit(
         {
-          actor: {
-            id: admin.id,
-            name: admin.name?.trim() || admin.email?.trim() || "Administrator",
-            is_admin: admin.is_admin,
-          },
+          actor: auditActor(admin),
           action: "SEMESTER_DELETE",
           entity: { type: "Semester", id, label: semester.name },
           before: {
@@ -250,7 +233,7 @@ export async function deleteSemester(id: string): Promise<ActionResult> {
     };
   }
 
-  revalidateAll();
+  revalidatePaths(REVALIDATE);
   return { ok: true, message: `Semester "${semester.name}" berhasil dihapus.` };
 }
 
@@ -286,11 +269,7 @@ export async function setActiveSemester(id: string): Promise<ActionResult> {
 
       await logAudit(
         {
-          actor: {
-            id: admin.id,
-            name: admin.name?.trim() || admin.email?.trim() || "Administrator",
-            is_admin: admin.is_admin,
-          },
+          actor: auditActor(admin),
           action: "SEMESTER_SET_ACTIVE",
           entity: { type: "Semester", id, label: target.name },
           before: {
@@ -324,6 +303,6 @@ export async function setActiveSemester(id: string): Promise<ActionResult> {
     };
   }
 
-  revalidateAll();
+  revalidatePaths(REVALIDATE);
   return { ok: true, message: `Semester "${target.name}" sekarang aktif.` };
 }

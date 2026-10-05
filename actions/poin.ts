@@ -34,7 +34,7 @@ import { z } from "zod";
 
 import type { ActionResult } from "@/lib/action-utils";
 import { mapPrismaKnownError, zodFirstError } from "@/lib/action-utils";
-import { logAudit } from "@/lib/audit";
+import { auditActor, logAudit } from "@/lib/audit";
 import { requireUser } from "@/lib/auth-helpers";
 import {
   CATATAN_MAX,
@@ -362,11 +362,7 @@ export async function createPoinLog(input: PoinInput): Promise<ActionResult> {
 
       await logAudit(
         {
-          actor: {
-            id: user.id,
-            name: user.name?.trim() || user.email?.trim() || "Pengguna",
-            is_admin: user.is_admin,
-          },
+          actor: auditActor(user, { fallbackName: "Pengguna" }),
           action: "POIN_INPUT",
           entity: {
             type: "PoinLog",
@@ -461,11 +457,7 @@ export async function deletePoinLog(id: string): Promise<ActionResult> {
 
       await logAudit(
         {
-          actor: {
-            id: user.id,
-            name: user.name?.trim() || user.email?.trim() || "Pengguna",
-            is_admin: user.is_admin,
-          },
+          actor: auditActor(user, { fallbackName: "Pengguna" }),
           action: "POIN_DELETE",
           entity: {
             type: "PoinLog",

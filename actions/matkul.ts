@@ -9,12 +9,11 @@
  * Yang unique hanya `code` (opsional). Karena itu pesan duplikat (P2002)
  * merujuk ke kode, bukan nama.
  */
-import { revalidatePath } from "next/cache";
 import { z } from "zod";
 
 import type { ActionResult } from "@/lib/action-utils";
-import { mapPrismaKnownError, zodFirstError } from "@/lib/action-utils";
-import { logAudit } from "@/lib/audit";
+import { mapPrismaKnownError, revalidatePaths, zodFirstError } from "@/lib/action-utils";
+import { auditActor, logAudit } from "@/lib/audit";
 import { requireAdmin } from "@/lib/auth-helpers";
 import { prisma } from "@/lib/prisma";
 
@@ -37,10 +36,6 @@ type MatkulInput = z.infer<typeof matkulInputSchema>;
 
 const REVALIDATE = ["/admin/matkul", "/admin/dashboard"] as const;
 
-function revalidateAll() {
-  for (const path of REVALIDATE) revalidatePath(path);
-}
-
 /** Tambah matkul baru ke master. */
 export async function createMatkul(input: MatkulInput): Promise<ActionResult> {
   const admin = await requireAdmin();
@@ -55,11 +50,7 @@ export async function createMatkul(input: MatkulInput): Promise<ActionResult> {
 
       await logAudit(
         {
-          actor: {
-            id: admin.id,
-            name: admin.name?.trim() || admin.email?.trim() || "Administrator",
-            is_admin: admin.is_admin,
-          },
+          actor: auditActor(admin),
           action: "MATKUL_CREATE",
           entity: { type: "Matkul", id: created.id, label: name },
           after: { name, code },
@@ -78,7 +69,7 @@ export async function createMatkul(input: MatkulInput): Promise<ActionResult> {
     };
   }
 
-  revalidateAll();
+  revalidatePaths(REVALIDATE);
   return { ok: true, message: `Matkul "${name}" berhasil ditambahkan.` };
 }
 
@@ -108,11 +99,7 @@ export async function updateMatkul(
 
       await logAudit(
         {
-          actor: {
-            id: admin.id,
-            name: admin.name?.trim() || admin.email?.trim() || "Administrator",
-            is_admin: admin.is_admin,
-          },
+          actor: auditActor(admin),
           action: "MATKUL_UPDATE",
           entity: { type: "Matkul", id, label: name },
           before,
@@ -135,7 +122,7 @@ export async function updateMatkul(
     };
   }
 
-  revalidateAll();
+  revalidatePaths(REVALIDATE);
   return { ok: true, message: `Matkul "${name}" berhasil diperbarui.` };
 }
 
@@ -165,11 +152,7 @@ export async function deleteMatkul(id: string): Promise<ActionResult> {
 
       await logAudit(
         {
-          actor: {
-            id: admin.id,
-            name: admin.name?.trim() || admin.email?.trim() || "Administrator",
-            is_admin: admin.is_admin,
-          },
+          actor: auditActor(admin),
           action: "MATKUL_DELETE",
           entity: { type: "Matkul", id, label: matkul.name },
           before: { name: matkul.name, code: matkul.code },
@@ -192,6 +175,6 @@ export async function deleteMatkul(id: string): Promise<ActionResult> {
     };
   }
 
-  revalidateAll();
+  revalidatePaths(REVALIDATE);
   return { ok: true, message: `Matkul "${matkul.name}" berhasil dihapus.` };
 }

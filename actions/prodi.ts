@@ -7,12 +7,11 @@
  * Pola sama dengan `actions/semester.ts`: `requireAdmin()` → Zod → eksekusi
  * → tangkap error Prisma → `revalidatePath`.
  */
-import { revalidatePath } from "next/cache";
 import { z } from "zod";
 
 import type { ActionResult } from "@/lib/action-utils";
-import { mapPrismaKnownError, zodFirstError } from "@/lib/action-utils";
-import { logAudit } from "@/lib/audit";
+import { mapPrismaKnownError, revalidatePaths, zodFirstError } from "@/lib/action-utils";
+import { auditActor, logAudit } from "@/lib/audit";
 import { requireAdmin } from "@/lib/auth-helpers";
 import { prisma } from "@/lib/prisma";
 
@@ -28,10 +27,6 @@ const prodiInputSchema = z.object({
 type ProdiInput = z.infer<typeof prodiInputSchema>;
 
 const REVALIDATE = ["/admin/prodi", "/admin/dashboard", "/admin/karsalib"] as const;
-
-function revalidateAll() {
-  for (const path of REVALIDATE) revalidatePath(path);
-}
 
 /** Tambah prodi baru. */
 export async function createProdi(input: ProdiInput): Promise<ActionResult> {
@@ -49,11 +44,7 @@ export async function createProdi(input: ProdiInput): Promise<ActionResult> {
 
       await logAudit(
         {
-          actor: {
-            id: admin.id,
-            name: admin.name?.trim() || admin.email?.trim() || "Administrator",
-            is_admin: admin.is_admin,
-          },
+          actor: auditActor(admin),
           action: "PRODI_CREATE",
           entity: { type: "Prodi", id: created.id, label: name },
           after: { name, faculty_id: parsed.data.faculty_id },
@@ -72,7 +63,7 @@ export async function createProdi(input: ProdiInput): Promise<ActionResult> {
     };
   }
 
-  revalidateAll();
+  revalidatePaths(REVALIDATE);
   return { ok: true, message: `Prodi "${name}" berhasil ditambahkan.` };
 }
 
@@ -108,11 +99,7 @@ export async function updateProdi(
 
       await logAudit(
         {
-          actor: {
-            id: admin.id,
-            name: admin.name?.trim() || admin.email?.trim() || "Administrator",
-            is_admin: admin.is_admin,
-          },
+          actor: auditActor(admin),
           action: "PRODI_UPDATE",
           entity: { type: "Prodi", id, label: name },
           before,
@@ -135,7 +122,7 @@ export async function updateProdi(
     };
   }
 
-  revalidateAll();
+  revalidatePaths(REVALIDATE);
   return { ok: true, message: `Prodi "${name}" berhasil diperbarui.` };
 }
 
@@ -168,11 +155,7 @@ export async function deleteProdi(id: string): Promise<ActionResult> {
 
       await logAudit(
         {
-          actor: {
-            id: admin.id,
-            name: admin.name?.trim() || admin.email?.trim() || "Administrator",
-            is_admin: admin.is_admin,
-          },
+          actor: auditActor(admin),
           action: "PRODI_DELETE",
           entity: { type: "Prodi", id, label: prodi.name },
           before: { name: prodi.name },
@@ -195,6 +178,6 @@ export async function deleteProdi(id: string): Promise<ActionResult> {
     };
   }
 
-  revalidateAll();
+  revalidatePaths(REVALIDATE);
   return { ok: true, message: `Prodi "${prodi.name}" berhasil dihapus.` };
 }

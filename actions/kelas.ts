@@ -11,12 +11,11 @@
  * (KelasMatkul.kelas_id). Maka `deleteKelas` CEK EKSPLISIT jumlah mahasiswa &
  * matkul sebelum hapus supaya pesan ramah & prediktif.
  */
-import { revalidatePath } from "next/cache";
 import { z } from "zod";
 
 import type { ActionResult } from "@/lib/action-utils";
-import { mapPrismaKnownError, zodFirstError } from "@/lib/action-utils";
-import { logAudit } from "@/lib/audit";
+import { mapPrismaKnownError, revalidatePaths, zodFirstError } from "@/lib/action-utils";
+import { auditActor, logAudit } from "@/lib/audit";
 import { requireAdmin } from "@/lib/auth-helpers";
 import { prisma } from "@/lib/prisma";
 
@@ -50,10 +49,6 @@ const REVALIDATE_WITH_DETAIL = [
   "/admin/kelas/[id]",
 ] as const;
 
-function revalidateAll(paths: readonly string[]) {
-  for (const path of paths) revalidatePath(path);
-}
-
 /** Tambah kelas baru. Unique (name, prodi_id, semester_id). */
 export async function createKelas(input: KelasInput): Promise<ActionResult> {
   const admin = await requireAdmin();
@@ -70,11 +65,7 @@ export async function createKelas(input: KelasInput): Promise<ActionResult> {
 
       await logAudit(
         {
-          actor: {
-            id: admin.id,
-            name: admin.name?.trim() || admin.email?.trim() || "Administrator",
-            is_admin: admin.is_admin,
-          },
+          actor: auditActor(admin),
           action: "KELAS_CREATE",
           entity: { type: "Kelas", id: created.id, label: name },
           context: { kelas_id: created.id, kelas_label: name },
@@ -97,7 +88,7 @@ export async function createKelas(input: KelasInput): Promise<ActionResult> {
     };
   }
 
-  revalidateAll(REVALIDATE);
+  revalidatePaths(REVALIDATE);
   return { ok: true, message: `Kelas "${name}" berhasil ditambahkan.` };
 }
 
@@ -137,11 +128,7 @@ export async function updateKelas(
 
       await logAudit(
         {
-          actor: {
-            id: admin.id,
-            name: admin.name?.trim() || admin.email?.trim() || "Administrator",
-            is_admin: admin.is_admin,
-          },
+          actor: auditActor(admin),
           action: "KELAS_UPDATE",
           entity: { type: "Kelas", id, label: name },
           context: { kelas_id: id, kelas_label: name },
@@ -167,7 +154,7 @@ export async function updateKelas(
     };
   }
 
-  revalidateAll(REVALIDATE_WITH_DETAIL);
+  revalidatePaths(REVALIDATE_WITH_DETAIL);
   return { ok: true, message: `Kelas "${name}" berhasil diperbarui.` };
 }
 
@@ -216,11 +203,7 @@ export async function deleteKelas(id: string): Promise<ActionResult> {
 
       await logAudit(
         {
-          actor: {
-            id: admin.id,
-            name: admin.name?.trim() || admin.email?.trim() || "Administrator",
-            is_admin: admin.is_admin,
-          },
+          actor: auditActor(admin),
           action: "KELAS_DELETE",
           entity: { type: "Kelas", id, label: kelas.name },
           context: { kelas_id: id, kelas_label: kelas.name },
@@ -247,6 +230,6 @@ export async function deleteKelas(id: string): Promise<ActionResult> {
     };
   }
 
-  revalidateAll(REVALIDATE);
+  revalidatePaths(REVALIDATE);
   return { ok: true, message: `Kelas "${kelas.name}" berhasil dihapus.` };
 }

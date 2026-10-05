@@ -3,20 +3,16 @@
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
 
-import { logAudit } from "@/lib/audit";
+import { auditActor, logAudit } from "@/lib/audit";
 import { requireAdmin } from "@/lib/auth-helpers";
 import { prisma } from "@/lib/prisma";
 
 const idSchema = z.string().trim().min(1).max(128);
 const noteSchema = z.string().trim().max(1_000).nullish().transform((value) => value || null);
 
+/** Semua event Karsa Lib di modul ini dilakukan admin, jadi peran-nya eksplisit. */
 function auditAdmin(admin: Awaited<ReturnType<typeof requireAdmin>>) {
-  return {
-    id: admin.id,
-    name: admin.name?.trim() || admin.email?.trim() || "Administrator",
-    is_admin: true,
-    role: "ADMIN" as const,
-  };
+  return auditActor(admin, { role: "ADMIN" });
 }
 
 export async function decideLibAuthorRequestAction(formData: FormData): Promise<void> {

@@ -26,12 +26,11 @@
  * `z.string().cuid()` — karena data seed memakai id custom (`kelas_ti01`,
  * `usr_pj_budi`, `km_algo_ti01`, …). Lihat riwayat bug Sub-Fase 2B.
  */
-import { revalidatePath } from "next/cache";
 import { z } from "zod";
 
 import type { ActionResult } from "@/lib/action-utils";
-import { mapPrismaKnownError, zodFirstError } from "@/lib/action-utils";
-import { logAudit } from "@/lib/audit";
+import { mapPrismaKnownError, revalidateKelasRoutes, zodFirstError } from "@/lib/action-utils";
+import { auditActor, logAudit } from "@/lib/audit";
 import { requireAdmin } from "@/lib/auth-helpers";
 import { prisma } from "@/lib/prisma";
 
@@ -52,17 +51,6 @@ const pjSchema = z.object({ pj_id: idSchema });
 // ---------------------------------------------------------------------------
 // Helper
 // ---------------------------------------------------------------------------
-
-/**
- * Revalidate path SPESIFIK (pola 2C). `/admin/kelas/{id}` ditulis dengan id
- * konkret — literal `"/admin/kelas/[id]"` tanpa `type: "page"` tidak
- * merevalidasi apa pun (temuan Sub-Fase 2B, dibersihkan terpisah).
- */
-function revalidateKelas(kelasId: string): void {
-  revalidatePath("/admin/kelas");
-  revalidatePath("/admin/dashboard");
-  revalidatePath(`/admin/kelas/${kelasId}`);
-}
 
 /** Pesan tolak "hapus penugasan yang sudah punya poin" — dipakai dua jalur. */
 function pesanPoinTercatat(namaMatkul: string, jumlah: number): string {
@@ -196,11 +184,7 @@ export async function assignMatkulToKelas(
 
       await logAudit(
         {
-          actor: {
-            id: admin.id,
-            name: admin.name?.trim() || admin.email?.trim() || "Administrator",
-            is_admin: admin.is_admin,
-          },
+          actor: auditActor(admin),
           action: "PJ_ASSIGN",
           entity: {
             type: "KelasMatkul",
@@ -239,7 +223,7 @@ export async function assignMatkulToKelas(
     };
   }
 
-  revalidateKelas(kelas.id);
+  revalidateKelasRoutes(kelas.id);
   return {
     ok: true,
     message: `${matkul.name} berhasil di-assign ke kelas ${kelas.name} dengan PJ ${pjName}.`,
@@ -300,11 +284,7 @@ export async function updatePjKelasMatkul(
 
       await logAudit(
         {
-          actor: {
-            id: admin.id,
-            name: admin.name?.trim() || admin.email?.trim() || "Administrator",
-            is_admin: admin.is_admin,
-          },
+          actor: auditActor(admin),
           action: "PJ_REPLACE",
           entity: {
             type: "KelasMatkul",
@@ -346,7 +326,7 @@ export async function updatePjKelasMatkul(
     };
   }
 
-  revalidateKelas(row.kelas.id);
+  revalidateKelasRoutes(row.kelas.id);
   return {
     ok: true,
     message: `PJ ${row.matkul.name} di kelas ${row.kelas.name} diganti ke ${newPjName}.`,
@@ -422,11 +402,7 @@ export async function removeKelasMatkul(
 
         await logAudit(
           {
-            actor: {
-              id: admin.id,
-              name: admin.name?.trim() || admin.email?.trim() || "Administrator",
-              is_admin: admin.is_admin,
-            },
+            actor: auditActor(admin),
             action: "PJ_REMOVE",
             entity: {
               type: "KelasMatkul",
@@ -472,7 +448,7 @@ export async function removeKelasMatkul(
     };
   }
 
-  revalidateKelas(row.kelas.id);
+  revalidateKelasRoutes(row.kelas.id);
   return {
     ok: true,
     message: `Penugasan ${row.matkul.name} di kelas ${row.kelas.name} dihapus.`,

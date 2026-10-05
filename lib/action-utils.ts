@@ -6,7 +6,12 @@
  *
  * Semua action CRUD admin mengembalikan `ActionResult` supaya komponen client
  * bisa seragam: sukses → `toast.success(message)`, gagal → `toast.error(error)`.
+ *
+ * ⚠️ Modul ini menjadi server-only karena mengimpor `next/cache`. Client
+ * component WAJIB mengimpor `ActionResult` lewat `import type` (dihapus saat
+ * compile), bukan import nilai.
  */
+import { revalidatePath } from "next/cache";
 import { Prisma } from "@prisma/client";
 import { ZodError } from "zod";
 
@@ -14,6 +19,27 @@ import { ZodError } from "zod";
 export type ActionResult =
   | { ok: true; message?: string }
   | { ok: false; error: string };
+
+/**
+ * Segarkan Route Cache untuk sekumpulan route sekaligus.
+ *
+ * Dipakai setelah mutasi domain yang invalidated halaman-halaman terkait, supaya
+ * tiap action tidak menulis ulang loop `revalidatePath` yang sama.
+ */
+export function revalidatePaths(paths: readonly string[]): void {
+  for (const path of paths) revalidatePath(path);
+}
+
+/**
+ * Route yang bergantung pada isi satu kelas: daftar kelas, dashboard, dan
+ * halaman detail kelas tersebut.
+ *
+ * Dipakai setiap mutasi yang mengubah isi kelas — anggota kelas, matkul, atau
+ * PJ — supaya ketiganya tidak pernah menampilkan data basi.
+ */
+export function revalidateKelasRoutes(kelasId: string): void {
+  revalidatePaths(["/admin/kelas", "/admin/dashboard", `/admin/kelas/${kelasId}`]);
+}
 
 /**
  * Ambil pesan pertama dari `ZodError` sebagai pesan ramah user.

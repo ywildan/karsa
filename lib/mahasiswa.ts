@@ -57,16 +57,12 @@ export interface UserPreview {
   is_pj: boolean;
 }
 
-/** Status hasil `findUserForKelas()` — menentukan tombol di dialog. */
-export type UserPreviewStatus =
-  | "siap"
-  | "sudah_di_kelas_ini"
-  | "kelas_lain"
-  | "tidak_ditemukan";
-
 /**
  * Hasil pencarian user untuk preview. Bukan sumber kebenaran: `addMahasiswaToKelas()`
  * tetap memvalidasi ulang saat tombol "Tambahkan" ditekan.
+ *
+ * `status` ditulis inline di tiap anggota union supaya TS tetap bisa
+ * mempersempit: hanya `kelas_lain` yang membawa `kelasName`.
  */
 export type UserPreviewResult =
   | { ok: false; error: string }

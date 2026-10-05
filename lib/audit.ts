@@ -18,6 +18,20 @@ export type AuditActor = {
   role?: "ADMIN" | "PJ" | "MAHASISWA";
 };
 
+/**
+ * Subset klaim session yang dibutuhkan untuk menyusun `actor`.
+ *
+ * Sengaja structural (bukan `SessionUser`) supaya modul ini tetap bebas
+ * `next-auth` dan bisa dipakai dari mana saja tanpa menarik rantai
+ * `auth.ts` → Prisma.
+ */
+export type AuditActorSource = {
+  id: string;
+  name?: string | null;
+  email?: string | null;
+  is_admin: boolean;
+};
+
 export type AuditInput = {
   actor: AuditActor;
   action: string;
@@ -36,6 +50,39 @@ export type AuditInput = {
   after?: Prisma.InputJsonValue;
   metadata?: Prisma.InputJsonValue;
 };
+
+/**
+ * Susun `actor` dari user hasil `requireAdmin()` / `requireUser()`.
+ *
+ * Setiap action memakai bentuk yang sama —
+ * `{ id, name: name?.trim() || email?.trim() || "…", is_admin }` — dan
+ * sebelumnya blok itu ditulis ulang 21 kali, ditambah dua helper lokal yang
+ * salinannya (`actions/faculty.ts`, `actions/karsa-lib-admin.ts`). Satu helper
+ * ini menjaga nama tampilan dan fallback tetap konsisten di semua event audit.
+ *
+ * `fallbackName` dipakai actor non-admin (mis. PJ) supaya labelnya tidak
+ * menyamar jadi "Administrator".
+ */
+export function auditActor(
+  user: AuditActorSource,
+  options: {
+    fallbackName?: string;
+    role?: AuditActor["role"];
+  } = {},
+): AuditActor {
+  const actor: AuditActor = {
+    id: user.id,
+    name:
+      user.name?.trim() ||
+      user.email?.trim() ||
+      options.fallbackName ||
+      "Administrator",
+    is_admin: user.is_admin,
+  };
+  // `role` tidak selalu diisi: `logAudit` menurunkannya dari `is_admin`.
+  if (options.role !== undefined) actor.role = options.role;
+  return actor;
+}
 
 /**
  * Mencatat satu event audit setelah mutasi domain berhasil.

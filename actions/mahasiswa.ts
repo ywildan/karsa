@@ -23,12 +23,11 @@
  * `z.string().cuid()` — karena data seed memakai id custom (`kelas_ti01`,
  * `usr_siti`, …). Lihat riwayat bug Sub-Fase 2B.
  */
-import { revalidatePath } from "next/cache";
 import { z } from "zod";
 
 import type { ActionResult } from "@/lib/action-utils";
-import { mapPrismaKnownError, zodFirstError } from "@/lib/action-utils";
-import { logAudit } from "@/lib/audit";
+import { mapPrismaKnownError, revalidateKelasRoutes, zodFirstError } from "@/lib/action-utils";
+import { auditActor, logAudit } from "@/lib/audit";
 import { requireAdmin } from "@/lib/auth-helpers";
 import {
   isStudentEmail,
@@ -74,17 +73,6 @@ type CreateInput = z.infer<typeof createSchema>;
 // ---------------------------------------------------------------------------
 // Helper
 // ---------------------------------------------------------------------------
-
-/**
- * Revalidate path SPESIFIK (pola 2C). `/admin/kelas/{id}` ditulis dengan id
- * konkret — literal `"/admin/kelas/[id]"` tanpa `type: "page"` tidak
- * merevalidasi apa pun (temuan Sub-Fase 2B, akan dibersihkan terpisah).
- */
-function revalidateKelas(kelasId: string): void {
-  revalidatePath("/admin/kelas");
-  revalidatePath("/admin/dashboard");
-  revalidatePath(`/admin/kelas/${kelasId}`);
-}
 
 /** Nama tampil user: `name` → kalau kosong pakai email. */
 function displayName(user: { name: string | null; email: string }): string {
@@ -271,11 +259,7 @@ export async function addMahasiswaToKelas(
 
       await logAudit(
         {
-          actor: {
-            id: admin.id,
-            name: admin.name?.trim() || admin.email?.trim() || "Administrator",
-            is_admin: admin.is_admin,
-          },
+          actor: auditActor(admin),
           action: "MAHASISWA_ADD",
           entity: {
             type: "User",
@@ -309,7 +293,7 @@ export async function addMahasiswaToKelas(
     };
   }
 
-  revalidateKelas(kelas.id);
+  revalidateKelasRoutes(kelas.id);
   return {
     ok: true,
     message: `${displayName(user)} berhasil ditambahkan ke kelas ${kelas.name}.`,
@@ -396,11 +380,7 @@ export async function createAndAddMahasiswa(
 
       await logAudit(
         {
-          actor: {
-            id: admin.id,
-            name: admin.name?.trim() || admin.email?.trim() || "Administrator",
-            is_admin: admin.is_admin,
-          },
+          actor: auditActor(admin),
           action: "MAHASISWA_ADD",
           entity: {
             type: "User",
@@ -435,7 +415,7 @@ export async function createAndAddMahasiswa(
     };
   }
 
-  revalidateKelas(kelas.id);
+  revalidateKelasRoutes(kelas.id);
   return {
     ok: true,
     message: `${name} berhasil dibuat dan ditambahkan ke kelas ${kelas.name}.`,
@@ -521,11 +501,7 @@ export async function removeMahasiswaFromKelas(
 
       await logAudit(
         {
-          actor: {
-            id: admin.id,
-            name: admin.name?.trim() || admin.email?.trim() || "Administrator",
-            is_admin: admin.is_admin,
-          },
+          actor: auditActor(admin),
           action: "MAHASISWA_REMOVE",
           entity: {
             type: "User",
@@ -554,7 +530,7 @@ export async function removeMahasiswaFromKelas(
     };
   }
 
-  revalidateKelas(kelasLama.id);
+  revalidateKelasRoutes(kelasLama.id);
   return {
     ok: true,
     message: `${displayName(user)} dikeluarkan dari kelas ${kelasLama.name}. Akunnya tetap aktif.`,

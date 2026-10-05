@@ -68,14 +68,26 @@ export function getInitials(name?: string | null): string {
 }
 
 /**
+ * Normalisasi input tanggal ke `Date`, atau `null` bila tidak valid.
+ *
+ * Semua formatter di bawah memakai gate yang sama — parsing ulang di tiap
+ * fungsi mudah lupa dan membuat satu formatter diam-diam berbeda dari yang
+ * lain saat menerima input rusak.
+ */
+function toDate(value: Date | string): Date | null {
+  const date = value instanceof Date ? value : new Date(value);
+  return Number.isNaN(date.getTime()) ? null : date;
+}
+
+/**
  * Format tanggal ke WIB (Asia/Jakarta) sesuai default keputusan minor PRD §13.2.
  * Selalu render di server & client dengan locale yang sama ("id-ID") supaya
  * tidak memicu hydration mismatch.
  *   2026-09-16T03:00:00Z → "16 Sep 2026, 10.00"
  */
 export function formatDateTimeWib(value: Date | string): string {
-  const date = value instanceof Date ? value : new Date(value);
-  if (Number.isNaN(date.getTime())) return "-";
+  const date = toDate(value);
+  if (!date) return "-";
 
   return new Intl.DateTimeFormat("id-ID", {
     day: "numeric",
@@ -93,8 +105,8 @@ export function formatDateTimeWib(value: Date | string): string {
  * Dipakai tabel admin (mulai/akhir semester).
  */
 export function formatDateWib(value: Date | string): string {
-  const date = value instanceof Date ? value : new Date(value);
-  if (Number.isNaN(date.getTime())) return "-";
+  const date = toDate(value);
+  if (!date) return "-";
 
   return new Intl.DateTimeFormat("id-ID", {
     day: "numeric",
@@ -109,8 +121,8 @@ export function formatDateWib(value: Date | string): string {
  * absolut WIB supaya waktu yang lama tetap mudah dipindai.
  */
 export function formatRelativeTime(value: Date | string): string {
-  const date = value instanceof Date ? value : new Date(value);
-  if (Number.isNaN(date.getTime())) return "-";
+  const date = toDate(value);
+  if (!date) return "-";
 
   const elapsedMs = Math.max(0, Date.now() - date.getTime());
   const elapsedMinutes = Math.floor(elapsedMs / (60 * 1000));
@@ -134,8 +146,8 @@ export function formatRelativeTime(value: Date | string): string {
 
 /** Format ringkas tanggal dan waktu eksplisit WIB, mis. "17 Sep 2026, 10.00 WIB". */
 export function formatDateTimeShortWib(value: Date | string): string {
-  const date = value instanceof Date ? value : new Date(value);
-  if (Number.isNaN(date.getTime())) return "-";
+  const date = toDate(value);
+  if (!date) return "-";
 
   return `${new Intl.DateTimeFormat("id-ID", {
     day: "numeric",
@@ -154,8 +166,8 @@ export function formatDateTimeShortWib(value: Date | string): string {
  * walau server menyimpannya sebagai UTC.
  */
 export function toDateInputWib(value: Date | string): string {
-  const date = value instanceof Date ? value : new Date(value);
-  if (Number.isNaN(date.getTime())) return "";
+  const date = toDate(value);
+  if (!date) return "";
 
   return new Intl.DateTimeFormat("en-CA", {
     year: "numeric",
@@ -195,4 +207,3 @@ export const POIN_MAX = 4;
 
 /** Label kategori fallback kalau data DB belum siap. */
 export const KATEGORI_POIN = ["Bertanya", "Menjawab", "Presentasi", "Lainnya"] as const;
-export type KategoriPoinName = (typeof KATEGORI_POIN)[number];

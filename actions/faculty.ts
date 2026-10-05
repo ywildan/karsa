@@ -1,11 +1,10 @@
 "use server";
 
-import { revalidatePath } from "next/cache";
 import { z } from "zod";
 
 import type { ActionResult } from "@/lib/action-utils";
-import { mapPrismaKnownError, zodFirstError } from "@/lib/action-utils";
-import { logAudit } from "@/lib/audit";
+import { mapPrismaKnownError, revalidatePaths, zodFirstError } from "@/lib/action-utils";
+import { auditActor, logAudit } from "@/lib/audit";
 import { requireAdmin } from "@/lib/auth-helpers";
 import { prisma } from "@/lib/prisma";
 
@@ -14,20 +13,6 @@ const inputSchema = z.object({
   name: z.string().trim().min(2, "Nama fakultas wajib diisi.").max(120),
 });
 type Input = z.infer<typeof inputSchema>;
-
-function revalidate() {
-  for (const path of ["/admin/fakultas", "/admin/prodi", "/admin/karsalib"]) {
-    revalidatePath(path);
-  }
-}
-
-function auditActor(admin: Awaited<ReturnType<typeof requireAdmin>>) {
-  return {
-    id: admin.id,
-    name: admin.name?.trim() || admin.email?.trim() || "Administrator",
-    is_admin: admin.is_admin,
-  };
-}
 
 export async function createFaculty(input: Input): Promise<ActionResult> {
   const admin = await requireAdmin();
@@ -45,7 +30,7 @@ export async function createFaculty(input: Input): Promise<ActionResult> {
   } catch (error) {
     return { ok: false, error: mapPrismaKnownError(error, { P2002: `Fakultas "${parsed.data.name}" sudah ada.` }, "Gagal menyimpan fakultas.") };
   }
-  revalidate();
+  revalidatePaths(["/admin/fakultas", "/admin/prodi", "/admin/karsalib"]);
   return { ok: true, message: `Fakultas "${parsed.data.name}" berhasil ditambahkan.` };
 }
 
@@ -70,7 +55,7 @@ export async function updateFaculty(id: string, input: Input): Promise<ActionRes
   } catch (error) {
     return { ok: false, error: mapPrismaKnownError(error, { P2002: `Fakultas "${parsed.data.name}" sudah ada.` }, "Gagal memperbarui fakultas.") };
   }
-  revalidate();
+  revalidatePaths(["/admin/fakultas", "/admin/prodi", "/admin/karsalib"]);
   return { ok: true, message: `Fakultas "${parsed.data.name}" berhasil diperbarui.` };
 }
 
@@ -99,6 +84,6 @@ export async function deleteFaculty(id: string): Promise<ActionResult> {
   } catch (error) {
     return { ok: false, error: mapPrismaKnownError(error, { P2025: "Fakultas tidak ditemukan.", P2003: "Fakultas masih digunakan prodi atau profil." }, "Gagal menghapus fakultas.") };
   }
-  revalidate();
+  revalidatePaths(["/admin/fakultas", "/admin/prodi", "/admin/karsalib"]);
   return { ok: true, message: `Fakultas "${faculty.name}" berhasil dihapus.` };
 }
