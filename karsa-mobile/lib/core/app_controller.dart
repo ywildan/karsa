@@ -15,12 +15,9 @@ import 'models.dart';
 enum SessionState { loading, unavailable, signedOut, authenticating, signedIn }
 
 class AppController extends ChangeNotifier {
-  AppController(
-    this.api, {
-    AppLinks? appLinks,
-    FlutterSecureStorage? storage,
-  })  : _appLinks = appLinks ?? AppLinks(),
-        _storage = storage ?? const FlutterSecureStorage() {
+  AppController(this.api, {AppLinks? appLinks, FlutterSecureStorage? storage})
+    : _appLinks = appLinks ?? AppLinks(),
+      _storage = storage ?? const FlutterSecureStorage() {
     // Didaftarkan dari konstruktor agar tetap aktif walau initialize()
     // belum sempat berjalan, misalnya ketika diuji secara langsung.
     api.sessionExpired.addListener(_handleSessionExpired);
@@ -36,8 +33,11 @@ class AppController extends ChangeNotifier {
   String? error;
   int _authAttempt = 0;
   bool _exchanging = false;
+  Future<void>? _authLinkInFlight;
+  Uri? _activeAuthLink;
 
-  bool get waitingForBrowser => state == SessionState.authenticating && !_exchanging;
+  bool get waitingForBrowser =>
+      state == SessionState.authenticating && !_exchanging;
 
   Future<void> initialize() async {
     try {
@@ -54,6 +54,8 @@ class AppController extends ChangeNotifier {
         // sah tidak terlempar hanya karena tautan basi.
         if (state == SessionState.signedIn) return;
       }
+      await _authLinkInFlight;
+      if (state == SessionState.signedIn) return;
       await retrySession();
     } catch (_) {
       state = SessionState.unavailable;
@@ -63,17 +65,24 @@ class AppController extends ChangeNotifier {
   }
 
   Future<void> retrySession() async {
+    final attempt = ++_authAttempt;
     state = SessionState.loading;
     error = null;
     notifyListeners();
     try {
-      if (await api.restoreSession()) {
-        user = await api.me();
+      final restored = await api.restoreSession();
+      if (attempt != _authAttempt) return;
+      if (restored) {
+        final profile = await api.me();
+        if (attempt != _authAttempt) return;
+        user = profile;
         state = SessionState.signedIn;
       } else {
+        user = null;
         state = SessionState.signedOut;
       }
     } catch (exception) {
+      if (attempt != _authAttempt) return;
       if (exception is ApiException && exception.statusCode == 401) {
         await api.clearSession();
         user = null;
@@ -87,7 +96,7 @@ class AppController extends ChangeNotifier {
   }
 
   Future<void> signIn({required bool termsAccepted}) async {
-    if (state == SessionState.authenticating) return;
+    if (state != SessionState.signedOut || _exchanging) return;
     if (!termsAccepted) {
       _setError('Baca dan setujui Syarat Penggunaan sebelum masuk.');
       return;
@@ -105,7 +114,10 @@ class AppController extends ChangeNotifier {
           .replaceAll('=', '');
       await _storage.write(key: 'oauth_state', value: stateValue);
       await _storage.write(key: 'oauth_verifier', value: verifier);
-      await _storage.write(key: 'oauth_legal_version', value: legalDocumentVersion);
+      await _storage.write(
+        key: 'oauth_legal_version',
+        value: legalDocumentVersion,
+      );
       if (attempt != _authAttempt) return;
 
       final uri = Uri.parse('$apiBaseUrl/api/mobile/v1/auth/start').replace(
@@ -146,48 +158,89 @@ class AppController extends ChangeNotifier {
     }
   }
 
-  Future<void> handleAuthLink(Uri uri) async {
-    if (!_isAuthLink(uri) || _exchanging) return;
-    final attempt = ++_authAttempt;
-    _exchanging = true;
-    state = SessionState.authenticating;
-    error = null;
-    notifyListeners();
+  Future<void> handleAuthLink(Uri uri) {
+    if (!_isAuthLink(uri) || state == SessionState.signedIn) {
+      return Future<void>.value();
+    }
+    final pending = _authLinkInFlight;
+    if (pending != null) {
+      if (_activeAuthLink == uri) return pending;
+      return pending.then((_) => handleAuthLink(uri));
+    }
+    final operation = _handleAuthLink(uri);
+    _activeAuthLink = uri;
+    _authLinkInFlight = operation;
+    return operation.whenComplete(() {
+      if (identical(_authLinkInFlight, operation)) {
+        _authLinkInFlight = null;
+        _activeAuthLink = null;
+      }
+    });
+  }
+
+  Future<void> _handleAuthLink(Uri uri) async {
+    if (_exchanging) return;
+    var attempt = _authAttempt;
+    var accepted = false;
     try {
       final expectedState = await _storage.read(key: 'oauth_state');
       final verifier = await _storage.read(key: 'oauth_verifier');
-      final acceptedLegalVersion = await _storage.read(key: 'oauth_legal_version');
+      final acceptedLegalVersion = await _storage.read(
+        key: 'oauth_legal_version',
+      );
       final returnedState = uri.queryParameters['state'];
       final code = uri.queryParameters['code'];
       final authError = uri.queryParameters['error'];
+      // Unrelated/stale links must not cancel a valid login or clear its PKCE
+      // verifier. Error callbacks are subject to the same state validation.
+      if (attempt != _authAttempt ||
+          expectedState == null ||
+          verifier == null ||
+          acceptedLegalVersion == null ||
+          expectedState != returnedState)
+        return;
+      attempt = ++_authAttempt;
+      accepted = true;
+      _exchanging = true;
+      state = SessionState.authenticating;
+      error = null;
+      notifyListeners();
       if (authError == 'not_eligible') {
-        throw const ApiException('Aplikasi ini hanya tersedia untuk akun mahasiswa UNTIDAR.');
+        throw const ApiException(
+          'Aplikasi ini hanya tersedia untuk akun mahasiswa UNTIDAR.',
+        );
       }
       if (authError == 'temporarily_unavailable') {
-        throw const ApiException('Layanan data sedang tidak tersedia. Coba lagi sebentar.');
+        throw const ApiException(
+          'Layanan data sedang tidak tersedia. Coba lagi sebentar.',
+        );
       }
-      if (expectedState == null || verifier == null ||
-          acceptedLegalVersion == null || expectedState != returnedState ||
-          code == null) {
-        throw const ApiException('Proses masuk tidak valid atau sudah kedaluwarsa. Silakan masuk lagi.');
+      if (code == null || code.isEmpty) {
+        throw const ApiException(
+          'Proses masuk tidak valid atau sudah kedaluwarsa. Silakan masuk lagi.',
+        );
       }
-      await api.exchangeCode(code, verifier, acceptedTermsVersion: acceptedLegalVersion);
+      await api.exchangeCode(
+        code,
+        verifier,
+        acceptedTermsVersion: acceptedLegalVersion,
+      );
+      if (attempt != _authAttempt) return;
       final profile = await api.me();
       if (attempt != _authAttempt) return;
       await _clearOAuthValues();
+      if (attempt != _authAttempt) return;
       user = profile;
       state = SessionState.signedIn;
     } catch (exception) {
-      if (attempt == _authAttempt) {
+      if (accepted && attempt == _authAttempt) {
         state = SessionState.signedOut;
         error = _message(exception);
-        // Bersihkan juga saat gagal. Kalau tidak, state dan verifier
-        // lama masih cocok dengan tautan basi padaKemajuan berikutnya
-        // sehingga kode yang sudah dipakai dikirim ulang terus-menerus.
+        // An accepted attempt is finished; the same code cannot be reused.
         await _clearOAuthValues();
       }
     } finally {
-      if (attempt == _authAttempt) {
+      if (accepted && attempt == _authAttempt) {
         _exchanging = false;
         notifyListeners();
       }
@@ -203,7 +256,7 @@ class AppController extends ChangeNotifier {
 
   Future<void> signOut() async {
     ++_authAttempt;
-    _exchanging = false;
+    _exchanging = true;
     error = null;
     state = SessionState.loading;
     notifyListeners();
@@ -213,9 +266,10 @@ class AppController extends ChangeNotifier {
       error = _message(exception);
     } finally {
       user = null;
-      state = SessionState.signedOut;
       // Jangan biarkan percobaan OAuth menggantung di perangkat.
       await _clearOAuthValues();
+      _exchanging = false;
+      state = SessionState.signedOut;
       notifyListeners();
     }
   }
@@ -244,7 +298,8 @@ class AppController extends ChangeNotifier {
     return base64Url.encode(bytes).replaceAll('=', '');
   }
 
-  bool _isAuthLink(Uri uri) => uri.scheme == 'karsa' && uri.host == 'auth' && uri.path == '/callback';
+  bool _isAuthLink(Uri uri) =>
+      uri.scheme == 'karsa' && uri.host == 'auth' && uri.path == '/callback';
 
   Future<void> _clearOAuthValues() async {
     await _storage.delete(key: 'oauth_state');
@@ -257,8 +312,9 @@ class AppController extends ChangeNotifier {
     notifyListeners();
   }
 
-  String _message(Object exception) =>
-      exception is ApiException ? exception.message : 'Terjadi gangguan. Silakan coba lagi.';
+  String _message(Object exception) => exception is ApiException
+      ? exception.message
+      : 'Terjadi gangguan. Silakan coba lagi.';
 
   @override
   void dispose() {

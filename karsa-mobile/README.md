@@ -34,11 +34,28 @@ Workflow `.github/workflows/karsa-mobile-build.yml` melakukan seluruh proses di 
 1. Membuat project Flutter sementara.
 2. Menyalin source, manifest, aset, dan pengujian.
 3. Mengambil dependency di runner GitHub.
-4. Menjalankan format check, analyzer, dan test.
-5. Membuat launcher icon dan APK release.
-6. Mengunggah `karsa-mobile-apk` sebagai artifact.
+4. Menggunakan `pubspec.lock`, lalu menjalankan format, analyzer, dan test.
+5. Membuat launcher icon dan APK per arsitektur. PR/branch fitur hanya memakai signing debug untuk validasi build.
+6. Pada `main` dengan backend produksi, menggunakan keystore permanen dan memeriksa sertifikat, package, versi, ABI, manifest login, serta backup.
+7. Mengunggah APK bertanda tangan produksi dan `release-metadata.json` sebagai artifact `karsa-mobile-apk-<commit>`.
 
-Jalankan workflow secara manual dari tab **Actions**, atau push perubahan yang termasuk dalam path pemicu. URL backend dapat diganti melalui input manual workflow; nilai default-nya `https://www.sikarsa.id`.
+Push dan PR menjalankan validasi/build, tanpa membuat GitHub Release. Untuk publikasi, naikkan versi semver di `pubspec.yaml`, masukkan perubahan ke `main`, lalu jalankan workflow dari tab **Actions** dengan `publish_release=true`. Tag versi yang sudah ada akan ditolak sebelum build. Workflow manual default hanya membuat build untuk pemeriksaan.
+
+URL backend dapat diganti menjadi HTTPS origin melalui input manual workflow. Nilai default-nya `https://www.sikarsa.id`. Build staging tidak memakai signing produksi dan tidak boleh dipublikasikan sebagai release. Untuk staging, gunakan instalasi terpisah dari aplikasi produksi.
+
+APK publik memerlukan Android 7+ dan ARM64. Build counter GitHub tetap dipakai agar versionCode meningkat dari APK yang sebelumnya dibagikan; angka `+N` pada pubspec tidak menggantikan counter tersebut. Sertifikat rilis dipin pada `android/release-cert.sha256`, berdasarkan APK `2.0.7` yang sudah diterbitkan. Jangan mengganti keystore/fingerprint untuk update biasa.
+
+## Verifikasi di HP untuk 2.0.8
+
+- Pasang APK sebagai update di atas 2.0.7 tanpa uninstall; data/sesi yang masih sah harus tetap terbaca.
+- Coba login dari aplikasi baru dibuka, background, dan setelah aplikasi ditutup ketika browser masih terbuka.
+- Batalkan login, lalu coba lagi; callback/link lama tidak boleh membatalkan percobaan baru.
+- Keluar saat koneksi lambat atau terputus; buka kembali aplikasi dan pastikan tetap meminta login.
+- Buka chat/artikel/editor ketika sesi dicabut dari server. Permintaan berikutnya harus membawa aplikasi ke login dan menutup layar privat. Draf yang belum tersimpan pada sesi yang berakhir akan ikut ditutup.
+- Muat histori chat lebih dari 30 pesan, lalu blokir/unblokir penulis pesan lama; status seluruh pesan yang sudah dimuat harus diperbarui.
+- Coba input/hapus poin, membaca/menulis artikel, dan kirim komentar untuk memastikan alur sehari-hari tetap berjalan.
+
+Untuk pemeriksaan lokal: gunakan Flutter 3.47.0, jalankan `flutter pub get --enforce-lockfile`, `flutter test`, dan `dart analyze lib test` dari folder ini. Guard rilis dapat diuji dengan `python3 -m unittest discover -s tests -p 'test_mobile_release*.py'` dari root repository.
 
 ## Kontrak backend
 

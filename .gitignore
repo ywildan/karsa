@@ -57,3 +57,10 @@ Thumbs.db
 # Testing / cache
 /coverage
 /.turbo
+
+# Flutter local tooling
+.dart_tool/
+.flutter-plugins-dependencies
+__pycache__/
+/karsa-mobile/android/local.properties
+/karsa-mobile/android/app/src/main/java/io/flutter/plugins/GeneratedPluginRegistrant.java
