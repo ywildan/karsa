@@ -247,8 +247,13 @@ void main() {
     expect(group.manager.id, '');
     expect(group.manager.name, 'Tanpa nama');
 
-    // messages null → daftar kosong.
-    final page = GroupMessagePage.fromJson({'group': {}, 'messages': null});
+    // messages null → daftar kosong. Map kosong ditulis sebagai
+    // <String, dynamic>{} supaya cocok dengan cast di fromJson; `{}`
+    // akan di-infer menjadi Map<dynamic, dynamic> dan gagal di-cast.
+    final page = GroupMessagePage.fromJson({
+      'group': <String, dynamic>{},
+      'messages': null,
+    });
     expect(page.messages, isEmpty);
 
     // pesan tanpa author/timestamp → placeholder + epoch.

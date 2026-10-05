@@ -1,3 +1,4 @@
+import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:http/http.dart' as http;
 import 'package:karsa_mobile/core/api_client.dart';
@@ -33,6 +34,13 @@ class SessionApi extends ApiClient {
 
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
+
+  // AppController memakai FlutterSecureStorage asli untuk nilai OAuth.
+  // Tanpa mock, panggilan delete akan melempar MissingPluginException
+  // karena tidak ada platform di dalam flutter test.
+  setUp(() {
+    FlutterSecureStorage.setMockInitialValues(<String, String>{});
+  });
 
   test(
     'startup keeps session on temporary failure and supports retry',
@@ -87,6 +95,24 @@ void main() {
     expect(controller.state, SessionState.signedOut);
     expect(controller.user, isNull);
     expect(controller.error, isNotNull);
+  });
+
+  test('keluar menghapus sisa nilai OAuth di perangkat', () async {
+    FlutterSecureStorage.setMockInitialValues(<String, String>{
+      'oauth_state': 'state-token',
+      'oauth_verifier': 'verifier-token',
+      'oauth_legal_version': '1.0',
+    });
+    final api = SessionApi();
+    final controller = AppController(api);
+    addTearDown(controller.dispose);
+    await controller.retrySession();
+    await controller.signOut();
+
+    const storage = FlutterSecureStorage();
+    expect(await storage.read(key: 'oauth_state'), isNull);
+    expect(await storage.read(key: 'oauth_verifier'), isNull);
+    expect(await storage.read(key: 'oauth_legal_version'), isNull);
   });
 
   test('token kedaluwarsa saat sudah signedOut tidak mengubah apa pun', () async {
