@@ -328,8 +328,9 @@ jobs:
             abi="${abi%-release}"
             mv "$apk" "release-assets/Karsa-Mobile-${VERSION}-${abi}.apk"
           done
-          printf 'Published %d APK(s):\n' "${#apks[@]}"
+          printf 'Built %d APK(s):\n' "${#apks[@]}"
           du -h release-assets/*.apk
+          printf '\nOnly arm64-v8a is published to the release; the other two stay in this artifact.\n'
 
       - name: Create GitHub release
         env:
@@ -339,18 +340,25 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          shopt -s nullglob
-          apks=(release-assets/*.apk)
-          if [[ ${#apks[@]} -eq 0 ]]; then
-            echo "No APK was found in the downloaded artifact." >&2
+          # Only arm64-v8a reaches the public release. It covers every real
+          # phone built since roughly 2017; armeabi-v7a is legacy 32-bit
+          # hardware and x86_64 only matters for emulators. Publishing a
+          # single file stops students from grabbing the wrong one by
+          # mistake; the other two stay available from the build artifact.
+          apk="release-assets/Karsa-Mobile-${VERSION}-arm64-v8a.apk"
+          if [[ ! -f "$apk" ]]; then
+            echo "Expected arm64-v8a APK was not found in the downloaded artifact." >&2
+            ls -la release-assets >&2
             exit 1
           fi
           if gh release view "$TAG" >/dev/null 2>&1; then
             echo "Release $TAG already exists; nothing to create."
             exit 0
           fi
-          gh release create "$TAG" "${apks[@]}" \
+          gh release create "$TAG" "$apk" \
             --target "$GITHUB_SHA" \
             --title "Karsa Mobile $VERSION" \
-            --notes "Pilih satu file sesuai perangkat Anda. Hampir semua HP modern memakai **arm64-v8a**." \
+            --notes "Unduh satu-satunya file di halaman ini: **Karsa-Mobile-${VERSION}-arm64-v8a.apk**.
+
+File ini untuk HP Android tahun 2017 ke sekarang. Kalau muncul error \"app not installed\", kemungkinan besar HP-nya sudah terlalu tua — silakan laporkan lewat issue di repository ini." \
             --generate-notes
