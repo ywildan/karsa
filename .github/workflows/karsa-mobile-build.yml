@@ -294,7 +294,13 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          version="$(sed -n 's/^version:[[:space:]]*//p' karsa-mobile/pubspec.yaml | head -n 1)"
+          raw="$(sed -n 's/^version:[[:space:]]*//p' karsa-mobile/pubspec.yaml | head -n 1)"
+          # pubspec.yaml carries "<semver>+<build number>", e.g. 2.0.6+8.
+          # The build number is an Android install counter used by Play
+          # Store only; it must not reach the release tag or the APK
+          # filenames, where a literal "+" is mangled on download and can
+          # surface to users as a confusing "app not installed".
+          version="${raw%%+*}"
           if [[ -z "$version" ]]; then
             echo "version is missing from karsa-mobile/pubspec.yaml" >&2
             exit 1
