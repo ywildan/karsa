@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 
 import '../core/app_controller.dart';
-import '../core/models.dart';
 import 'account_screen.dart';
 import 'activity_screen.dart';
 import 'group_list_screen.dart';
