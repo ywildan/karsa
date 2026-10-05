@@ -45,6 +45,7 @@ class _GroupChatScreenState extends State<GroupChatScreen>
   bool _loading = true;
   bool _loadingOlder = false;
   bool _sending = false;
+  Future<void>? _refreshInFlight;
   late bool _isManager;
   late bool _isLocked;
 
@@ -82,8 +83,10 @@ class _GroupChatScreenState extends State<GroupChatScreen>
     _pollTimer?.cancel();
     if (state == AppLifecycleState.resumed) {
       _refreshLatest(silent: true);
-      _pollTimer = Timer.periodic(const Duration(seconds: 12),
-        (_) => _refreshLatest(silent: true));
+      _pollTimer = Timer.periodic(
+        const Duration(seconds: 12),
+        (_) => _refreshLatest(silent: true),
+      );
     }
   }
 
@@ -124,9 +127,28 @@ class _GroupChatScreenState extends State<GroupChatScreen>
   }
 
   Future<void> _refreshLatest({bool silent = false}) async {
-    if (_loading || _sending) return;
+    if (_loading || _sending || _loadingOlder) return;
+    final active = _refreshInFlight;
+    if (active != null) {
+      if (silent) return;
+      await active;
+      if (!mounted) return;
+    }
+    final refresh = _refreshLoadedMessages(silent: silent);
+    _refreshInFlight = refresh;
     try {
-      final page = await widget.api.groupMessages(widget.group.id);
+      await refresh;
+    } finally {
+      if (identical(_refreshInFlight, refresh)) _refreshInFlight = null;
+    }
+  }
+
+  Future<void> _refreshLoadedMessages({required bool silent}) async {
+    try {
+      final page = await widget.api.refreshGroupMessages(
+        widget.group.id,
+        oldestMessageId: _messages.isEmpty ? null : _messages.first.id,
+      );
       if (!mounted) return;
       final byId = {for (final message in _messages) message.id: message};
       for (final message in page.messages) {
@@ -167,27 +189,33 @@ class _GroupChatScreenState extends State<GroupChatScreen>
         _error = null;
         if (hasNew && !follow) _hasNewMessages = true;
         _pinnedMessages = page.pinnedMessages;
+        _nextCursor = page.nextCursor;
         _isManager = page.isManager;
         _isLocked = page.isLocked;
       });
       if (hasNew && follow) _jumpToBottom();
     } catch (error) {
       if (!silent && mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text(friendlyError(error))),
-        );
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text(friendlyError(error))));
       }
     }
   }
 
   Future<void> _loadOlder() async {
     final cursor = _nextCursor;
-    if (cursor == null || _loadingOlder) return;
+    if (cursor == null || _loadingOlder || _refreshInFlight != null) return;
     setState(() => _loadingOlder = true);
     try {
-      final page = await widget.api.groupMessages(widget.group.id, cursor: cursor);
+      final page = await widget.api.groupMessages(
+        widget.group.id,
+        cursor: cursor,
+      );
       if (!mounted) return;
-      final oldExtent = _scroll.hasClients ? _scroll.position.maxScrollExtent : 0.0;
+      final oldExtent = _scroll.hasClients
+          ? _scroll.position.maxScrollExtent
+          : 0.0;
       final oldOffset = _scroll.hasClients ? _scroll.offset : 0.0;
       final existing = _messages.map((item) => item.id).toSet();
       setState(() {
@@ -204,9 +232,9 @@ class _GroupChatScreenState extends State<GroupChatScreen>
       });
     } catch (error) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text(friendlyError(error))),
-        );
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text(friendlyError(error))));
       }
     } finally {
       if (mounted) setState(() => _loadingOlder = false);
@@ -218,7 +246,8 @@ class _GroupChatScreenState extends State<GroupChatScreen>
     final stage = _stageKey.currentContext?.findRenderObject();
     final button = _sendButtonKey.currentContext?.findRenderObject();
     final viewport = _chatViewportKey.currentContext?.findRenderObject();
-    if (stage is! RenderBox || button is! RenderBox || viewport is! RenderBox) return;
+    if (stage is! RenderBox || button is! RenderBox || viewport is! RenderBox)
+      return;
 
     final previewWidth = stage.size.width * .62;
     final maxWidth = previewWidth > 230 ? 230.0 : previewWidth;
@@ -232,16 +261,23 @@ class _GroupChatScreenState extends State<GroupChatScreen>
     final height = textPainter.height + 16;
     textPainter.dispose();
     final buttonCenter = button.localToGlobal(
-      button.size.center(Offset.zero), ancestor: stage,
+      button.size.center(Offset.zero),
+      ancestor: stage,
     );
-    final chatBottom = viewport.localToGlobal(
-      Offset(0, viewport.size.height), ancestor: stage,
-    ).dy;
+    final chatBottom = viewport
+        .localToGlobal(Offset(0, viewport.size.height), ancestor: stage)
+        .dy;
     setState(() {
       _flyingText = text;
       _flightWidth = width;
-      _flightStart = Offset(buttonCenter.dx - width * .68, buttonCenter.dy - height / 2);
-      _flightEnd = Offset(stage.size.width - width - 16, chatBottom - height - 10);
+      _flightStart = Offset(
+        buttonCenter.dx - width * .68,
+        buttonCenter.dy - height / 2,
+      );
+      _flightEnd = Offset(
+        stage.size.width - width - 16,
+        chatBottom - height - 10,
+      );
     });
     _sendFlightController.forward(from: 0);
   }
@@ -290,9 +326,9 @@ class _GroupChatScreenState extends State<GroupChatScreen>
       if (mounted) {
         _sendFlightController.stop();
         setState(() => _flyingText = null);
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text(friendlyError(error))),
-        );
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text(friendlyError(error))));
       }
     } finally {
       if (mounted) setState(() => _sending = false);
@@ -329,7 +365,9 @@ class _GroupChatScreenState extends State<GroupChatScreen>
       if (_scroll.hasClients) {
         _scroll.animateTo(
           _scroll.position.maxScrollExtent,
-          duration: MediaQuery.disableAnimationsOf(context) ? Duration.zero : const Duration(milliseconds: 220),
+          duration: MediaQuery.disableAnimationsOf(context)
+              ? Duration.zero
+              : const Duration(milliseconds: 220),
           curve: Curves.easeOut,
         );
       }
@@ -344,11 +382,13 @@ class _GroupChatScreenState extends State<GroupChatScreen>
       if (mounted) setState(() => _isLocked = !_isLocked);
     } catch (error) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text(friendlyError(error))),
-        );
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text(friendlyError(error))));
       }
-    } finally { if (mounted) setState(() => _locking = false); }
+    } finally {
+      if (mounted) setState(() => _locking = false);
+    }
   }
 
   Future<void> _edit(GroupMessageItem message) async {
@@ -365,7 +405,10 @@ class _GroupChatScreenState extends State<GroupChatScreen>
           maxLines: 6,
         ),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(context), child: const Text('Batal')),
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('Batal'),
+          ),
           FilledButton(
             onPressed: () => Navigator.pop(context, controller.text.trim()),
             child: const Text('Simpan'),
@@ -376,7 +419,9 @@ class _GroupChatScreenState extends State<GroupChatScreen>
     controller.dispose();
     if (text == null || text.isEmpty || text == message.text) return;
     try {
-      _replace(await widget.api.editGroupMessage(widget.group.id, message.id, text));
+      _replace(
+        await widget.api.editGroupMessage(widget.group.id, message.id, text),
+      );
     } catch (error) {
       _showError(error);
     }
@@ -389,14 +434,22 @@ class _GroupChatScreenState extends State<GroupChatScreen>
         title: const Text('Hapus pesan?'),
         content: const Text('Pesan akan menjadi penanda “telah dihapus”.'),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(context, false), child: const Text('Batal')),
-          FilledButton(onPressed: () => Navigator.pop(context, true), child: const Text('Hapus')),
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text('Batal'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.pop(context, true),
+            child: const Text('Hapus'),
+          ),
         ],
       ),
     );
     if (approved != true) return;
     try {
-      _replace(await widget.api.deleteGroupMessage(widget.group.id, message.id));
+      _replace(
+        await widget.api.deleteGroupMessage(widget.group.id, message.id),
+      );
     } catch (error) {
       _showError(error);
     }
@@ -404,11 +457,13 @@ class _GroupChatScreenState extends State<GroupChatScreen>
 
   Future<void> _togglePin(GroupMessageItem message) async {
     try {
-      _replace(await widget.api.pinGroupMessage(
-        widget.group.id,
-        message.id,
-        !message.isPinned,
-      ));
+      _replace(
+        await widget.api.pinGroupMessage(
+          widget.group.id,
+          message.id,
+          !message.isPinned,
+        ),
+      );
     } catch (error) {
       _showError(error);
     }
@@ -427,7 +482,10 @@ class _GroupChatScreenState extends State<GroupChatScreen>
           decoration: const InputDecoration(labelText: 'Alasan'),
         ),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(context), child: const Text('Batal')),
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('Batal'),
+          ),
           FilledButton(
             onPressed: () => Navigator.pop(context, controller.text.trim()),
             child: const Text('Sembunyikan'),
@@ -438,12 +496,14 @@ class _GroupChatScreenState extends State<GroupChatScreen>
     controller.dispose();
     if (reason == null || reason.isEmpty) return;
     try {
-      _replace(await widget.api.hideGroupMessage(
-        widget.group.id,
-        message.id,
-        hidden: true,
-        reason: reason,
-      ));
+      _replace(
+        await widget.api.hideGroupMessage(
+          widget.group.id,
+          message.id,
+          hidden: true,
+          reason: reason,
+        ),
+      );
     } catch (error) {
       _showError(error);
     }
@@ -470,9 +530,15 @@ class _GroupChatScreenState extends State<GroupChatScreen>
               DropdownButtonFormField<String>(
                 initialValue: reason,
                 items: labels.entries
-                    .map((item) => DropdownMenuItem(value: item.key, child: Text(item.value)))
+                    .map(
+                      (item) => DropdownMenuItem(
+                        value: item.key,
+                        child: Text(item.value),
+                      ),
+                    )
                     .toList(),
-                onChanged: (value) => setDialogState(() => reason = value ?? reason),
+                onChanged: (value) =>
+                    setDialogState(() => reason = value ?? reason),
                 decoration: const InputDecoration(labelText: 'Alasan'),
               ),
               const SizedBox(height: 12),
@@ -480,13 +546,21 @@ class _GroupChatScreenState extends State<GroupChatScreen>
                 controller: details,
                 maxLength: 500,
                 maxLines: 3,
-                decoration: const InputDecoration(labelText: 'Keterangan opsional'),
+                decoration: const InputDecoration(
+                  labelText: 'Keterangan opsional',
+                ),
               ),
             ],
           ),
           actions: [
-            TextButton(onPressed: () => Navigator.pop(context, false), child: const Text('Batal')),
-            FilledButton(onPressed: () => Navigator.pop(context, true), child: const Text('Kirim laporan')),
+            TextButton(
+              onPressed: () => Navigator.pop(context, false),
+              child: const Text('Batal'),
+            ),
+            FilledButton(
+              onPressed: () => Navigator.pop(context, true),
+              child: const Text('Kirim laporan'),
+            ),
           ],
         ),
       ),
@@ -503,7 +577,13 @@ class _GroupChatScreenState extends State<GroupChatScreen>
       );
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(hidden ? 'Laporan dikirim dan pesan disembunyikan.' : 'Laporan dikirim.')),
+        SnackBar(
+          content: Text(
+            hidden
+                ? 'Laporan dikirim dan pesan disembunyikan.'
+                : 'Laporan dikirim.',
+          ),
+        ),
       );
       if (hidden) await _refreshLatest();
     } catch (error) {
@@ -516,10 +596,18 @@ class _GroupChatScreenState extends State<GroupChatScreen>
       context: context,
       builder: (context) => AlertDialog(
         title: Text('Blokir ${message.author.name}?'),
-        content: const Text('Pesannya akan disamarkan untukmu. Kamu tetap dapat membuka placeholder bila diperlukan.'),
+        content: const Text(
+          'Pesannya akan disamarkan untukmu. Kamu tetap dapat membuka placeholder bila diperlukan.',
+        ),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(context, false), child: const Text('Batal')),
-          FilledButton(onPressed: () => Navigator.pop(context, true), child: const Text('Blokir')),
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text('Batal'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.pop(context, true),
+            child: const Text('Blokir'),
+          ),
         ],
       ),
     );
@@ -536,35 +624,62 @@ class _GroupChatScreenState extends State<GroupChatScreen>
     try {
       await widget.api.setGroupBlock(message.author.id, false);
       await _refreshLatest();
-    } catch (error) { _showError(error); }
+    } catch (error) {
+      _showError(error);
+    }
   }
 
   Future<void> _showMessageDetail(GroupMessageItem message) async {
     if (!mounted) return;
-    await showModalBottomSheet<void>(context: context, showDragHandle: true,
-      builder: (sheetContext) => SafeArea(child: Padding(
-        padding: const EdgeInsets.fromLTRB(20, 4, 20, 28),
-        child: Column(mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start, children: [
-            Text(message.author.name, style: Theme.of(sheetContext).textTheme.titleMedium),
-            const SizedBox(height: 4),
-            Text(formatDate(message.createdAt),
-              style: const TextStyle(fontSize: 12, color: KarsaColors.muted)),
-            const SizedBox(height: 16),
-            SelectableText(message.state == 'active' ? message.text ?? '' : 'Pesan tidak tersedia.',
-              style: const TextStyle(fontSize: 16, height: 1.6)),
-            if (_messageKeys[message.id]?.currentContext != null) ...[
-              const SizedBox(height: 18),
-              OutlinedButton.icon(onPressed: () {
-                Navigator.pop(sheetContext);
-                final target = _messageKeys[message.id]?.currentContext;
-                if (target != null) Scrollable.ensureVisible(target,
-                  duration: MediaQuery.disableAnimationsOf(context) ? Duration.zero : const Duration(milliseconds: 240));
-              }, icon: const Icon(Icons.arrow_downward_rounded),
-                label: const Text('Lihat di percakapan')),
+    await showModalBottomSheet<void>(
+      context: context,
+      showDragHandle: true,
+      builder: (sheetContext) => SafeArea(
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(20, 4, 20, 28),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                message.author.name,
+                style: Theme.of(sheetContext).textTheme.titleMedium,
+              ),
+              const SizedBox(height: 4),
+              Text(
+                formatDate(message.createdAt),
+                style: const TextStyle(fontSize: 12, color: KarsaColors.muted),
+              ),
+              const SizedBox(height: 16),
+              SelectableText(
+                message.state == 'active'
+                    ? message.text ?? ''
+                    : 'Pesan tidak tersedia.',
+                style: const TextStyle(fontSize: 16, height: 1.6),
+              ),
+              if (_messageKeys[message.id]?.currentContext != null) ...[
+                const SizedBox(height: 18),
+                OutlinedButton.icon(
+                  onPressed: () {
+                    Navigator.pop(sheetContext);
+                    final target = _messageKeys[message.id]?.currentContext;
+                    if (target != null)
+                      Scrollable.ensureVisible(
+                        target,
+                        duration: MediaQuery.disableAnimationsOf(context)
+                            ? Duration.zero
+                            : const Duration(milliseconds: 240),
+                      );
+                  },
+                  icon: const Icon(Icons.arrow_downward_rounded),
+                  label: const Text('Lihat di percakapan'),
+                ),
+              ],
             ],
-          ]),
-      )));
+          ),
+        ),
+      ),
+    );
   }
 
   Future<void> _openReply(GroupReply reply) async {
@@ -572,35 +687,63 @@ class _GroupChatScreenState extends State<GroupChatScreen>
     if (match.isNotEmpty) {
       await _showMessageDetail(match.first);
     } else {
-      await showModalBottomSheet<void>(context: context, showDragHandle: true,
-        builder: (context) => SafeArea(child: Padding(padding: const EdgeInsets.fromLTRB(20, 8, 20, 28),
-          child: Column(mainAxisSize: MainAxisSize.min, crossAxisAlignment: CrossAxisAlignment.start, children: [
-            Text(reply.author.name, style: Theme.of(context).textTheme.titleMedium),
-            const SizedBox(height: 14),
-            SelectableText(reply.state == 'active' ? reply.text ?? '' : 'Pesan tidak tersedia.',
-              style: const TextStyle(fontSize: 16, height: 1.6)),
-          ]))));
+      await showModalBottomSheet<void>(
+        context: context,
+        showDragHandle: true,
+        builder: (context) => SafeArea(
+          child: Padding(
+            padding: const EdgeInsets.fromLTRB(20, 8, 20, 28),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  reply.author.name,
+                  style: Theme.of(context).textTheme.titleMedium,
+                ),
+                const SizedBox(height: 14),
+                SelectableText(
+                  reply.state == 'active'
+                      ? reply.text ?? ''
+                      : 'Pesan tidak tersedia.',
+                  style: const TextStyle(fontSize: 16, height: 1.6),
+                ),
+              ],
+            ),
+          ),
+        ),
+      );
     }
   }
 
   void _showError(Object error) {
     if (!mounted) return;
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text(friendlyError(error))),
-    );
+    ScaffoldMessenger.of(
+      context,
+    ).showSnackBar(SnackBar(content: Text(friendlyError(error))));
   }
 
   Future<void> _showActions(GroupMessageItem message) async {
     if (message.state == 'blocked') {
-      final confirmed = await showDialog<bool>(context: context,
+      final confirmed = await showDialog<bool>(
+        context: context,
         builder: (context) => AlertDialog(
           title: Text('Buka blokir ${message.author.name}?'),
-          content: const Text('Pesan dari pengguna ini akan kembali terlihat di grup.'),
+          content: const Text(
+            'Pesan dari pengguna ini akan kembali terlihat di grup.',
+          ),
           actions: [
-            TextButton(onPressed: () => Navigator.pop(context, false), child: const Text('Batal')),
-            FilledButton(onPressed: () => Navigator.pop(context, true), child: const Text('Buka blokir')),
+            TextButton(
+              onPressed: () => Navigator.pop(context, false),
+              child: const Text('Batal'),
+            ),
+            FilledButton(
+              onPressed: () => Navigator.pop(context, true),
+              child: const Text('Buka blokir'),
+            ),
           ],
-        ));
+        ),
+      );
       if (confirmed == true) await _unblock(message);
       return;
     }
@@ -639,7 +782,9 @@ class _GroupChatScreenState extends State<GroupChatScreen>
               ),
             if (_isManager)
               ListTile(
-                leading: Icon(message.isPinned ? Icons.push_pin : Icons.push_pin_outlined),
+                leading: Icon(
+                  message.isPinned ? Icons.push_pin : Icons.push_pin_outlined,
+                ),
                 title: Text(message.isPinned ? 'Lepas pin' : 'Pin pesan'),
                 onTap: () {
                   Navigator.pop(context);
@@ -681,70 +826,100 @@ class _GroupChatScreenState extends State<GroupChatScreen>
 
   @override
   Widget build(BuildContext context) => Scaffold(
-        appBar: AppBar(
-          title: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(widget.group.courseName, maxLines: 1, overflow: TextOverflow.ellipsis),
-              Text(
-                '${widget.group.memberCount} anggota · PJ ${widget.group.manager.name}',
-                maxLines: 1, overflow: TextOverflow.ellipsis,
-                style: Theme.of(context).textTheme.labelSmall,
-              ),
-            ],
+    appBar: AppBar(
+      title: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            widget.group.courseName,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
           ),
-          actions: [
-            if (_isManager)
-              IconButton(
-                tooltip: 'Laporan grup',
-                icon: const Icon(Icons.flag_outlined),
-                onPressed: () => Navigator.of(context).push<void>(
-                  MaterialPageRoute(
-                    builder: (_) => GroupReportsScreen(
-                      api: widget.api,
-                      assignmentId: widget.group.id,
-                    ),
-                  ),
+          Text(
+            '${widget.group.memberCount} anggota · PJ ${widget.group.manager.name}',
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: Theme.of(context).textTheme.labelSmall,
+          ),
+        ],
+      ),
+      actions: [
+        if (_isManager)
+          IconButton(
+            tooltip: 'Laporan grup',
+            icon: const Icon(Icons.flag_outlined),
+            onPressed: () => Navigator.of(context).push<void>(
+              MaterialPageRoute(
+                builder: (_) => GroupReportsScreen(
+                  api: widget.api,
+                  assignmentId: widget.group.id,
                 ),
               ),
-            if (_isManager)
-              IconButton(
-                tooltip: _isLocked ? 'Buka grup' : 'Kunci grup',
-                onPressed: _locking ? null : _toggleLock,
-                icon: Icon(_isLocked ? Icons.lock_rounded : Icons.lock_open_rounded),
-              ),
-          ],
-        ),
-        body: Stack(
-          key: _stageKey,
-          fit: StackFit.expand,
+            ),
+          ),
+        if (_isManager)
+          IconButton(
+            tooltip: _isLocked ? 'Buka grup' : 'Kunci grup',
+            onPressed: _locking ? null : _toggleLock,
+            icon: Icon(
+              _isLocked ? Icons.lock_rounded : Icons.lock_open_rounded,
+            ),
+          ),
+      ],
+    ),
+    body: Stack(
+      key: _stageKey,
+      fit: StackFit.expand,
+      children: [
+        Column(
           children: [
-            Column(children: [
             if (_pinnedMessages.isNotEmpty)
-              _PinnedMessagesStrip(messages: _pinnedMessages, onTap: _showMessageDetail),
+              _PinnedMessagesStrip(
+                messages: _pinnedMessages,
+                onTap: _showMessageDetail,
+              ),
             if (_isManager &&
                 !_loading &&
                 _messages.isNotEmpty &&
                 _pinnedMessages.isEmpty)
               const _PinHint(),
-            Expanded(child: Stack(key: _chatViewportKey, children: [
-              _body(),
-              if (_hasNewMessages || !_nearBottom) Positioned(right: 16, bottom: 12,
-                child: FilledButton.tonalIcon(onPressed: _jumpToBottom,
-                  icon: const Icon(Icons.arrow_downward_rounded),
-                  label: Text(_hasNewMessages ? 'Pesan baru' : 'Pesan terbaru'))),
-            ])),
-            if (_replyTo != null) _ReplyComposer(message: _replyTo!, onClose: () => setState(() => _replyTo = null)),
+            Expanded(
+              child: Stack(
+                key: _chatViewportKey,
+                children: [
+                  _body(),
+                  if (_hasNewMessages || !_nearBottom)
+                    Positioned(
+                      right: 16,
+                      bottom: 12,
+                      child: FilledButton.tonalIcon(
+                        onPressed: _jumpToBottom,
+                        icon: const Icon(Icons.arrow_downward_rounded),
+                        label: Text(
+                          _hasNewMessages ? 'Pesan baru' : 'Pesan terbaru',
+                        ),
+                      ),
+                    ),
+                ],
+              ),
+            ),
+            if (_replyTo != null)
+              _ReplyComposer(
+                message: _replyTo!,
+                onClose: () => setState(() => _replyTo = null),
+              ),
             _composerBar(),
-            ]),
-            if (_flyingText != null) _sendFlightPreview(),
           ],
         ),
-      );
+        if (_flyingText != null) _sendFlightPreview(),
+      ],
+    ),
+  );
 
   Widget _body() {
     if (_loading) return const Center(child: CircularProgressIndicator());
-    if (_error != null) return ErrorState(message: friendlyError(_error!), onRetry: _loadInitial);
+    if (_error != null)
+      return ErrorState(message: friendlyError(_error!), onRetry: _loadInitial);
     if (_messages.isEmpty) {
       return const EmptyState(
         title: 'Mulai percakapan',
@@ -764,7 +939,10 @@ class _GroupChatScreenState extends State<GroupChatScreen>
               child: TextButton.icon(
                 onPressed: _loadingOlder ? null : _loadOlder,
                 icon: _loadingOlder
-                    ? const SizedBox.square(dimension: 16, child: CircularProgressIndicator(strokeWidth: 2))
+                    ? const SizedBox.square(
+                        dimension: 16,
+                        child: CircularProgressIndicator(strokeWidth: 2),
+                      )
                     : const Icon(Icons.expand_less_rounded),
                 label: const Text('Muat pesan sebelumnya'),
               ),
@@ -772,17 +950,32 @@ class _GroupChatScreenState extends State<GroupChatScreen>
           }
           final offset = _nextCursor == null ? 0 : 1;
           final message = _messages[index - offset];
-          final newDay = index - offset == 0 ||
-            formatDay(_messages[index - offset - 1].createdAt) != formatDay(message.createdAt);
-          return Column(children: [
-            if (newDay) Padding(padding: const EdgeInsets.symmetric(vertical: 14),
-              child: StatusBadge(label: formatDay(message.createdAt), color: KarsaColors.muted)),
-            _MessageBubble(key: _messageKeys.putIfAbsent(message.id, () => GlobalKey()),
-              message: message, onLongPress: () => _showActions(message),
-              animateOnInsert: _justSentMessageIds.contains(message.id),
-              popOnInsert: _incomingMessageIds.contains(message.id),
-              onReplyTap: message.replyTo == null ? null : () => _openReply(message.replyTo!)),
-          ]);
+          final newDay =
+              index - offset == 0 ||
+              formatDay(_messages[index - offset - 1].createdAt) !=
+                  formatDay(message.createdAt);
+          return Column(
+            children: [
+              if (newDay)
+                Padding(
+                  padding: const EdgeInsets.symmetric(vertical: 14),
+                  child: StatusBadge(
+                    label: formatDay(message.createdAt),
+                    color: KarsaColors.muted,
+                  ),
+                ),
+              _MessageBubble(
+                key: _messageKeys.putIfAbsent(message.id, () => GlobalKey()),
+                message: message,
+                onLongPress: () => _showActions(message),
+                animateOnInsert: _justSentMessageIds.contains(message.id),
+                popOnInsert: _incomingMessageIds.contains(message.id),
+                onReplyTap: message.replyTo == null
+                    ? null
+                    : () => _openReply(message.replyTo!),
+              ),
+            ],
+          );
         },
       ),
     );
@@ -817,7 +1010,10 @@ class _GroupChatScreenState extends State<GroupChatScreen>
               tooltip: 'Kirim',
               onPressed: disabled || _sending ? null : _send,
               icon: _sending
-                  ? const SizedBox.square(dimension: 18, child: CircularProgressIndicator(strokeWidth: 2))
+                  ? const SizedBox.square(
+                      dimension: 18,
+                      child: CircularProgressIndicator(strokeWidth: 2),
+                    )
                   : const Icon(Icons.send_rounded),
             ),
           ],
@@ -839,19 +1035,26 @@ class _GroupChatScreenState extends State<GroupChatScreen>
             child: DecoratedBox(
               decoration: BoxDecoration(
                 color: Theme.of(context).colorScheme.primaryContainer,
-                borderRadius: BorderRadius.circular(14).copyWith(
-                  bottomRight: const Radius.circular(4),
-                ),
+                borderRadius: BorderRadius.circular(
+                  14,
+                ).copyWith(bottomRight: const Radius.circular(4)),
               ),
               child: Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 10,
+                  vertical: 8,
+                ),
                 child: Text(text, maxLines: 2, overflow: TextOverflow.ellipsis),
               ),
             ),
           ),
           builder: (context, child) {
-            final progress = const Cubic(.23, 1, .32, 1)
-                .transform(_sendFlightController.value);
+            final progress = const Cubic(
+              .23,
+              1,
+              .32,
+              1,
+            ).transform(_sendFlightController.value);
             return Transform.translate(
               offset: Offset(
                 (_flightStart.dx - _flightEnd.dx) * (1 - progress),
@@ -877,25 +1080,25 @@ class _ReplyComposer extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) => Container(
-        margin: const EdgeInsets.fromLTRB(12, 6, 12, 0),
-        padding: const EdgeInsets.fromLTRB(12, 8, 4, 8),
-        decoration: BoxDecoration(
-          color: Theme.of(context).colorScheme.surfaceContainerHighest,
-          borderRadius: BorderRadius.circular(12),
+    margin: const EdgeInsets.fromLTRB(12, 6, 12, 0),
+    padding: const EdgeInsets.fromLTRB(12, 8, 4, 8),
+    decoration: BoxDecoration(
+      color: Theme.of(context).colorScheme.surfaceContainerHighest,
+      borderRadius: BorderRadius.circular(12),
+    ),
+    child: Row(
+      children: [
+        Expanded(
+          child: Text(
+            'Membalas ${message.author.name}: ${message.text ?? ''}',
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+          ),
         ),
-        child: Row(
-          children: [
-            Expanded(
-              child: Text(
-                'Membalas ${message.author.name}: ${message.text ?? ''}',
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-              ),
-            ),
-            IconButton(onPressed: onClose, icon: const Icon(Icons.close_rounded)),
-          ],
-        ),
-      );
+        IconButton(onPressed: onClose, icon: const Icon(Icons.close_rounded)),
+      ],
+    ),
+  );
 }
 
 class _PinnedMessagesStrip extends StatelessWidget {
@@ -918,12 +1121,15 @@ class _PinnedMessagesStrip extends StatelessWidget {
               Text(
                 'Pesan disematkan',
                 style: Theme.of(context).textTheme.labelMedium?.copyWith(
-                      fontWeight: FontWeight.w800,
-                      color: colors.primary,
-                    ),
+                  fontWeight: FontWeight.w800,
+                  color: colors.primary,
+                ),
               ),
               const SizedBox(width: 6),
-              Text('${messages.length}', style: Theme.of(context).textTheme.labelSmall),
+              Text(
+                '${messages.length}',
+                style: Theme.of(context).textTheme.labelSmall,
+              ),
             ],
           ),
           const SizedBox(height: 4),
@@ -947,27 +1153,36 @@ class _PinnedMessagesStrip extends StatelessWidget {
                   child: Card(
                     margin: EdgeInsets.zero,
                     color: colors.surfaceContainerLow,
-                    child: InkWell(onTap: () => onTap(message), borderRadius: BorderRadius.circular(12), child: Padding(
-                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            message.author.name,
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                            style: const TextStyle(fontWeight: FontWeight.w800),
-                          ),
-                          const SizedBox(height: 3),
-                          Text(
-                            preview,
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                            style: Theme.of(context).textTheme.bodySmall,
-                          ),
-                        ],
+                    child: InkWell(
+                      onTap: () => onTap(message),
+                      borderRadius: BorderRadius.circular(12),
+                      child: Padding(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 12,
+                          vertical: 8,
+                        ),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              message.author.name,
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: const TextStyle(
+                                fontWeight: FontWeight.w800,
+                              ),
+                            ),
+                            const SizedBox(height: 3),
+                            Text(
+                              preview,
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: Theme.of(context).textTheme.bodySmall,
+                            ),
+                          ],
+                        ),
                       ),
-                    )),
+                    ),
                   ),
                 );
               },
@@ -989,13 +1204,17 @@ class _PinHint extends StatelessWidget {
       padding: const EdgeInsets.fromLTRB(16, 8, 16, 2),
       child: Row(
         children: [
-          Icon(Icons.push_pin_outlined, size: 16, color: colors.onSurfaceVariant),
+          Icon(
+            Icons.push_pin_outlined,
+            size: 16,
+            color: colors.onSurfaceVariant,
+          ),
           const SizedBox(width: 8),
           Text(
             'Tekan lama pesan untuk menyematkannya.',
-            style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                  color: colors.onSurfaceVariant,
-                ),
+            style: Theme.of(
+              context,
+            ).textTheme.bodySmall?.copyWith(color: colors.onSurfaceVariant),
           ),
         ],
       ),
@@ -1037,114 +1256,142 @@ class _MessageBubbleState extends State<_MessageBubble> {
   }
 
   String get _content => switch (widget.message.state) {
-        'deleted' => 'Pesan telah dihapus',
-        'hidden' => widget.message.hiddenReason ?? 'Pesan disembunyikan oleh PJ',
-        'blocked' => 'Pesan dari pengguna yang kamu blokir',
-        _ => widget.message.text ?? '',
-      };
+    'deleted' => 'Pesan telah dihapus',
+    'hidden' => widget.message.hiddenReason ?? 'Pesan disembunyikan oleh PJ',
+    'blocked' => 'Pesan dari pengguna yang kamu blokir',
+    _ => widget.message.text ?? '',
+  };
 
   @override
   Widget build(BuildContext context) {
     final message = widget.message;
     final colors = Theme.of(context).colorScheme;
     final muted = message.state != 'active';
-    return LayoutBuilder(builder: (context, constraints) {
-      final availableWidth = constraints.maxWidth * .8;
-      final maxBubbleWidth = availableWidth > 300 ? 300.0 : availableWidth;
-      final reduceMotion = MediaQuery.disableAnimationsOf(context);
-      final duration = Duration(
-        milliseconds: reduceMotion ? 120 : widget.popOnInsert ? 180 : 160,
-      );
-      const easing = Cubic(.23, 1, .32, 1);
-      return AnimatedOpacity(
-        opacity: _visible ? 1 : 0,
-        duration: duration,
-        curve: easing,
-        child: AnimatedScale(
-          scale: reduceMotion || !widget.popOnInsert || _visible ? 1 : .94,
-          alignment: Alignment.bottomLeft,
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final availableWidth = constraints.maxWidth * .8;
+        final maxBubbleWidth = availableWidth > 300 ? 300.0 : availableWidth;
+        final reduceMotion = MediaQuery.disableAnimationsOf(context);
+        final duration = Duration(
+          milliseconds: reduceMotion
+              ? 120
+              : widget.popOnInsert
+              ? 180
+              : 160,
+        );
+        const easing = Cubic(.23, 1, .32, 1);
+        return AnimatedOpacity(
+          opacity: _visible ? 1 : 0,
           duration: duration,
           curve: easing,
-          child: AnimatedSlide(
-            offset: reduceMotion || _visible || widget.popOnInsert
-                ? Offset.zero
-                : Offset(message.isOwn ? .05 : -.05, .10),
+          child: AnimatedScale(
+            scale: reduceMotion || !widget.popOnInsert || _visible ? 1 : .94,
+            alignment: Alignment.bottomLeft,
             duration: duration,
             curve: easing,
-            child: Align(
-      alignment: message.isOwn ? Alignment.centerRight : Alignment.centerLeft,
-      child: GestureDetector(
-        onLongPress: widget.onLongPress,
-        onTap: message.state == 'blocked' ? widget.onLongPress : null,
-        child: Container(
-          constraints: BoxConstraints(maxWidth: maxBubbleWidth),
-          margin: const EdgeInsets.symmetric(vertical: 3),
-          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
-          decoration: BoxDecoration(
-            color: message.isOwn ? colors.primaryContainer : Colors.white,
-            border: Border.all(color: const Color(0xFFF0E7DE)),
-            borderRadius: BorderRadius.circular(14).copyWith(
-              bottomRight: message.isOwn ? const Radius.circular(4) : null,
-              bottomLeft: message.isOwn ? null : const Radius.circular(4),
-            ),
-          ),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Flexible(
-                    child: Text(
-                      message.author.name,
-                      style: TextStyle(fontSize: 12, fontWeight: FontWeight.w700, color: colors.primary),
+            child: AnimatedSlide(
+              offset: reduceMotion || _visible || widget.popOnInsert
+                  ? Offset.zero
+                  : Offset(message.isOwn ? .05 : -.05, .10),
+              duration: duration,
+              curve: easing,
+              child: Align(
+                alignment: message.isOwn
+                    ? Alignment.centerRight
+                    : Alignment.centerLeft,
+                child: GestureDetector(
+                  onLongPress: widget.onLongPress,
+                  onTap: message.state == 'blocked' ? widget.onLongPress : null,
+                  child: Container(
+                    constraints: BoxConstraints(maxWidth: maxBubbleWidth),
+                    margin: const EdgeInsets.symmetric(vertical: 3),
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 10,
+                      vertical: 8,
+                    ),
+                    decoration: BoxDecoration(
+                      color: message.isOwn
+                          ? colors.primaryContainer
+                          : Colors.white,
+                      border: Border.all(color: const Color(0xFFF0E7DE)),
+                      borderRadius: BorderRadius.circular(14).copyWith(
+                        bottomRight: message.isOwn
+                            ? const Radius.circular(4)
+                            : null,
+                        bottomLeft: message.isOwn
+                            ? null
+                            : const Radius.circular(4),
+                      ),
+                    ),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Flexible(
+                              child: Text(
+                                message.author.name,
+                                style: TextStyle(
+                                  fontSize: 12,
+                                  fontWeight: FontWeight.w700,
+                                  color: colors.primary,
+                                ),
+                              ),
+                            ),
+                            if (message.author.isGroupManager) ...[
+                              const SizedBox(width: 6),
+                              const Icon(Icons.verified_rounded, size: 15),
+                            ],
+                            if (message.isPinned) ...[
+                              const SizedBox(width: 6),
+                              const Icon(Icons.push_pin_rounded, size: 14),
+                            ],
+                          ],
+                        ),
+                        if (message.replyTo != null) ...[
+                          const SizedBox(height: 4),
+                          InkWell(
+                            onTap: widget.onReplyTap,
+                            borderRadius: BorderRadius.circular(8),
+                            child: Container(
+                              width: double.infinity,
+                              padding: const EdgeInsets.all(8),
+                              decoration: BoxDecoration(
+                                color: colors.surfaceContainerHighest
+                                    .withValues(alpha: .7),
+                                borderRadius: BorderRadius.circular(8),
+                              ),
+                              child: Text(
+                                '${message.replyTo!.author.name}: ${message.replyTo!.text ?? 'Pesan tidak tersedia'}',
+                                maxLines: 2,
+                                overflow: TextOverflow.ellipsis,
+                                style: Theme.of(context).textTheme.bodySmall,
+                              ),
+                            ),
+                          ),
+                        ],
+                        const SizedBox(height: 4),
+                        Text(
+                          _content,
+                          style: TextStyle(
+                            fontStyle: muted ? FontStyle.italic : null,
+                          ),
+                        ),
+                        const SizedBox(height: 3),
+                        Text(
+                          '${formatTime(message.createdAt)}${message.editedAt == null ? '' : ' · diedit'}',
+                          style: Theme.of(context).textTheme.labelSmall,
+                        ),
+                      ],
                     ),
                   ),
-                  if (message.author.isGroupManager) ...[
-                    const SizedBox(width: 6),
-                    const Icon(Icons.verified_rounded, size: 15),
-                  ],
-                  if (message.isPinned) ...[
-                    const SizedBox(width: 6),
-                    const Icon(Icons.push_pin_rounded, size: 14),
-                  ],
-                ],
+                ),
               ),
-              if (message.replyTo != null) ...[
-                const SizedBox(height: 4),
-                InkWell(onTap: widget.onReplyTap, borderRadius: BorderRadius.circular(8), child: Container(
-                  width: double.infinity,
-                  padding: const EdgeInsets.all(8),
-                  decoration: BoxDecoration(
-                    color: colors.surfaceContainerHighest.withValues(alpha: .7),
-                    borderRadius: BorderRadius.circular(8),
-                  ),
-                  child: Text(
-                    '${message.replyTo!.author.name}: ${message.replyTo!.text ?? 'Pesan tidak tersedia'}',
-                    maxLines: 2,
-                    overflow: TextOverflow.ellipsis,
-                    style: Theme.of(context).textTheme.bodySmall,
-                  ),
-                )),
-              ],
-              const SizedBox(height: 4),
-              Text(
-                _content,
-                style: TextStyle(fontStyle: muted ? FontStyle.italic : null),
-              ),
-              const SizedBox(height: 3),
-              Text(
-                '${formatTime(message.createdAt)}${message.editedAt == null ? '' : ' · diedit'}',
-                style: Theme.of(context).textTheme.labelSmall,
-              ),
-            ],
-          ),
-        ),
-      ),
             ),
           ),
-        ),
-      );
-    });
+        );
+      },
+    );
   }
 }

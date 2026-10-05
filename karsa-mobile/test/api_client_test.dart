@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:convert';
 
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
@@ -163,10 +164,151 @@ void main() {
     // ApiClient bukan kelas const (constructor-nya membuat http.Client),
     // jadi instansinya tidak boleh dipanggil dengan `const`.
     final api = ApiClient();
-    final uri = api.endpoint('/groups/g-1/messages?cursor=abc', {'scope': 'latest'});
+    final uri = api.endpoint('/groups/g-1/messages?cursor=abc', {
+      'scope': 'latest',
+    });
     expect(uri.path, '/api/mobile/v1/groups/g-1/messages');
     expect(uri.queryParameters['cursor'], 'abc');
     expect(uri.queryParameters['scope'], 'latest');
     expect(api.endpoint('/me').query, isEmpty);
+  });
+
+  test(
+    'a late successful refresh cannot restore tokens after logout',
+    () async {
+      final response = Completer<http.Response>();
+      final started = Completer<void>();
+      final api = ApiClient(
+        httpClient: MockClient((request) async {
+          if (request.url.path.endsWith('/auth/refresh')) {
+            started.complete();
+            return response.future;
+          }
+          if (request.url.path.endsWith('/auth/logout'))
+            throw http.ClientException('Offline');
+          return failure(401);
+        }),
+      );
+      await api.restoreSession();
+      final pending = expectLater(api.me(), throwsA(isA<ApiException>()));
+      await started.future;
+      await expectLater(api.logout(), throwsA(isA<http.ClientException>()));
+      response.complete(
+        ok({'access_token': 'late-access', 'refresh_token': 'late-refresh'}),
+      );
+      await pending;
+      expect(await api.restoreSession(), isFalse);
+      expect(
+        await const FlutterSecureStorage().read(key: 'refresh_token'),
+        isNull,
+      );
+    },
+  );
+
+  for (final status in [200, 401]) {
+    test(
+      'old refresh response ($status) cannot overwrite or expire a new login',
+      () async {
+        final response = Completer<http.Response>();
+        final started = Completer<void>();
+        final api = ApiClient(
+          httpClient: MockClient((request) async {
+            if (request.url.path.endsWith('/auth/refresh')) {
+              started.complete();
+              return response.future;
+            }
+            if (request.url.path.endsWith('/auth/exchange')) {
+              return ok({
+                'access_token': 'account-b-access',
+                'refresh_token': 'account-b-refresh',
+              });
+            }
+            return failure(401);
+          }),
+        );
+        await api.restoreSession();
+        final pending = expectLater(api.me(), throwsA(isA<ApiException>()));
+        await started.future;
+        await api.clearSession();
+        await api.exchangeCode('code', 'verifier', acceptedTermsVersion: '1.0');
+        response.complete(
+          status == 401
+              ? failure(401)
+              : ok({
+                  'access_token': 'old-rotated',
+                  'refresh_token': 'old-rotated-refresh',
+                }),
+        );
+        await pending;
+        expect(api.sessionExpired.value, 0);
+        expect(
+          await const FlutterSecureStorage().read(key: 'refresh_token'),
+          'account-b-refresh',
+        );
+      },
+    );
+  }
+
+  test('parallel unauthorized requests share one refresh', () async {
+    var refreshes = 0;
+    final response = Completer<http.Response>();
+    final started = Completer<void>();
+    final api = ApiClient(
+      httpClient: MockClient((request) async {
+        if (request.url.path.endsWith('/auth/refresh')) {
+          refreshes++;
+          if (!started.isCompleted) started.complete();
+          return response.future;
+        }
+        if (request.headers['Authorization'] == 'Bearer old-access')
+          return failure(401);
+        return ok({
+          'id': 'student',
+          'email': 'student@example.com',
+          'capabilities': {},
+        });
+      }),
+    );
+    await api.restoreSession();
+    final requests = Future.wait([api.me(), api.me()]);
+    await started.future;
+    await Future<void>.delayed(Duration.zero);
+    response.complete(
+      ok({'access_token': 'new-access', 'refresh_token': 'new-refresh'}),
+    );
+    expect(await requests, hasLength(2));
+    expect(refreshes, 1);
+  });
+
+  test('refresh updates moderation on every loaded chat page', () async {
+    final requests = <String?>[];
+    Map<String, Object?> message(String id, String state) => {
+      'id': id,
+      'state': state,
+      'text': state == 'active' ? 'text' : null,
+      'author': {'id': 'author'},
+    };
+    final api = ApiClient(
+      httpClient: MockClient((request) async {
+        final cursor = request.url.queryParameters['cursor'];
+        requests.add(cursor);
+        return ok({
+          'messages': cursor == null
+              ? [message('new', 'active')]
+              : [message('old', 'blocked')],
+          'pinned_messages': [],
+          'group': {'is_manager': false, 'is_locked': false},
+          'next_cursor': cursor == null ? 'older-page' : 'unloaded-page',
+        });
+      }),
+    );
+    final page = await api.refreshGroupMessages(
+      'group',
+      oldestMessageId: 'old',
+    );
+    expect(requests, [null, 'older-page']);
+    expect(page.messages.first.state, 'blocked');
+    expect(page.messages.first.text, isNull);
+    expect(page.nextCursor, 'unloaded-page');
   });
 }

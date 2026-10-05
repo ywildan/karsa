@@ -1,13 +1,31 @@
+import 'dart:async';
+
+import 'package:flutter/material.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:http/http.dart' as http;
 import 'package:karsa_mobile/core/api_client.dart';
 import 'package:karsa_mobile/core/app_controller.dart';
 import 'package:karsa_mobile/core/models.dart';
+import 'package:karsa_mobile/app.dart';
+import 'package:karsa_mobile/screens/sign_in_screen.dart';
 
 class SessionApi extends ApiClient {
   Object? meError;
   bool cleared = false;
+  int exchanges = 0;
+  Completer<void>? exchangeGate;
+
+  @override
+  Future<void> exchangeCode(
+    String code,
+    String verifier, {
+    required String acceptedTermsVersion,
+  }) async {
+    exchanges++;
+    await exchangeGate?.future;
+    cleared = false;
+  }
 
   @override
   Future<bool> restoreSession() async => !cleared;
@@ -115,16 +133,132 @@ void main() {
     expect(await storage.read(key: 'oauth_legal_version'), isNull);
   });
 
-  test('token kedaluwarsa saat sudah signedOut tidak mengubah apa pun', () async {
-    final api = SessionApi()..cleared = true;
+  test(
+    'token kedaluwarsa saat sudah signedOut tidak mengubah apa pun',
+    () async {
+      final api = SessionApi()..cleared = true;
+      final controller = AppController(api);
+      addTearDown(controller.dispose);
+      await controller.retrySession();
+      expect(controller.state, SessionState.signedOut);
+      expect(controller.error, isNull);
+
+      api.sessionExpired.value++;
+      expect(controller.state, SessionState.signedOut);
+      expect(controller.error, isNull);
+    },
+  );
+
+  test('stale callback does not sign out an active account', () async {
+    final api = SessionApi();
     final controller = AppController(api);
     addTearDown(controller.dispose);
     await controller.retrySession();
-    expect(controller.state, SessionState.signedOut);
-    expect(controller.error, isNull);
-
-    api.sessionExpired.value++;
-    expect(controller.state, SessionState.signedOut);
-    expect(controller.error, isNull);
+    await controller.handleAuthLink(
+      Uri.parse('karsa://auth/callback?state=wrong&code=old'),
+    );
+    expect(controller.state, SessionState.signedIn);
+    expect(controller.user!.id, 'student');
+    expect(api.exchanges, 0);
   });
+
+  for (final suffix in ['code=old', 'error=not_eligible']) {
+    test('wrong OAuth state preserves the pending login ($suffix)', () async {
+      FlutterSecureStorage.setMockInitialValues({
+        'oauth_state': 'expected',
+        'oauth_verifier': 'verifier',
+        'oauth_legal_version': '1.0',
+      });
+      final api = SessionApi()..cleared = true;
+      final controller = AppController(api)
+        ..state = SessionState.authenticating;
+      addTearDown(controller.dispose);
+      await controller.handleAuthLink(
+        Uri.parse('karsa://auth/callback?state=wrong&$suffix'),
+      );
+      expect(controller.state, SessionState.authenticating);
+      expect(controller.error, isNull);
+      expect(
+        await const FlutterSecureStorage().read(key: 'oauth_verifier'),
+        'verifier',
+      );
+      expect(api.exchanges, 0);
+    });
+  }
+
+  test(
+    'duplicate startup and stream callbacks exchange the code only once',
+    () async {
+      FlutterSecureStorage.setMockInitialValues({
+        'oauth_state': 'expected',
+        'oauth_verifier': 'verifier',
+        'oauth_legal_version': '1.0',
+      });
+      final gate = Completer<void>();
+      final api = SessionApi()..exchangeGate = gate;
+      final controller = AppController(api);
+      addTearDown(controller.dispose);
+      final link = Uri.parse('karsa://auth/callback?state=expected&code=valid');
+      final first = controller.handleAuthLink(link);
+      final second = controller.handleAuthLink(link);
+      await Future<void>.delayed(Duration.zero);
+      expect(api.exchanges, 1);
+      gate.complete();
+      await Future.wait([first, second]);
+      expect(controller.state, SessionState.signedIn);
+      expect(
+        await const FlutterSecureStorage().read(key: 'oauth_state'),
+        isNull,
+      );
+    },
+  );
+
+  test('matching error callback finishes only its own login attempt', () async {
+    FlutterSecureStorage.setMockInitialValues({
+      'oauth_state': 'expected',
+      'oauth_verifier': 'verifier',
+      'oauth_legal_version': '1.0',
+    });
+    final controller = AppController(SessionApi())
+      ..state = SessionState.authenticating;
+    addTearDown(controller.dispose);
+    await controller.handleAuthLink(
+      Uri.parse('karsa://auth/callback?state=expected&error=not_eligible'),
+    );
+    expect(controller.state, SessionState.signedOut);
+    expect(controller.error, contains('UNTIDAR'));
+    expect(await const FlutterSecureStorage().read(key: 'oauth_state'), isNull);
+  });
+
+  testWidgets(
+    'expiration removes private routes even if they block back navigation',
+    (tester) async {
+      final api = SessionApi();
+      final controller = AppController(api);
+      addTearDown(controller.dispose);
+      await controller.retrySession();
+      await tester.pumpWidget(KarsaApp(controller: controller));
+      final navigator = tester.state<NavigatorState>(find.byType(Navigator));
+      unawaited(
+        navigator.push<void>(
+          MaterialPageRoute(
+            builder: (_) => const PopScope(
+              canPop: false,
+              child: Scaffold(body: Text('PRIVATE EDITOR DATA')),
+            ),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+      expect(find.text('PRIVATE EDITOR DATA'), findsOneWidget);
+      api.sessionExpired.value++;
+      await tester.pumpAndSettle();
+      expect(find.text('PRIVATE EDITOR DATA'), findsNothing);
+      expect(find.byType(SignInScreen), findsOneWidget);
+      expect(
+        tester.state<NavigatorState>(find.byType(Navigator)).canPop(),
+        isFalse,
+      );
+    },
+  );
 }

@@ -1,6 +1,8 @@
+import 'dart:async';
 import 'dart:convert';
 
 import 'package:flutter/foundation.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:http/http.dart' as http;
 
@@ -23,14 +25,16 @@ class ApiException implements Exception {
 
 class ApiClient {
   ApiClient({http.Client? httpClient, FlutterSecureStorage? storage})
-      : _http = httpClient ?? http.Client(),
-        _storage = storage ?? const FlutterSecureStorage();
+    : _http = httpClient ?? http.Client(),
+      _storage = storage ?? const FlutterSecureStorage();
 
   final http.Client _http;
   final FlutterSecureStorage _storage;
   String? _accessToken;
   String? _refreshToken;
   Future<bool>? _refreshInFlight;
+  int _sessionGeneration = 0;
+  Future<void> _storageQueue = Future<void>.value();
   final ValueNotifier<int> pointsRevision = ValueNotifier(0);
 
   /// Dinaikkan saat refresh token ditolak server dan sesi lokal sudah
@@ -48,9 +52,34 @@ class ApiClient {
   }
 
   Future<bool> restoreSession() async {
-    _accessToken = await _storage.read(key: 'access_token');
-    _refreshToken = await _storage.read(key: 'refresh_token');
-    return _accessToken != null && _refreshToken != null;
+    final generation = _sessionGeneration;
+    return _withStorage(() async {
+      if (generation != _sessionGeneration) return false;
+      try {
+        final access = await _storage.read(key: 'access_token');
+        final refresh = await _storage.read(key: 'refresh_token');
+        if (generation != _sessionGeneration) return false;
+        _accessToken = access;
+        _refreshToken = refresh;
+        return access != null && refresh != null;
+      } on PlatformException catch (error) {
+        final diagnostic = '${error.message} ${error.details}';
+        if (!RegExp(
+          'Failed to unwrap key|InvalidKeyException|BadPaddingException|AEADBadTagException',
+        ).hasMatch(diagnostic)) {
+          rethrow;
+        }
+        // Backup ciphertext cannot be decrypted with another device's key.
+        // Reset this app's secure store (including stale OAuth values).
+        if (generation != _sessionGeneration) return false;
+        _sessionGeneration++;
+        _accessToken = null;
+        _refreshToken = null;
+        _refreshInFlight = null;
+        await _storage.deleteAll();
+        return false;
+      }
+    });
   }
 
   Future<void> exchangeCode(
@@ -58,18 +87,24 @@ class ApiClient {
     String verifier, {
     required String acceptedTermsVersion,
   }) async {
-    final data = await _request(
-      'POST',
-      '/auth/exchange',
-      authenticated: false,
-      body: {
-        'code': code,
-        'code_verifier': verifier,
-        'device_name': 'Karsa Mobile',
-        'accepted_terms_version': acceptedTermsVersion,
-      },
-    ) as Map<String, dynamic>;
-    await _storeTokens(data);
+    final generation = ++_sessionGeneration;
+    _refreshInFlight = null;
+    final data =
+        await _request(
+              'POST',
+              '/auth/exchange',
+              authenticated: false,
+              body: {
+                'code': code,
+                'code_verifier': verifier,
+                'device_name': 'Karsa Mobile',
+                'accepted_terms_version': acceptedTermsVersion,
+              },
+            )
+            as Map<String, dynamic>;
+    if (!await _storeTokens(data, generation)) {
+      throw const ApiException('Proses masuk sudah dibatalkan.');
+    }
   }
 
   Future<AppUser> me() async {
@@ -78,20 +113,30 @@ class ApiClient {
   }
 
   Future<void> logout() async {
-    try {
-      if (_accessToken != null) {
-        await _request('POST', '/auth/logout');
-      }
-    } finally {
-      await clearSession();
+    final accessToken = _accessToken;
+    // Invalidate immediately, before waiting for the network. Late refresh
+    // responses must never resurrect a session the user has signed out of.
+    await clearSession();
+    if (accessToken != null) {
+      await _request(
+        'POST',
+        '/auth/logout',
+        authenticated: false,
+        retry: false,
+        extraHeaders: {'Authorization': 'Bearer $accessToken'},
+      );
     }
   }
 
   Future<void> clearSession() async {
+    _sessionGeneration++;
     _accessToken = null;
     _refreshToken = null;
-    await _storage.delete(key: 'access_token');
-    await _storage.delete(key: 'refresh_token');
+    _refreshInFlight = null;
+    await _withStorage(() async {
+      await _storage.delete(key: 'access_token');
+      await _storage.delete(key: 'refresh_token');
+    });
   }
 
   Future<List<Assignment>> assignments() async {
@@ -102,10 +147,9 @@ class ApiClient {
   }
 
   Future<List<Student>> students(String assignmentId) async {
-    final data = await _request(
-      'GET',
-      '/pj/assignments/$assignmentId/students',
-    ) as Map<String, dynamic>;
+    final data =
+        await _request('GET', '/pj/assignments/$assignmentId/students')
+            as Map<String, dynamic>;
     return (data['students'] as List)
         .map((item) => Student.fromJson(item as Map<String, dynamic>))
         .toList();
@@ -126,18 +170,21 @@ class ApiClient {
     String? note,
     required String idempotencyKey,
   }) async {
-    final data = await _request(
-      'POST',
-      '/points',
-      extraHeaders: {'Idempotency-Key': idempotencyKey},
-      body: {
-        'kelas_matkul_id': assignmentId,
-        'mahasiswa_id': studentId,
-        'kategori_id': categoryId,
-        'poin': points,
-        if (note != null && note.trim().isNotEmpty) 'catatan': note.trim(),
-      },
-    ) as Map<String, dynamic>;
+    final data =
+        await _request(
+              'POST',
+              '/points',
+              extraHeaders: {'Idempotency-Key': idempotencyKey},
+              body: {
+                'kelas_matkul_id': assignmentId,
+                'mahasiswa_id': studentId,
+                'kategori_id': categoryId,
+                'poin': points,
+                if (note != null && note.trim().isNotEmpty)
+                  'catatan': note.trim(),
+              },
+            )
+            as Map<String, dynamic>;
     pointsRevision.value++;
     return data['message'] as String? ?? 'Poin berhasil dicatat.';
   }
@@ -150,7 +197,8 @@ class ApiClient {
   }
 
   Future<String> deletePoint(String id) async {
-    final data = await _request('DELETE', '/points/$id') as Map<String, dynamic>;
+    final data =
+        await _request('DELETE', '/points/$id') as Map<String, dynamic>;
     pointsRevision.value++;
     return data['message'] as String? ?? 'Poin berhasil dihapus.';
   }
@@ -168,10 +216,9 @@ class ApiClient {
   }
 
   Future<List<LeaderboardEntry>> leaderboard(String assignmentId) async {
-    final data = await _request(
-      'GET',
-      '/leaderboard/$assignmentId',
-    ) as Map<String, dynamic>;
+    final data =
+        await _request('GET', '/leaderboard/$assignmentId')
+            as Map<String, dynamic>;
     return (data['rows'] as List)
         .map((item) => LeaderboardEntry.fromJson(item as Map<String, dynamic>))
         .toList();
@@ -188,10 +235,12 @@ class ApiClient {
     String assignmentId, {
     String? cursor,
   }) async {
-    final data = await _request(
-      'GET',
-      '/groups/$assignmentId/messages${cursor == null ? '' : '?cursor=${Uri.encodeQueryComponent(cursor)}'}',
-    ) as Map<String, dynamic>;
+    final data =
+        await _request(
+              'GET',
+              '/groups/$assignmentId/messages${cursor == null ? '' : '?cursor=${Uri.encodeQueryComponent(cursor)}'}',
+            )
+            as Map<String, dynamic>;
     return GroupMessagePage.fromJson(data);
   }
 
@@ -201,13 +250,42 @@ class ApiClient {
     required String idempotencyKey,
     String? replyToId,
   }) async {
-    final data = await _request(
-      'POST',
-      '/groups/$assignmentId/messages',
-      extraHeaders: {'Idempotency-Key': idempotencyKey},
-      body: {'text': text, 'reply_to_id': replyToId},
-    ) as Map<String, dynamic>;
+    final data =
+        await _request(
+              'POST',
+              '/groups/$assignmentId/messages',
+              extraHeaders: {'Idempotency-Key': idempotencyKey},
+              body: {'text': text, 'reply_to_id': replyToId},
+            )
+            as Map<String, dynamic>;
     return GroupMessageItem.fromJson(data);
+  }
+
+  /// Refresh every loaded page, including old messages whose moderation or
+  /// block status changed. The endpoint retains soft-deleted message IDs.
+  Future<GroupMessagePage> refreshGroupMessages(
+    String assignmentId, {
+    String? oldestMessageId,
+  }) async {
+    final latest = await groupMessages(assignmentId);
+    final messages = [...latest.messages];
+    var cursor = latest.nextCursor;
+    final seen = <String>{};
+    while (oldestMessageId != null &&
+        !messages.any((message) => message.id == oldestMessageId) &&
+        cursor != null &&
+        seen.add(cursor)) {
+      final older = await groupMessages(assignmentId, cursor: cursor);
+      messages.insertAll(0, older.messages);
+      cursor = older.nextCursor;
+    }
+    return GroupMessagePage(
+      messages: messages,
+      pinnedMessages: latest.pinnedMessages,
+      isManager: latest.isManager,
+      isLocked: latest.isLocked,
+      nextCursor: cursor,
+    );
   }
 
   Future<GroupMessageItem> editGroupMessage(
@@ -215,11 +293,13 @@ class ApiClient {
     String messageId,
     String text,
   ) async {
-    final data = await _request(
-      'PATCH',
-      '/groups/$assignmentId/messages/$messageId',
-      body: {'text': text},
-    ) as Map<String, dynamic>;
+    final data =
+        await _request(
+              'PATCH',
+              '/groups/$assignmentId/messages/$messageId',
+              body: {'text': text},
+            )
+            as Map<String, dynamic>;
     return GroupMessageItem.fromJson(data);
   }
 
@@ -227,10 +307,9 @@ class ApiClient {
     String assignmentId,
     String messageId,
   ) async {
-    final data = await _request(
-      'DELETE',
-      '/groups/$assignmentId/messages/$messageId',
-    ) as Map<String, dynamic>;
+    final data =
+        await _request('DELETE', '/groups/$assignmentId/messages/$messageId')
+            as Map<String, dynamic>;
     return GroupMessageItem.fromJson(data);
   }
 
@@ -239,11 +318,13 @@ class ApiClient {
     String messageId,
     bool pinned,
   ) async {
-    final data = await _request(
-      'POST',
-      '/groups/$assignmentId/messages/$messageId/pin',
-      body: {'pinned': pinned},
-    ) as Map<String, dynamic>;
+    final data =
+        await _request(
+              'POST',
+              '/groups/$assignmentId/messages/$messageId/pin',
+              body: {'pinned': pinned},
+            )
+            as Map<String, dynamic>;
     return GroupMessageItem.fromJson(data);
   }
 
@@ -261,14 +342,17 @@ class ApiClient {
     required bool hidden,
     String? reason,
   }) async {
-    final data = await _request(
-      'POST',
-      '/groups/$assignmentId/messages/$messageId/hide',
-      body: {
-        'hidden': hidden,
-        if (reason != null && reason.trim().isNotEmpty) 'reason': reason.trim(),
-      },
-    ) as Map<String, dynamic>;
+    final data =
+        await _request(
+              'POST',
+              '/groups/$assignmentId/messages/$messageId/hide',
+              body: {
+                'hidden': hidden,
+                if (reason != null && reason.trim().isNotEmpty)
+                  'reason': reason.trim(),
+              },
+            )
+            as Map<String, dynamic>;
     return GroupMessageItem.fromJson(data);
   }
 
@@ -278,14 +362,17 @@ class ApiClient {
     required String reason,
     String? details,
   }) async {
-    final data = await _request(
-      'POST',
-      '/groups/$assignmentId/messages/$messageId/reports',
-      body: {
-        'reason': reason,
-        if (details != null && details.trim().isNotEmpty) 'details': details.trim(),
-      },
-    ) as Map<String, dynamic>;
+    final data =
+        await _request(
+              'POST',
+              '/groups/$assignmentId/messages/$messageId/reports',
+              body: {
+                'reason': reason,
+                if (details != null && details.trim().isNotEmpty)
+                  'details': details.trim(),
+              },
+            )
+            as Map<String, dynamic>;
     return data['auto_hidden'] == true;
   }
 
@@ -313,7 +400,8 @@ class ApiClient {
   }
 
   Future<LibBootstrap> libBootstrap() async {
-    final data = await _request('GET', '/lib/bootstrap') as Map<String, dynamic>;
+    final data =
+        await _request('GET', '/lib/bootstrap') as Map<String, dynamic>;
     return LibBootstrap.fromJson(data);
   }
 
@@ -323,37 +411,47 @@ class ApiClient {
     required String programId,
     String? classId,
   }) async {
-    final data = await _request(
-      'POST',
-      '/lib/profile',
-      body: {
-        'display_name': displayName,
-        'faculty_id': facultyId,
-        'prodi_id': programId,
-        'kelas_id': classId,
-      },
-    ) as Map<String, dynamic>;
+    final data =
+        await _request(
+              'POST',
+              '/lib/profile',
+              body: {
+                'display_name': displayName,
+                'faculty_id': facultyId,
+                'prodi_id': programId,
+                'kelas_id': classId,
+              },
+            )
+            as Map<String, dynamic>;
     return LibProfileInfo.fromJson(data);
   }
 
-  Future<List<LibArticle>> libFeed({String sort = 'latest', String query = ''}) async {
-    final data = await _request(
-      'GET',
-      '/lib/feed',
-      query: {'sort': sort, if (query.isNotEmpty) 'q': query},
-    ) as List;
+  Future<List<LibArticle>> libFeed({
+    String sort = 'latest',
+    String query = '',
+  }) async {
+    final data =
+        await _request(
+              'GET',
+              '/lib/feed',
+              query: {'sort': sort, if (query.isNotEmpty) 'q': query},
+            )
+            as List;
     return data
         .map((item) => LibArticle.fromJson(item as Map<String, dynamic>))
         .toList();
   }
 
   Future<LibArticle> libArticle(String articleId) async {
-    final data = await _request('GET', '/lib/articles/$articleId') as Map<String, dynamic>;
+    final data =
+        await _request('GET', '/lib/articles/$articleId')
+            as Map<String, dynamic>;
     return LibArticle.fromJson(data);
   }
 
   Future<LibAuthorProfile> libAuthorProfile(String authorId) async {
-    final data = await _request('GET', '/lib/authors/$authorId') as Map<String, dynamic>;
+    final data =
+        await _request('GET', '/lib/authors/$authorId') as Map<String, dynamic>;
     return LibAuthorProfile.fromJson(data);
   }
 
@@ -364,12 +462,17 @@ class ApiClient {
         .toList();
   }
 
-  Future<LibArticle> createLibArticle({required String title, required String body}) async {
-    final data = await _request(
-      'POST',
-      '/lib/articles',
-      body: {'title': title, 'body': body},
-    ) as Map<String, dynamic>;
+  Future<LibArticle> createLibArticle({
+    required String title,
+    required String body,
+  }) async {
+    final data =
+        await _request(
+              'POST',
+              '/lib/articles',
+              body: {'title': title, 'body': body},
+            )
+            as Map<String, dynamic>;
     return LibArticle.fromJson(data);
   }
 
@@ -379,15 +482,17 @@ class ApiClient {
     String? title,
     String? body,
   }) async {
-    final data = await _request(
-      'PATCH',
-      '/lib/articles/$articleId',
-      body: {
-        'action': action,
-        if (title != null) 'title': title,
-        if (body != null) 'body': body,
-      },
-    ) as Map<String, dynamic>;
+    final data =
+        await _request(
+              'PATCH',
+              '/lib/articles/$articleId',
+              body: {
+                'action': action,
+                if (title != null) 'title': title,
+                if (body != null) 'body': body,
+              },
+            )
+            as Map<String, dynamic>;
     return LibArticle.fromJson(data);
   }
 
@@ -396,7 +501,8 @@ class ApiClient {
   }
 
   Future<List<LibComment>> libComments(String articleId) async {
-    final data = await _request('GET', '/lib/articles/$articleId/comments') as List;
+    final data =
+        await _request('GET', '/lib/articles/$articleId/comments') as List;
     return data
         .map((item) => LibComment.fromJson(item as Map<String, dynamic>))
         .toList();
@@ -407,11 +513,13 @@ class ApiClient {
     required String body,
     String? parentId,
   }) async {
-    final data = await _request(
-      'POST',
-      '/lib/articles/$articleId/comments',
-      body: {'body': body, 'parent_id': parentId},
-    ) as Map<String, dynamic>;
+    final data =
+        await _request(
+              'POST',
+              '/lib/articles/$articleId/comments',
+              body: {'body': body, 'parent_id': parentId},
+            )
+            as Map<String, dynamic>;
     return LibComment.fromJson(data);
   }
 
@@ -422,15 +530,17 @@ class ApiClient {
   Future<Map<String, dynamic>> requestLibAuthor({
     required String motivation,
     required String topics,
-  }) async => await _request(
-        'POST',
-        '/lib/author-requests',
-        body: {
-          'motivation': motivation,
-          'topics': topics,
-          'accepted_guidelines': true,
-        },
-      ) as Map<String, dynamic>;
+  }) async =>
+      await _request(
+            'POST',
+            '/lib/author-requests',
+            body: {
+              'motivation': motivation,
+              'topics': topics,
+              'accepted_guidelines': true,
+            },
+          )
+          as Map<String, dynamic>;
 
   Future<void> reportLibContent({
     String? articleId,
@@ -459,6 +569,7 @@ class ApiClient {
     Map<String, String>? extraHeaders,
     bool retry = true,
   }) async {
+    final generation = _sessionGeneration;
     final headers = <String, String>{
       'Accept': 'application/json',
       if (body != null) 'Content-Type': 'application/json',
@@ -472,12 +583,27 @@ class ApiClient {
       request.body = jsonEncode(body);
     }
 
-    final streamed = await _http.send(request).timeout(const Duration(seconds: 20));
+    final streamed = await _http
+        .send(request)
+        .timeout(const Duration(seconds: 20));
     // Timeout kedua menjaga badan respons yang menggantung setelah
     // header diterima; tanpa ini pembacaan stream bisa menunggu selamanya.
-    final response =
-        await http.Response.fromStream(streamed).timeout(const Duration(seconds: 20));
-    if (response.statusCode == 401 && authenticated && retry && await _refresh()) {
+    final response = await http.Response.fromStream(
+      streamed,
+    ).timeout(const Duration(seconds: 20));
+    if (authenticated && generation != _sessionGeneration) {
+      throw const ApiException(
+        'Sesi telah berubah. Silakan masuk kembali.',
+        statusCode: 401,
+      );
+    }
+    if (response.statusCode == 401 &&
+        authenticated &&
+        retry &&
+        await _refresh()) {
+      if (generation != _sessionGeneration) {
+        throw const ApiException('Sesi telah berubah.', statusCode: 401);
+      }
       return _request(
         method,
         path,
@@ -498,7 +624,9 @@ class ApiClient {
         statusCode: response.statusCode,
       );
     }
-    if (response.statusCode < 200 || response.statusCode >= 300 || envelope['ok'] != true) {
+    if (response.statusCode < 200 ||
+        response.statusCode >= 300 ||
+        envelope['ok'] != true) {
       final error = envelope['error'] as Map<String, dynamic>?;
       throw ApiException(
         error?['message'] as String? ?? 'Permintaan tidak dapat diproses.',
@@ -516,25 +644,30 @@ class ApiClient {
     }
     final refresh = _performRefresh();
     _refreshInFlight = refresh;
-    return refresh.whenComplete(() => _refreshInFlight = null);
+    return refresh.whenComplete(() {
+      if (identical(_refreshInFlight, refresh)) _refreshInFlight = null;
+    });
   }
 
   Future<bool> _performRefresh() async {
+    final generation = _sessionGeneration;
     final refreshToken = _refreshToken;
     if (refreshToken == null) {
       return false;
     }
     try {
-      final data = await _request(
-        'POST',
-        '/auth/refresh',
-        authenticated: false,
-        retry: false,
-        body: {'refresh_token': refreshToken},
-      ) as Map<String, dynamic>;
-      await _storeTokens(data);
-      return true;
+      final data =
+          await _request(
+                'POST',
+                '/auth/refresh',
+                authenticated: false,
+                retry: false,
+                body: {'refresh_token': refreshToken},
+              )
+              as Map<String, dynamic>;
+      return await _storeTokens(data, generation);
     } on ApiException catch (error) {
+      if (generation != _sessionGeneration) return false;
       if (error.statusCode == 401) {
         await clearSession();
         sessionExpired.value++;
@@ -544,10 +677,28 @@ class ApiClient {
     }
   }
 
-  Future<void> _storeTokens(Map<String, dynamic> data) async {
-    _accessToken = data['access_token'] as String;
-    _refreshToken = data['refresh_token'] as String;
-    await _storage.write(key: 'access_token', value: _accessToken);
-    await _storage.write(key: 'refresh_token', value: _refreshToken);
+  Future<bool> _storeTokens(Map<String, dynamic> data, int generation) =>
+      _withStorage(() async {
+        if (generation != _sessionGeneration) return false;
+        final access = data['access_token'] as String;
+        final refresh = data['refresh_token'] as String;
+        await _storage.write(key: 'access_token', value: access);
+        await _storage.write(key: 'refresh_token', value: refresh);
+        if (generation != _sessionGeneration) return false;
+        _accessToken = access;
+        _refreshToken = refresh;
+        return true;
+      });
+
+  Future<T> _withStorage<T>(Future<T> Function() operation) {
+    final result = Completer<T>();
+    _storageQueue = _storageQueue.then((_) async {
+      try {
+        result.complete(await operation());
+      } catch (error, stack) {
+        result.completeError(error, stack);
+      }
+    });
+    return result.future;
   }
 }
