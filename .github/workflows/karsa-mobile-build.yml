@@ -364,7 +364,5 @@ jobs:
           gh release create "$TAG" "$apk" \
             --target "$GITHUB_SHA" \
             --title "Karsa Mobile $VERSION" \
-            --notes "Unduh satu-satunya file di halaman ini: **Karsa-Mobile-${VERSION}-arm64-v8a.apk**.
-
-File ini untuk HP Android tahun 2017 ke sekarang. Kalau muncul error \"app not installed\", kemungkinan besar HP-nya sudah terlalu tua — silakan laporkan lewat issue di repository ini." \
+            --notes "Untuk HP Android tahun 2017 ke sekarang. Kalau gagal install, buka issue di repository ini." \
             --generate-notes
