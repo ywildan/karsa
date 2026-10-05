@@ -19,7 +19,7 @@ def signing_certificate(signature: str):
     signer_count = re.search(r"^Number of signers:\s*([0-9]+)\s*$", signature, re.M)
     certificates = {value.lower() for value in fingerprints}
     if not signer_count or signer_count[1] != "1" or len(certificates) != 1:
-        raise ValueError("Expected exactly one APK signing identity")
+        raise ValueError(f"Expected exactly one APK signing identity; apksigner output:\n{signature}")
     return certificates.pop()
 
 
