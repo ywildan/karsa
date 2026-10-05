@@ -253,8 +253,12 @@ jobs:
           ANDROID_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
           ANDROID_KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
           ANDROID_KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
+        # --split-per-abi memisahkan mesin render per arsitektur (arm64-v8a,
+        # armeabi-v7a, x86_64). Tanpa flag ini Flutter memaketkan ketiganya
+        # dalam satu APK, padahal satu perangkat hanya memakai satu.
         run: >-
           flutter build apk --release
+          --split-per-abi
           --dart-define=KARSA_API_BASE_URL=${{ env.API_BASE_URL }}
           --build-number=${{ github.run_number }}
 
@@ -263,7 +267,7 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: karsa-mobile-apk-${{ github.sha }}
-          path: karsa-mobile-build/build/app/outputs/flutter-apk/app-release.apk
+          path: karsa-mobile-build/build/app/outputs/flutter-apk/app-*-release.apk
           if-no-files-found: error
           retention-days: 14
 
@@ -299,11 +303,33 @@ jobs:
           echo "version=$version" >> "$GITHUB_OUTPUT"
           echo "tag=$tag" >> "$GITHUB_OUTPUT"
 
-      - name: Download signed APK
+      - name: Download signed APKs
         uses: actions/download-artifact@v4
         with:
           name: karsa-mobile-apk-${{ github.sha }}
           path: release-assets
+
+      - name: Name the per-architecture APKs
+        env:
+          VERSION: ${{ steps.version.outputs.version }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          shopt -s nullglob
+          apks=(release-assets/*.apk)
+          if [[ ${#apks[@]} -eq 0 ]]; then
+            echo "No APK was found in the downloaded artifact." >&2
+            exit 1
+          fi
+          for apk in "${apks[@]}"; do
+            # app-arm64-v8a-release.apk -> Karsa-Mobile-<version>-arm64-v8a.apk
+            abi="$(basename "$apk" .apk)"
+            abi="${abi#app-}"
+            abi="${abi%-release}"
+            mv "$apk" "release-assets/Karsa-Mobile-${VERSION}-${abi}.apk"
+          done
+          printf 'Published %d APK(s):\n' "${#apks[@]}"
+          du -h release-assets/*.apk
 
       - name: Create GitHub release
         env:
@@ -313,16 +339,18 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          apk="$(find release-assets -type f -name '*.apk' -print -quit)"
-          if [[ -z "$apk" ]]; then
-            echo "Signed APK was not found in the downloaded artifact" >&2
+          shopt -s nullglob
+          apks=(release-assets/*.apk)
+          if [[ ${#apks[@]} -eq 0 ]]; then
+            echo "No APK was found in the downloaded artifact." >&2
             exit 1
           fi
           if gh release view "$TAG" >/dev/null 2>&1; then
             echo "Release $TAG already exists; nothing to create."
             exit 0
           fi
-          gh release create "$TAG" "$apk" \
+          gh release create "$TAG" "${apks[@]}" \
             --target "$GITHUB_SHA" \
             --title "Karsa Mobile $VERSION" \
+            --notes "Pilih satu file sesuai perangkat Anda. Hampir semua HP modern memakai **arm64-v8a**." \
             --generate-notes
