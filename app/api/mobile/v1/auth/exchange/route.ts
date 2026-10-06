@@ -22,7 +22,7 @@ const bodySchema = z.object({
   code: z.string().regex(/^[A-Za-z0-9_-]{32,}$/),
   code_verifier: z.string().regex(/^[A-Za-z0-9._~-]{43,128}$/),
   device_name: z.string().max(100).optional(),
-  accepted_terms_version: z.literal("1.0").optional(),
+  accepted_terms_version: z.enum(["1.0", "1.1"]).optional(),
 });
 
 export const POST = withMobileApiErrors(async function POST(request: Request) {

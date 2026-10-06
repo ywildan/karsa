@@ -72,6 +72,7 @@ model User {
   libArticles          LibArticle[]        @relation("LibArticleAuthor")
   libArticleViews      LibArticleView[]
   libComments          LibComment[]        @relation("LibCommentAuthor")
+  libAiTurns           LibAiTurn[]
   libCommentsDeleted   LibComment[]        @relation("LibCommentDeletedBy")
   libReports           LibReport[]         @relation("LibReportReporter")
   libReportsResolved   LibReport[]         @relation("LibReportResolver")
@@ -498,6 +499,9 @@ model LibArticle {
   comments LibComment[]
   reports  LibReport[]
 
+  aiSummary LibAiSummary?
+  aiTurns   LibAiTurn[]
+
   @@index([prodi_id, status, published_at(sort: Desc)])
   @@index([author_id, status, updated_at(sort: Desc)])
 }
@@ -514,6 +518,45 @@ model LibArticleView {
 
   @@unique([article_id, user_id])
   @@index([user_id, created_at(sort: Desc)])
+}
+
+/// Cache satu ringkasan per artikel; revision mencakup isi dan konfigurasi model.
+model LibAiSummary {
+  article_id       String    @id
+  revision         String
+  content          String?   @db.Text
+  sources          Json?
+  lease_token      String?
+  lease_expires_at DateTime?
+  updated_at       DateTime  @default(now()) @updatedAt
+  article LibArticle @relation(fields: [article_id], references: [id], onDelete: Cascade)
+}
+
+/// Satu pertanyaan dan jawaban; request_id mencegah retry menagih dua kali.
+model LibAiTurn {
+  id          String   @id @default(cuid())
+  article_id  String
+  user_id     String
+  revision    String
+  request_id  String
+  question    String   @db.Text
+  answer      String?  @db.Text
+  sources     Json?
+  status      String   @default("PENDING")
+  created_at  DateTime @default(now())
+  updated_at  DateTime @default(now()) @updatedAt
+  article LibArticle @relation(fields: [article_id], references: [id], onDelete: Cascade)
+  user    User       @relation(fields: [user_id], references: [id], onDelete: Cascade)
+  @@unique([user_id, article_id, request_id])
+  @@index([user_id, article_id, revision, created_at])
+}
+
+/// Counter harian atomik: GLOBAL, USER_CHAT:<id>, USER_SUMMARY:<id>.
+model LibAiUsageBucket {
+  scope String
+  day   String
+  used  Int @default(0)
+  @@id([scope, day])
 }
 
 /// Komentar dan satu tingkat balasan. Body dipertahankan sebagai tombstone

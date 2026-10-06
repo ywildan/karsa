@@ -1,0 +1,262 @@
+<!doctype html>
+<html lang="id">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#fffaf5">
+  <title>Karsa Lib — Rancangan AI Artikel</title>
+  <style>
+    :root{color-scheme:light;--paper:#fffaf5;--ink:#302b26;--muted:#81786e;--line:#e9dfd4;--accent:#b85524;--soft:#fff0e4;--green:#54735f;--ease:cubic-bezier(.23,1,.32,1)}
+    *{box-sizing:border-box}body{margin:0;background:var(--paper);color:var(--ink);font-family:ui-sans-serif,system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;-webkit-font-smoothing:antialiased}
+    button,input,select{font:inherit}button,a,select{touch-action:manipulation}button{cursor:pointer}button:disabled{cursor:not-allowed;opacity:.5}a{color:var(--accent)}button:focus-visible,a:focus-visible,select:focus-visible,input:focus-visible{outline:3px solid #bd571860;outline-offset:4px}[hidden]{display:none!important}
+    .topbar{display:flex;align-items:center;justify-content:space-between;gap:18px;padding:18px max(22px,calc((100vw - 1180px)/2));border-bottom:1px solid var(--line);background:#fffaf5e8;backdrop-filter:blur(18px)}
+    .brand{display:flex;align-items:center;gap:10px}.mark{display:grid;place-items:center;width:38px;height:38px;border-radius:13px;background:var(--accent);color:white;font:700 22px Georgia,serif}.brand strong{font:700 20px Georgia,serif}.brand strong span{color:var(--accent)}.brand small{display:block;margin-top:2px;font-size:10px;color:var(--muted)}
+    .demo-tag{font-size:11px;color:var(--muted);border:1px solid var(--line);border-radius:99px;padding:7px 11px}.container{max-width:1180px;margin:auto;padding:40px 22px 60px}.eyebrow{font-size:10px;font-weight:750;letter-spacing:.14em;text-transform:uppercase;color:var(--accent)}
+    h1{font:500 clamp(35px,5vw,58px)/1.06 Georgia,serif;letter-spacing:-1.8px;margin:12px 0 16px}h1 em{color:var(--accent);font-weight:400}h2{font:500 26px/1.15 Georgia,serif;letter-spacing:-.6px;margin:0}p{line-height:1.65}.intro{max-width:630px;margin:0;color:var(--muted);font-size:14px}.intro strong{color:var(--ink);font-weight:650}
+    .heading{display:flex;justify-content:space-between;align-items:end;gap:30px}.key-note{max-width:250px;padding:16px 18px;border-left:2px solid var(--accent);font-size:12px;line-height:1.6;color:var(--muted)}.key-note strong{display:block;color:var(--ink);font-size:13px;margin-bottom:4px}
+    .tabs{display:flex;gap:5px;margin:30px 0 25px;padding:5px;width:fit-content;border:1px solid var(--line);border-radius:14px;background:#f5eee7}.tab{border:0;background:transparent;padding:10px 18px;border-radius:10px;color:var(--muted);font-size:12px;font-weight:650}.tab[aria-selected="true"]{background:white;color:var(--ink);box-shadow:0 2px 8px #5038200b}
+    .flow{display:grid;grid-template-columns:1fr 44px 1.25fr 44px 1fr;align-items:center;margin:25px 0 28px}.node{padding:24px;border:1px solid var(--line);background:#ffffffb8;border-radius:22px;min-height:260px;transition:border-color .25s,box-shadow .25s,transform .25s}.node.active{border-color:var(--accent);box-shadow:0 0 0 4px #b855240d;transform:translateY(-3px)}.node.backend{background:linear-gradient(145deg,#fff2e6,#ffffffb0);border-color:#e7cbb5}
+    .node-label{font-size:10px;font-weight:750;color:var(--muted);letter-spacing:.06em;text-transform:uppercase}.node h3{font:500 22px Georgia,serif;margin:10px 0}.node p{font-size:12px;color:var(--muted);margin:8px 0}.node .pill{display:inline-flex;gap:5px;align-items:center;font-size:10px;color:var(--green);padding:5px 8px;border-radius:6px;background:#eaf1e9}.students{display:grid;gap:9px;margin-top:18px}.person{display:flex;align-items:center;gap:9px;font-size:12px}.avatar{width:30px;height:30px;display:grid;place-items:center;border-radius:50%;background:#f5e6d8;color:#925227;font-size:10px;font-weight:750}.person:nth-child(2) .avatar{background:#e8eee2;color:#657552}.person:nth-child(3) .avatar{background:#e8e4f2;color:#7b658f}
+    .arrow{display:flex;justify-content:center;color:#c2a58e;font-size:25px}.secret{margin:16px 0 12px;padding:14px;border:1px dashed #d8b99f;border-radius:12px;background:#fffaf5;display:flex;align-items:center;gap:10px}.secret svg{width:20px;height:20px;flex:none;stroke:var(--accent)}.secret strong{font-size:12px;display:block}.secret small{display:block;font-size:10px;color:var(--muted);margin-top:3px}.provider-symbol{margin:21px 0 13px;font:500 38px Georgia,serif;color:var(--accent)}
+    .flow-footer{display:flex;align-items:center;justify-content:space-between;gap:16px;padding:15px 18px;border:1px solid var(--line);border-radius:13px;background:#fff;font-size:12px}.status{display:flex;align-items:center;gap:8px;color:var(--muted)}.dot{width:7px;height:7px;border-radius:50%;background:#bcb2a7}.status.running .dot{background:var(--accent);animation:pulse 1s infinite}.status.done .dot{background:var(--green)}
+    .button{border:0;border-radius:10px;padding:11px 16px;background:var(--accent);color:white;font-size:12px;font-weight:700;transition:transform .2s,background .2s}.button:hover{background:#974017}.button:active{transform:scale(.97)}.button.secondary{background:#f5eee7;color:var(--ink)}.details{display:grid;grid-template-columns:repeat(3,1fr);gap:18px;margin-top:24px}.detail{padding:21px;border:1px solid var(--line);border-radius:18px;background:#ffffff85}.detail .number{font:italic 20px Georgia,serif;color:#b69478}.detail h3{font-size:13px;margin:13px 0 7px}.detail p{font-size:12px;color:var(--muted);margin:0}.cost-note{margin:24px 2px 0;font-size:12px;color:var(--muted)}
+    .app-layout{display:grid;grid-template-columns:minmax(0,1fr) 390px;gap:25px;align-items:start}.article,.assistant{border:1px solid var(--line);background:#ffffffbb;border-radius:22px;overflow:hidden}.article{padding:28px}.article .meta{display:flex;align-items:center;gap:10px;margin:15px 0 24px;font-size:11px;color:var(--muted)}.article .meta strong{display:block;color:var(--ink);font-size:12px;margin-bottom:3px}.article h2{font-size:33px;margin:13px 0}.article-body{font:15px/1.8 Georgia,serif;color:#635c54}.article-body h3{font:600 19px Georgia,serif;color:var(--ink);margin:24px 0 10px}.article-body p{margin:8px 0}.article-body section{border-radius:10px;transition:background .3s}.article-body section.highlight{background:var(--soft)}.example{padding:14px 17px;background:#f7f2ec;border-left:2px solid #d9ad88;border-radius:0 9px 9px 0}.article-actions{display:flex;flex-wrap:wrap;gap:8px;margin-top:24px;padding-top:20px;border-top:1px solid var(--line)}
+    .assistant{position:sticky;top:20px;display:flex;flex-direction:column;height:610px;max-height:calc(100dvh - 40px)}.assistant-head{padding:18px 20px;background:linear-gradient(130deg,#fff0e4,#fffaf6);border-bottom:1px solid var(--line)}.assistant-title{display:flex;justify-content:space-between;align-items:center}.assistant-title strong{font:600 18px Georgia,serif}.spark{color:var(--accent);margin-right:6px}.assistant-head p{font-size:10px;margin:8px 0 0;color:var(--muted)}.online{color:var(--green);font-size:10px}.reader-control{display:flex;align-items:center;justify-content:space-between;gap:12px;margin:0 0 20px;padding:14px 17px;background:#f4eee7;border-radius:13px;font-size:12px}.reader-control label{font-weight:650}.reader-control small{display:block;margin-top:4px;color:var(--muted);font-size:10px}.reader-control select{max-width:230px;background:white;border:1px solid var(--line);border-radius:8px;padding:9px 11px;color:var(--ink);font-size:12px}
+    .quota{display:flex;justify-content:space-between;align-items:center;padding:10px 20px;border-bottom:1px solid var(--line);font-size:10px;color:var(--muted)}.quota strong{color:var(--accent);font-size:11px}.messages{flex:1;min-height:0;overflow-y:auto;padding:18px 18px 8px;scroll-behavior:smooth}.welcome{text-align:center;padding:20px 8px;color:var(--muted)}.welcome .orb{display:grid;place-items:center;margin:0 auto 14px;width:48px;height:48px;border:1px solid #e8cab3;border-radius:17px;background:var(--soft);color:var(--accent);font-size:24px}.welcome h3{font:500 20px Georgia,serif;color:var(--ink);margin:0 0 8px}.welcome p{font-size:12px;margin:0}.suggestions{display:grid;gap:8px;margin:20px 0}.suggestion{text-align:left;padding:11px 12px;border:1px solid var(--line);background:white;border-radius:10px;color:#6e6053;font-size:11px}.suggestion:hover{border-color:#d2a783;background:#fffaf5}
+    .message{font-size:12px;line-height:1.7;padding:12px 14px;border-radius:13px;background:#f5f0ea;margin-bottom:14px;animation:appear .25s var(--ease)}.message.user{max-width:90%;margin-left:auto;background:#f5dfcf;color:#784322}.message.bot{background:#faf7f3}.message strong{font-size:10px;display:block;color:var(--accent);margin-bottom:5px}.message p{margin:0}.message ul{margin:6px 0;padding-left:17px}.source{display:inline-block;margin-top:8px;font-size:10px;text-decoration:none;border-bottom:1px dotted #bc7446}.typing{font-size:11px;color:var(--muted);padding:0 14px 12px}.summary{margin:18px 0;padding:18px;background:#fff3e8;border:1px solid #edcfb6;border-radius:13px;font:12px/1.7 system-ui}.summary h3{display:flex;align-items:center;justify-content:space-between;gap:10px;font:600 16px Georgia,serif;margin:0 0 8px}.summary small{font:10px system-ui;color:var(--green)}.summary ul{margin:8px 0;padding-left:18px}
+    .composer{padding:12px 14px;border-top:1px solid var(--line);background:#fffdf9}.composer form{display:flex;gap:8px}.composer input{min-width:0;flex:1;padding:11px 12px;border:1px solid var(--line);border-radius:10px;background:white;font-size:12px}.send{padding:10px 13px}.composer small{display:block;margin:9px 0 0;font-size:9px;color:var(--muted);line-height:1.5}.ledger{display:flex;align-items:center;justify-content:space-between;gap:16px;margin-top:22px;padding:16px 20px;border:1px solid var(--line);border-radius:14px;font-size:11px;background:#ffffff80}.ledger strong{display:block;font-size:15px;margin:4px 0}.ledger small{color:var(--muted)}.blocked{padding:25px;background:#f8eee7;border:1px solid #edcbb5;border-radius:15px;color:#795035;font-size:13px}.blocked p{margin:8px 0 0;font-size:12px}.footer{margin-top:35px;padding-top:18px;border-top:1px solid var(--line);color:var(--muted);font-size:10px;display:flex;justify-content:space-between;gap:20px}
+    @keyframes pulse{50%{box-shadow:0 0 0 5px #b855241c}}@keyframes appear{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:translateY(0)}}
+    @media(max-width:900px){.heading{align-items:start}.key-note{max-width:220px}.app-layout{grid-template-columns:1fr 340px}.flow{grid-template-columns:1fr;gap:12px}.arrow{transform:rotate(90deg);font-size:20px}.node{min-height:0;padding:20px}.students{display:flex;flex-wrap:wrap;gap:15px}.provider-symbol{display:none}.details{gap:12px}.assistant{height:580px}}
+    @media(max-width:720px){.container{padding:28px 17px 35px}.topbar{padding:15px 17px}.demo-tag{font-size:9px}.heading{display:block}.key-note{margin-top:22px;max-width:none;padding:8px 14px}.app-layout{grid-template-columns:1fr}.assistant{position:relative;top:0;height:540px;max-height:none}.article{padding:23px}.article h2{font-size:29px}.details{grid-template-columns:1fr}.detail{padding:18px}.detail .number{float:right}.detail h3{margin-top:0}.flow-footer{align-items:start;flex-direction:column}.reader-control{align-items:start;flex-direction:column}.reader-control select{width:100%;max-width:none}.ledger{flex-wrap:wrap}.tabs{margin-top:25px}.tab{padding:10px 13px}.footer{flex-direction:column;gap:7px}}
+    .mobile-demo{display:grid;grid-template-columns:390px minmax(0,370px);justify-content:center;align-items:center;gap:65px;padding:10px 0 25px}
+    .phone{height:748px;width:100%;position:relative;display:flex;flex-direction:column;border:6px solid #3c332c;border-radius:38px;background:var(--paper);overflow:hidden;box-shadow:0 24px 70px #573b1d18,0 2px 8px #573b1d12}
+    .phone-status{display:flex;justify-content:space-between;align-items:center;padding:9px 21px 5px;font-size:11px;font-weight:700;height:31px;flex:none}.phone-status span:last-child{font-size:10px;letter-spacing:2px}
+    .phone-header{display:flex;align-items:center;gap:9px;padding:6px 12px;height:56px;border-bottom:1px solid var(--line);flex:none}.phone-header strong{font:600 19px Georgia,serif}.phone-header small{display:block;font-size:10px;color:var(--muted);margin-top:3px}.icon-button{display:grid;place-items:center;width:44px;height:44px;flex:none;border:0;border-radius:12px;background:transparent;color:var(--ink);font-size:23px}.icon-button:hover{background:#f2e9df}
+    .phone-stage{position:relative;flex:1;min-height:0;overflow:hidden}.phone-stage .app-layout{display:block;height:100%}.phone-stage .article{height:100%;overflow-y:auto;overscroll-behavior:contain;scroll-behavior:smooth;padding:23px 21px 110px;border:0;border-radius:0;background:transparent}.phone-stage .article h2{font-size:29px;line-height:1.12;margin:15px 0;letter-spacing:-.8px}.phone-stage .article .eyebrow{font-size:9px;line-height:1.6}.phone-stage .article-body{font-size:15px;line-height:1.75}.phone-stage .article-body h3{font-size:19px;line-height:1.3}.phone-stage .article .meta{margin-bottom:26px}
+    .phone-stage .article-actions{position:absolute;bottom:0;left:0;right:0;display:grid;grid-template-columns:1fr 1fr;gap:9px;padding:12px 17px 14px;margin:0;background:#fffaf5ec;backdrop-filter:blur(14px);border-top:1px solid var(--line)}.article-actions .button{min-height:46px;padding:10px 8px;font-size:12px}
+    .sheet-scrim{position:absolute;inset:0;background:#2b211e40;border:0;border-radius:0;z-index:2;animation:appear .2s ease}
+    .phone-stage .assistant{position:absolute;left:0;right:0;bottom:0;top:auto;height:91%;max-height:none;z-index:3;border-radius:25px 25px 0 0;border:0;background:#fffdf9;box-shadow:0 -6px 28px #30221b14;animation:sheet-in .32s var(--ease);display:flex;flex-direction:column;overflow:hidden}
+    .sheet-handle{height:14px;display:grid;place-items:center;flex:none}.sheet-handle::after{content:'';width:32px;height:4px;background:#d9cec3;border-radius:4px}.phone-stage .assistant-head{padding:4px 17px 11px;background:transparent;border-bottom:0;flex:none}.assistant-title .icon-button{width:40px;height:40px;font-size:24px}.phone-stage .assistant-head p{margin:0;white-space:nowrap;text-overflow:ellipsis;overflow:hidden}.sheet-tabs{display:flex;gap:5px;margin:0 17px 11px;flex:none;border-bottom:1px solid var(--line)}.sheet-tab{padding:9px 12px 10px;min-height:42px;background:none;border:0;border-bottom:2px solid transparent;color:var(--muted);font-size:12px;font-weight:650}.sheet-tab[aria-selected=true]{color:var(--accent);border-bottom-color:var(--accent)}
+    .phone-stage .quota{padding:9px 17px;background:#f8f2eb;border-bottom:0;flex:none}.phone-stage .messages{padding:14px 17px 6px;overscroll-behavior:contain}.phone-stage .welcome{padding:12px 0}.phone-stage .welcome .orb{width:39px;height:39px;margin-bottom:10px}.phone-stage .suggestions{margin:15px 0 0;gap:7px}.phone-stage .suggestion{min-height:44px;font-size:12px}.phone-stage .composer{flex:none;padding:10px 13px 12px}.phone-stage .composer input{font-size:16px;min-height:44px;padding:10px;max-width:100%}.phone-stage .send{min-width:44px;min-height:44px;font-size:19px}.phone-stage .composer small{text-align:center;margin-top:7px}.phone-stage .message{font-size:13px}.summary-view{flex:1;min-height:0;overflow-y:auto;padding:17px;overscroll-behavior:contain}.summary-view .summary{margin:0;border:0;background:#fff3e8;padding:17px;font-size:13px}.summary-view .summary h3{display:block}.summary-view .summary small{display:block;margin-top:7px}.summary-view .summary li{margin-bottom:9px}.summary-followup{width:100%;min-height:44px;margin-top:13px}.summary-loading{padding:35px 12px;text-align:center;color:var(--muted);font-size:13px}.summary-loading span{display:block;font-size:30px;color:var(--accent);margin-bottom:12px;animation:pulse 1s infinite}
+    .phone-homebar{height:16px;display:grid;place-items:center;background:var(--paper);flex:none}.phone-homebar::after{content:'';height:4px;width:105px;background:#3c332c;border-radius:4px}.phone-stage .blocked{margin:17px;padding:19px;font-size:13px}
+    .design-notes .eyebrow{display:block;margin-bottom:12px}.design-notes h2{font-size:31px;margin-bottom:15px}.design-notes>p{font-size:13px;color:var(--muted)}.design-step{display:flex;gap:13px;margin-top:21px}.step-number{display:grid;place-items:center;width:27px;height:27px;border-radius:50%;border:1px solid #ddc8b6;color:var(--accent);font-size:11px;flex:none}.design-step strong{font-size:13px}.design-step p{font-size:12px;color:var(--muted);margin:5px 0 0}.keyboard-demo{margin-top:26px;padding:17px;border:1px solid var(--line);border-radius:14px;background:#ffffff95}.keyboard-demo button{width:100%;min-height:44px}.keyboard-demo small{display:block;color:var(--muted);font-size:11px;line-height:1.6;margin-top:10px}
+    .fake-keyboard{height:189px;background:#e8e4df;padding:10px 5px 5px;flex:none;border-top:1px solid #d1c9c0;overflow:hidden}.keyboard-label{text-align:center;color:#786d61;font-size:10px;margin:0 0 7px}.key-row{display:flex;justify-content:center;gap:4px;margin-bottom:5px}.key{display:grid;place-items:center;min-width:0;flex:1;height:29px;border-radius:5px;background:#fffaf5;color:#645a50;font-size:12px;box-shadow:0 1px 0 #cabfb4}.key-row.narrow{padding:0 15px}.key.wide{flex:2}.key.space{flex:6}.keyboard-on .phone-stage .assistant{height:100%;border-radius:18px 18px 0 0}.keyboard-on .assistant-head p{display:none}.keyboard-on .phone-stage .assistant-head{padding-bottom:2px}.keyboard-on .sheet-tabs{margin-bottom:5px}.keyboard-on .sheet-handle{height:10px}.keyboard-on .phone-stage .composer small{display:none}.keyboard-on .phone-stage .welcome .orb{display:none}
+    @keyframes sheet-in{from{transform:translateY(100%);opacity:.5}to{transform:translateY(0);opacity:1}}
+    @media(max-width:900px){.mobile-demo{gap:30px;grid-template-columns:minmax(0,370px) minmax(0,300px)}}
+    @media(max-width:720px){.mobile-demo{display:flex;flex-direction:column;gap:30px;padding:0}.phone{width:min(390px,100%);height: min(748px,85dvh);min-height:560px;border-width:4px;border-radius:29px}.design-notes{width:min(390px,100%)}.design-notes h2{font-size:26px}.phone-stage .article{padding:21px 18px 105px}.phone-stage .article h2{font-size:27px}.phone-stage .assistant{height:94%}.ledger{gap:15px;font-size:10px;padding:15px}.reader-control{margin-bottom:22px}.phone-stage .composer input{font-size:16px}}
+    @media(prefers-reduced-motion:reduce){*,*::before,*::after{animation:none!important;transition:none!important;scroll-behavior:auto!important}}
+  </style>
+</head>
+<body>
+  <header class="topbar">
+    <div class="brand"><div class="mark" aria-hidden="true">K</div><div><strong>Karsa <span>Lib</span></strong><small>Rancangan asisten artikel</small></div></div>
+    <span class="demo-tag">Demo interaktif · tanpa koneksi AI</span>
+  </header>
+  <main class="container">
+    <div class="heading">
+      <div><span class="eyebrow">Karsa Lib / Rancangan Android</span><h1>Baca dulu.<br><em>Tanya saat perlu.</em></h1><p class="intro">Artikel memenuhi layar ponsel. Ringkasan dan tanya AI muncul sebagai panel dari bawah. <strong>Satu key di backend Karsa</strong> melayani pengguna, dengan kuota serta percakapan masing-masing.</p></div>
+      <div class="key-note"><strong>Key bersama, kuota per mahasiswa.</strong>Biaya layanan terkumpul di akun AI pengelola. Karsa tetap mencatat siapa yang bertanya dan berapa kuotanya.</div>
+    </div>
+    <div class="tabs" role="tablist" aria-label="Bagian rancangan">
+      <button class="tab" id="app-tab" role="tab" aria-selected="true" aria-controls="app-panel" tabindex="0">Coba layar Android</button>
+      <button class="tab" id="flow-tab" role="tab" aria-selected="false" aria-controls="flow-panel" tabindex="-1">Cara kerja API key</button>
+    </div>
+    <section id="flow-panel" role="tabpanel" aria-labelledby="flow-tab" hidden>
+      <div class="flow" aria-label="Mahasiswa mengirim permintaan ke backend Karsa, lalu backend menggunakan key bersama untuk layanan AI">
+        <div class="node" id="flow-users"><span class="node-label">01 / Aplikasi mahasiswa</span><h3>Akunnya masing-masing.</h3><p>Aplikasi mengirim ID artikel, pertanyaan, dan sesi login.</p><div class="students"><div class="person"><span class="avatar">NA</span>Nadia · 5 pertanyaan</div><div class="person"><span class="avatar">RA</span>Raka · 5 pertanyaan</div><div class="person"><span class="avatar">DI</span>Dina · 5 pertanyaan</div></div></div>
+        <div class="arrow" aria-hidden="true">→</div>
+        <div class="node backend" id="flow-backend"><span class="node-label">02 / Backend Karsa</span><h3>Satu pintu untuk AI.</h3><p>Periksa login, akses prodi, kuota pengguna, dan ambil isi artikel dari database.</p><div class="secret"><svg viewBox="0 0 24 24" fill="none" stroke-width="1.6" aria-hidden="true"><rect x="5" y="10" width="14" height="11" rx="3"/><path d="M8 10V7a4 4 0 0 1 8 0v3"/><path d="M12 14v3"/></svg><div><strong>1 API key milik Karsa</strong><small>Secret server · tidak dikirim ke aplikasi</small></div></div><span class="pill">Kuota, cache, dan pencatatan pemakaian</span></div>
+        <div class="arrow" aria-hidden="true">→</div>
+        <div class="node" id="flow-provider"><span class="node-label">03 / Penyedia AI</span><div class="provider-symbol" aria-hidden="true">✳</div><h3>Menjawab dari materi.</h3><p>Menerima isi artikel dan pertanyaan yang diperlukan. Jawaban kembali melalui backend ke mahasiswa yang bertanya.</p><span class="pill">Pemakaian ditagihkan ke akun pengelola</span></div>
+      </div>
+      <div class="flow-footer"><div class="status" id="flow-status" role="status"><span class="dot" aria-hidden="true"></span><span id="flow-status-text">Coba jalankan satu permintaan untuk melihat alurnya.</span></div><button class="button" id="simulate">Simulasikan pertanyaan Nadia →</button></div>
+      <div class="details">
+        <div class="detail"><span class="number">01</span><h3>Akses tetap mengikuti prodi</h3><p>Backend memeriksa akses artikel sebelum memberi materi ke AI. Mahasiswa prodi lain tidak bisa meminta ringkasan atau jawaban dari artikel ini.</p></div>
+        <div class="detail"><span class="number">02</span><h3>Ringkasan cukup dibuat sekali</h3><p>Ringkasan disimpan per versi artikel. Pembaca berikutnya memakai hasil yang sama. Setelah isi artikel diedit, ringkasan perlu dibuat ulang.</p></div>
+        <div class="detail"><span class="number">03</span><h3>Percakapan tetap terpisah</h3><p>Satu API key bukan berarti satu ruang chat bersama. Riwayat dan kuota dicatat per pengguna dan artikel; percakapan tidak ditampilkan kepada pembaca lain.</p></div>
+      </div>
+      <p class="cost-note">Rancangan awal: 5 pertanyaan per mahasiswa per hari, batas panjang jawaban, dan batas pemakaian global Karsa. Angka ini contoh dan dapat disesuaikan. Permintaan ke penyedia AI berbiaya; mengambil ringkasan dari cache tidak membuat permintaan baru.</p>
+    </section>
+    <section id="app-panel" role="tabpanel" aria-labelledby="app-tab">
+      <div class="reader-control"><div><label for="reader">Coba sebagai mahasiswa</label><small>Ganti akun untuk melihat riwayat dan kuota yang terpisah.</small></div><select id="reader"><option value="nadia">Nadia · D4 Akuntansi Perpajakan</option><option value="raka">Raka · D4 Akuntansi Perpajakan</option><option value="dina">Dina · D4 Akuntansi Perpajakan</option><option value="bima">Bima · S1 Teknik Sipil</option></select></div>
+      <div class="mobile-demo">
+      <div class="phone" id="phone" aria-label="Pratinjau layar Android">
+        <div class="phone-status" aria-hidden="true"><span>9:41</span><span>▮▮ ▰</span></div>
+        <div class="phone-header"><button class="icon-button" id="phone-back" aria-label="Kembali ke awal artikel">‹</button><div><strong>Karsa Lib</strong><small>Artikel · D4 Akuntansi Perpajakan</small></div></div>
+        <div class="phone-stage">
+      <div id="blocked" class="blocked" role="status" hidden><strong>Artikel ini berada di prodi lain.</strong><p>Bima tidak memiliki akses ke artikel D4 Akuntansi Perpajakan. Ringkasan dan tanya AI juga tidak tersedia.</p></div>
+      <div class="app-layout" id="article-layout">
+        <article class="article" id="article-view" tabindex="0" aria-label="Isi artikel, dapat digulir">
+          <span class="eyebrow">D4 Akuntansi Perpajakan · Dasar akuntansi</span><h2>Memahami jurnal umum:<br>dari transaksi ke pencatatan.</h2>
+          <div class="meta"><span class="avatar">SA</span><div><strong>Salsabila Aulia</strong>Penulis Karsa Lib · 4 menit baca</div></div>
+          <div class="article-body">
+            <section id="section-1"><h3>1. Mengenali fungsi jurnal umum</h3><p>Jurnal umum adalah catatan transaksi keuangan yang disusun berdasarkan urutan waktu. Setiap transaksi mencantumkan tanggal, akun yang terpengaruh, nilai debit dan kredit, serta keterangan singkat.</p></section>
+            <section id="section-2"><h3>2. Menentukan debit dan kredit</h3><p>Debit dan kredit adalah sisi pencatatan, bukan penanda untung atau rugi. Aset dan beban bertambah di sisi debit. Liabilitas, ekuitas, dan pendapatan bertambah di sisi kredit. Setiap transaksi harus memiliki total debit dan kredit yang sama.</p></section>
+            <section id="section-3"><h3>3. Mencoba satu transaksi</h3><p>Ketika usaha membeli perlengkapan senilai Rp500.000 secara tunai, akun perlengkapan bertambah dan kas berkurang. Keduanya termasuk aset.</p><div class="example">Debit — Perlengkapan: Rp500.000<br>Kredit — Kas: Rp500.000</div></section>
+            <section id="section-4"><h3>4. Memeriksa sebelum menyimpan</h3><p>Kenali akun yang berubah, tentukan arah perubahannya, lalu cocokkan total debit dengan kredit. Jumlah yang seimbang belum menjamin seluruh akun sudah benar; periksa kembali bukti transaksi dan nama akun.</p></section>
+          </div>
+        </article>
+        <div class="article-actions" id="article-actions"><button class="button secondary" id="summarize" aria-controls="ai-sheet" aria-expanded="false">✳ Ringkas</button><button class="button" id="ask-focus" aria-controls="ai-sheet" aria-expanded="false">Tanya AI ↗</button></div>
+      </div>
+        <button class="sheet-scrim" id="sheet-scrim" aria-label="Tutup panel AI dan kembali membaca" tabindex="-1" hidden></button>
+        <aside class="assistant" id="ai-sheet" role="dialog" aria-label="Teman baca artikel" hidden>
+          <div class="sheet-handle" aria-hidden="true"></div>
+          <div class="assistant-head"><div class="assistant-title"><strong><span class="spark" aria-hidden="true">✳</span>Teman baca</strong><button class="icon-button" id="close-sheet" aria-label="Tutup Teman baca">×</button></div><p>Memahami jurnal umum · Salsabila Aulia</p></div>
+          <div class="sheet-tabs" role="tablist" aria-label="Fitur Teman baca"><button class="sheet-tab" id="summary-tab" role="tab" aria-selected="false" aria-controls="summary-view" tabindex="-1">Ringkasan</button><button class="sheet-tab" id="chat-tab" role="tab" aria-selected="true" aria-controls="messages" tabindex="0">Tanya materi</button></div>
+          <div class="summary-view" id="summary-view" role="tabpanel" aria-labelledby="summary-tab" hidden>
+            <div class="summary-loading" id="summary-loading" role="status"><span aria-hidden="true">✳</span>Menyiapkan poin-poin penting…</div>
+            <div class="summary" id="summary" hidden><h3><span>Inti yang perlu kamu ingat</span><small id="cache-label"></small></h3><ul><li>Jurnal umum mencatat transaksi secara berurutan, termasuk akun, debit, kredit, dan keterangan.</li><li>Tentukan jenis akun dan arah perubahannya sebelum memilih debit atau kredit.</li><li>Pembelian perlengkapan tunai menambah perlengkapan dan mengurangi kas.</li><li>Periksa keseimbangan nilai sekaligus ketepatan akun dan bukti transaksi.</li></ul><button class="button summary-followup" id="summary-followup">Ada yang belum jelas? Tanya AI ↗</button></div>
+          </div>
+          <div class="quota" id="quota"><span id="quota-user">Kuota Nadia hari ini</span><strong id="quota-count">5 / 5 tersisa</strong></div>
+          <div class="messages" id="messages" role="tabpanel" aria-labelledby="chat-tab" aria-live="polite" aria-relevant="additions"></div>
+          <div class="typing" id="typing" role="status" hidden>Teman baca sedang menyiapkan jawaban…</div>
+          <div class="composer" id="composer"><form id="question-form"><label for="question" class="sr-only" style="position:absolute;width:1px;height:1px;padding:0;overflow:hidden;clip:rect(0,0,0,0)">Pertanyaan tentang artikel</label><input id="question" placeholder="Tanya tentang materi…" autocomplete="off" maxlength="300"><button class="button send" id="send" aria-label="Kirim pertanyaan">↑</button></form><small>Jawaban simulasi · AI dapat keliru. Periksa kembali sumbernya.</small></div>
+        </aside>
+        </div>
+        <div class="fake-keyboard" id="fake-keyboard" aria-hidden="true" hidden><div class="keyboard-label">Simulasi area keyboard Android</div><div class="key-row"><span class="key">q</span><span class="key">w</span><span class="key">e</span><span class="key">r</span><span class="key">t</span><span class="key">y</span><span class="key">u</span><span class="key">i</span><span class="key">o</span><span class="key">p</span></div><div class="key-row narrow"><span class="key">a</span><span class="key">s</span><span class="key">d</span><span class="key">f</span><span class="key">g</span><span class="key">h</span><span class="key">j</span><span class="key">k</span><span class="key">l</span></div><div class="key-row"><span class="key wide">⇧</span><span class="key">z</span><span class="key">x</span><span class="key">c</span><span class="key">v</span><span class="key">b</span><span class="key">n</span><span class="key">m</span><span class="key wide">⌫</span></div><div class="key-row"><span class="key wide">?123</span><span class="key space">Bahasa Indonesia</span><span class="key wide">↵</span></div></div>
+        <div class="phone-homebar" aria-hidden="true"></div>
+      </div>
+      <div class="design-notes"><span class="eyebrow">Satu aktivitas dalam satu layar</span><h2>Artikel tetap menjadi<br>tempat utamanya.</h2><p>Coba tombol <strong>Ringkas</strong> atau <strong>Tanya AI</strong> di bagian bawah layar ponsel.</p><div class="design-step"><span class="step-number">1</span><div><strong>Aksi AI selalu terjangkau</strong><p>Dua tombol menetap di bawah. Artikel dapat digulir tanpa kehilangan akses ke AI.</p></div></div><div class="design-step"><span class="step-number">2</span><div><strong>Panel dari bawah, satu tugas sekali</strong><p>Pindah antara ringkasan dan percakapan. Tutup panel untuk melanjutkan membaca di posisi terakhir.</p></div></div><div class="design-step"><span class="step-number">3</span><div><strong>Sumber jawaban mudah dibuka</strong><p>Ketuk rujukan pada jawaban. Panel menutup dan artikel bergulir ke bagian yang dimaksud.</p></div></div><div class="keyboard-demo"><button class="button secondary" id="toggle-keyboard" aria-pressed="false">Simulasikan keyboard terbuka</button><small>Simulasi ruang layar saat keyboard muncul: area percakapan mengecil, kolom pertanyaan tetap berada di atas keyboard. Ini pratinjau HTML, bukan keyboard Android sungguhan.</small></div></div>
+      </div>
+      <div class="ledger" aria-label="Pencatatan pemakaian demo"><div><small>Permintaan ke penyedia AI</small><strong id="provider-count">0 permintaan</strong></div><div><small>Ringkasan dipakai dari cache</small><strong id="cache-count">0 kali</strong></div><div><small>Akun penagihan</small><strong>Karsa · key bersama</strong></div><button class="button secondary" id="reset">Reset demo</button></div>
+    </section>
+    <footer class="footer"><span>Karsa Lib / Rancangan AI artikel · 2026</span><span>Seluruh interaksi berjalan lokal. File ini tidak menyimpan key atau menghubungi penyedia AI.</span></footer>
+  </main>
+  <script>
+    const $ = id => document.getElementById(id);
+    const names = {nadia:'Nadia',raka:'Raka',dina:'Dina',bima:'Bima'};
+    const accounts = Object.fromEntries(['nadia','raka','dina'].map(id => [id,{used:0,messages:[]}]));
+    let reader = 'nadia', pending = false, summaryCached = false, providerCalls = 0, cacheHits = 0, flowBusy = false;
+    let sheetOpen = false, sheetMode = 'chat', asking = false, returnFocus = null;
+    const wait = milliseconds => new Promise(resolve => setTimeout(resolve,milliseconds));
+    const motion = () => matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth';
+    const tabs = [$('app-tab'),$('flow-tab')];
+    function selectTab(index) {
+      tabs.forEach((tab,i) => {tab.setAttribute('aria-selected',String(i===index));tab.tabIndex = i===index?0:-1;$(tab.getAttribute('aria-controls')).hidden = i!==index;});
+    }
+    tabs.forEach((tab,index) => {
+      tab.addEventListener('click',() => selectTab(index));
+      tab.addEventListener('keydown',event => {if(['ArrowLeft','ArrowRight','Home','End'].includes(event.key)){event.preventDefault();const next=event.key==='Home'?0:event.key==='End'?1:1-index;selectTab(next);tabs[next].focus();}});
+    });
+    async function animateFlow() {
+      if(flowBusy) return;
+      flowBusy=true;$('simulate').disabled=true;$('flow-status').className='status running';
+      const stages=[
+        ['flow-users','Nadia mengirim ID artikel dan pertanyaan dengan sesi login.'],
+        ['flow-backend','Backend memeriksa akses, mengambil artikel, lalu memakai key milik Karsa.'],
+        ['flow-provider','Penyedia AI menerima konteks artikel dan menyiapkan jawaban untuk Nadia.']
+      ];
+      for(const [id,text] of stages){document.querySelectorAll('.node').forEach(node=>node.classList.remove('active'));$(id).classList.add('active');$('flow-status-text').textContent=text;await wait(1100);}
+      document.querySelectorAll('.node').forEach(node=>node.classList.remove('active'));
+      $('flow-status').className='status done';$('flow-status-text').textContent='Jawaban kembali ke Nadia. Pemakaian dicatat pada kuota Nadia dan akun AI Karsa.';
+      $('simulate').disabled=false;flowBusy=false;
+    }
+    $('simulate').addEventListener('click',animateFlow);
+    function setKeyboard(open){
+      $('fake-keyboard').hidden=!open;$('phone').classList.toggle('keyboard-on',open);
+      $('toggle-keyboard').setAttribute('aria-pressed',String(open));
+      $('toggle-keyboard').textContent=open?'Tutup simulasi keyboard':'Simulasikan keyboard terbuka';
+    }
+    function setSheetMode(mode){
+      sheetMode=mode;const chat=mode==='chat';
+      $('summary-view').hidden=chat;$('messages').hidden=!chat;$('quota').hidden=!chat;$('composer').hidden=!chat;$('typing').hidden=!chat||!asking;
+      $('summary-tab').setAttribute('aria-selected',String(!chat));$('summary-tab').tabIndex=chat?-1:0;
+      $('chat-tab').setAttribute('aria-selected',String(chat));$('chat-tab').tabIndex=chat?0:-1;
+      if(!chat)setKeyboard(false);
+      $('messages').scrollTop=$('messages').scrollHeight;
+    }
+    function openSheet(mode){
+      if(reader==='bima')return;
+      if(!sheetOpen)returnFocus=document.activeElement;
+      sheetOpen=true;$('ai-sheet').hidden=false;$('sheet-scrim').hidden=false;
+      $('article-view').inert=true;$('article-actions').inert=true;
+      $('summarize').setAttribute('aria-expanded','true');$('ask-focus').setAttribute('aria-expanded','true');
+      setSheetMode(mode);$('close-sheet').focus({preventScroll:true});
+    }
+    function closeSheet(restoreFocus=true){
+      sheetOpen=false;$('ai-sheet').hidden=true;$('sheet-scrim').hidden=true;
+      $('article-view').inert=false;$('article-actions').inert=false;setKeyboard(false);
+      $('summarize').setAttribute('aria-expanded','false');$('ask-focus').setAttribute('aria-expanded','false');
+      if(restoreFocus&&returnFocus&&returnFocus.isConnected&&!returnFocus.disabled)returnFocus.focus({preventScroll:true});
+    }
+    $('close-sheet').addEventListener('click',()=>closeSheet());
+    $('sheet-scrim').addEventListener('click',()=>closeSheet());
+    $('phone-back').addEventListener('click',()=>{if(sheetOpen)closeSheet();else $('article-view').scrollTo({top:0,behavior:motion()});});
+    $('ai-sheet').addEventListener('keydown',event=>{if(event.key==='Escape'){event.preventDefault();closeSheet();}});
+    $('chat-tab').addEventListener('click',()=>setSheetMode('chat'));
+    [$('summary-tab'),$('chat-tab')].forEach((tab,index)=>tab.addEventListener('keydown',event=>{
+      if(['ArrowLeft','ArrowRight','Home','End'].includes(event.key)){
+        event.preventDefault();const summary=event.key==='Home'||(event.key!=='End'&&index===1);
+        if(summary)summarizeArticle();else setSheetMode('chat');
+        $(summary?'summary-tab':'chat-tab').focus({preventScroll:true});
+      }
+    }));
+    $('toggle-keyboard').addEventListener('click',()=>{if(reader==='bima')return;const open=$('fake-keyboard').hidden;if(open)openSheet('chat');setKeyboard(open);});
+    function updateStats(){ $('provider-count').textContent=providerCalls+' permintaan';$('cache-count').textContent=cacheHits+' kali'; }
+    function updateControls(){
+      const allowed=reader!=='bima';$('article-layout').hidden=!allowed;$('blocked').hidden=allowed;
+      $('reader').disabled=pending;$('reset').disabled=pending;$('summarize').disabled=pending;
+      $('summary-tab').disabled=asking;
+      $('toggle-keyboard').disabled=!allowed;
+      if(!allowed)return;
+      const left=5-accounts[reader].used;$('quota-user').textContent='Kuota '+names[reader]+' hari ini';$('quota-count').textContent=left+' / 5 tersisa';
+      $('send').disabled=pending||left===0;$('question').disabled=left===0;
+      $('question').placeholder=left===0?'Kuota demo hari ini sudah habis.':'Tanya tentang jurnal umum…';
+      document.querySelectorAll('.suggestion').forEach(button=>button.disabled=pending||left===0);
+    }
+    function addMessageToDOM(message){
+      const block=document.createElement('div');block.className='message '+message.role;
+      if(message.role==='bot'){const label=document.createElement('strong');label.textContent='TEMAN BACA';block.append(label);}
+      const text=document.createElement('p');text.textContent=message.text;block.append(text);
+      if(message.source){const link=document.createElement('a');link.className='source';link.href='#section-'+message.source;link.textContent='Lihat bagian '+message.source+' pada artikel ↗';link.addEventListener('click',event=>{event.preventDefault();closeSheet(false);const article=$('article-view'),section=$('section-'+message.source);const top=article.scrollTop+section.getBoundingClientRect().top-article.getBoundingClientRect().top-18;article.focus({preventScroll:true});article.scrollTo({top,behavior:motion()});section.classList.add('highlight');setTimeout(()=>section.classList.remove('highlight'),1800);});block.append(link);}
+      $('messages').append(block);
+    }
+    function renderMessages(){
+      $('messages').replaceChildren();
+      if(!accounts[reader].messages.length){
+        const welcome=document.createElement('div');welcome.className='welcome';welcome.innerHTML='<div class="orb" aria-hidden="true">✳</div><h3>Ada bagian yang belum jelas?</h3><p>Tanya dari materi artikel ini, atau mulai dari salah satu pertanyaan berikut.</p>';
+        const list=document.createElement('div');list.className='suggestions';
+        ['Apa inti artikel ini?','Apa bedanya debit dan kredit?','Jelaskan contoh pembelian perlengkapan.','Bagaimana menghitung PPh 21?'].forEach(text=>{const button=document.createElement('button');button.type='button';button.className='suggestion';button.textContent=text;button.addEventListener('click',()=>ask(text));list.append(button);});
+        welcome.append(list);$('messages').append(welcome);
+      }else accounts[reader].messages.forEach(addMessageToDOM);
+      $('messages').scrollTop=$('messages').scrollHeight;
+    }
+    function answerFor(question){
+      const text=question.toLowerCase();
+      if(/pph|pajak|21|investasi|saham/.test(text))return {text:'Artikel ini belum membahas topik tersebut, jadi aku tidak dapat menjawabnya berdasarkan materi yang tersedia. Kamu bisa bertanya tentang fungsi jurnal umum, debit dan kredit, atau contoh pembelian perlengkapan.'};
+      if(/contoh|perlengkapan|500|tunai/.test(text))return {text:'Dalam contoh artikel, perlengkapan bertambah Rp500.000 sehingga dicatat di debit. Kas berkurang dengan jumlah yang sama sehingga dicatat di kredit. Total debit dan kredit sama-sama Rp500.000.',source:3};
+      if(/debit|kredit/.test(text))return {text:'Debit dan kredit merupakan sisi pencatatan. Menurut artikel, aset dan beban bertambah di debit, sedangkan liabilitas, ekuitas, dan pendapatan bertambah di kredit. Jadi, debit tidak selalu berarti kerugian dan kredit tidak selalu berarti keuntungan.',source:2};
+      if(/periksa|seimbang|benar|cocok/.test(text))return {text:'Cocokkan total debit dan kredit, lalu periksa nama akun serta bukti transaksinya. Artikel menegaskan bahwa nilai yang seimbang belum tentu berarti seluruh akun sudah dicatat dengan benar.',source:4};
+      if(/inti|ringkas|jurnal|fungsi/.test(text))return {text:'Intinya: catat transaksi berdasarkan waktu, kenali akun yang berubah, tentukan debit dan kredit berdasarkan jenis akun, lalu periksa nilai serta bukti transaksinya. Jurnal umum membantu membuat pencatatan transaksi lebih teratur.',source:1};
+      return {text:'Pertanyaan ini belum memiliki jawaban yang disiapkan dalam demo. Coba tanyakan perbedaan debit dan kredit atau contoh pembelian perlengkapan. Dalam aplikasi sungguhan, backend akan meminta AI menjawab berdasarkan isi artikel.'};
+    }
+    async function ask(text){
+      if(pending||reader==='bima'||accounts[reader].used>=5||!text.trim())return;
+      const keepFocus=document.activeElement===$('question')||document.activeElement===$('send');
+      const account=accounts[reader];const userMessage={role:'user',text:text.trim().slice(0,300)};
+      account.messages.push(userMessage);account.used++;providerCalls++;pending=true;asking=true;$('question').value='';renderMessages();$('typing').hidden=sheetMode!=='chat';updateControls();updateStats();
+      await wait(950);
+      const response={role:'bot',...answerFor(userMessage.text)};account.messages.push(response);addMessageToDOM(response);$('typing').hidden=true;pending=false;asking=false;updateControls();$('messages').scrollTop=$('messages').scrollHeight;
+      if(keepFocus&&sheetOpen&&sheetMode==='chat'&&account.used<5)$('question').focus({preventScroll:true});
+    }
+    $('question-form').addEventListener('submit',event=>{event.preventDefault();ask($('question').value);});
+    $('reader').addEventListener('change',event=>{closeSheet(false);reader=event.target.value;$('question').value='';if(reader!=='bima')renderMessages();updateControls();});
+    $('ask-focus').addEventListener('click',()=>openSheet('chat'));
+    $('summary-followup').addEventListener('click',()=>setSheetMode('chat'));
+    async function summarizeArticle(){
+      if(reader==='bima'||asking)return;
+      openSheet('summary');
+      if(summaryCached){cacheHits++;$('cache-label').textContent='Ringkasan tersimpan';$('summary').hidden=false;$('summary-loading').hidden=true;updateStats();return;}
+      if(pending){$('summary-loading').textContent=asking?'Tunggu pertanyaanmu selesai sebelum membuat ringkasan.':'Menyiapkan poin-poin penting…';return;}
+      pending=true;providerCalls++;$('summary-loading').hidden=false;$('summary-loading').textContent='Menyiapkan poin-poin penting…';$('summarize').textContent='Menyiapkan…';updateControls();updateStats();await wait(1000);summaryCached=true;pending=false;$('summary').hidden=false;$('summary-loading').hidden=true;$('cache-label').textContent='Poin-poin utama artikel';$('summarize').textContent='✳ Ringkas';updateControls();
+    }
+    $('summarize').addEventListener('click',summarizeArticle);
+    $('summary-tab').addEventListener('click',summarizeArticle);
+    $('reset').addEventListener('click',()=>{
+      if(pending)return;
+      closeSheet(false);Object.values(accounts).forEach(account=>{account.used=0;account.messages=[];});summaryCached=false;providerCalls=0;cacheHits=0;$('summary').hidden=true;$('summary-loading').hidden=false;$('summarize').textContent='✳ Ringkas';$('question').value='';if(reader!=='bima')renderMessages();updateControls();updateStats();
+    });
+    renderMessages();updateControls();
+  </script>
+</body>
+</html>

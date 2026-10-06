@@ -5,7 +5,7 @@ import 'api_client.dart';
 
 const termsPath = '/syarat-penggunaan';
 const privacyPath = '/kebijakan-privasi';
-const legalDocumentVersion = '1.0';
+const legalDocumentVersion = '1.1';
 
 Future<void> openLegalDocument(BuildContext context, String path) async {
   try {

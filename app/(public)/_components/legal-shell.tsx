@@ -42,7 +42,7 @@ export function LegalShell({ title, summary, active, children }: LegalShellProps
           <p className="text-xs font-bold uppercase tracking-[0.18em] text-[#ad560e]">Dokumen layanan Karsa</p>
           <h1 className="mt-3 text-3xl font-bold tracking-tight sm:text-5xl">{title}</h1>
           <p className="mt-4 text-base leading-7 text-[#715f50]">{summary}</p>
-          <p className="mt-5 text-sm text-[#796c61]">Versi 1.0 · Berlaku sejak 30 September 2026</p>
+          <p className="mt-5 text-sm text-[#796c61]">Versi 1.1 · Berlaku sejak 6 Oktober 2026</p>
         </div>
 
         <article className="mt-9 max-w-3xl space-y-8 rounded-3xl border border-[#eaded0] bg-white p-6 shadow-[0_12px_42px_rgba(82,49,19,0.06)] sm:p-10">

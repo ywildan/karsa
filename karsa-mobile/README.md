@@ -10,6 +10,7 @@ Aplikasi Flutter native untuk mahasiswa dan penanggung jawab (PJ) mata kuliah. A
 - PJ: seluruh fitur mahasiswa, input poin, riwayat input, dan hapus poin miliknya.
 - Admin tetap menggunakan dashboard web dan tidak memperoleh akses khusus di aplikasi.
 - Idempotency key mencegah poin ganda ketika permintaan terkirim ulang.
+- Teman baca artikel: panel ringkasan dan tanya AI, kuota, serta rujukan paragraf. Tetap berstatus “Dalam pengembangan” sampai backend diaktifkan; lihat [panduan konfigurasi AI](../docs/KARSA-LIB-AI-SETUP.md).
 
 ## Struktur
 

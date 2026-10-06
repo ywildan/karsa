@@ -30,6 +30,7 @@ export default function TermsPage() {
         <p>Artikel Karsa Lib ditampilkan kepada pengguna dari program studi yang sama dengan penulis saat artikel diterbitkan. Pengguna yang memperoleh akses penulis dapat membuat draf, menerbitkan, memperbarui, dan mengarsipkan artikel teks. Akses penulis diberikan atau dicabut oleh admin setelah peninjauan.</p>
         <p>Penulis bertanggung jawab atas keakuratan tulisan dan hak untuk membagikannya. Jangan memuat plagiarisme, ujaran kebencian, pelecehan, spam, atau informasi pribadi orang lain tanpa izin. Penulis tetap bertanggung jawab atas kontennya dan memberi Karsa izin untuk menyimpan serta menampilkannya selama konten tersedia di layanan.</p>
         <p>Pembaca dapat berkomentar dan membalas komentar sesuai fitur yang tersedia. Komentar tidak dapat diedit, tetapi dapat dihapus oleh pemiliknya. Artikel atau komentar dapat dilaporkan; laporan ditinjau oleh admin sebelum tindakan moderasi. Mengarsipkan artikel menghentikan tampilnya artikel di beranda program studi.</p>
+        <p>Bila Teman baca AI tersedia, fitur ini membantu merangkum dan menjelaskan materi artikel. Jawaban AI dapat keliru dan tidak menjamin isi artikel benar. Periksa kembali artikel serta sumber belajar yang relevan. Pemakaian dibatasi dengan kuota harian; jangan mencoba mengakali pembatasan atau memasukkan data pribadi dan rahasia ke dalam pertanyaan.</p>
       </LegalSection>
 
       <LegalSection title="4. Moderasi dan pembatasan akses">
