@@ -39,6 +39,9 @@ class _GroupChatScreenState extends State<GroupChatScreen>
   bool _locking = false;
   final List<GroupMessageItem> _messages = [];
   List<GroupMessageItem> _pinnedMessages = [];
+  static bool _pinHintShown = false;
+  String? _highlightedMessageId;
+  Timer? _highlightTimer;
   Timer? _pollTimer;
   String? _nextCursor;
   GroupMessageItem? _replyTo;
@@ -72,6 +75,7 @@ class _GroupChatScreenState extends State<GroupChatScreen>
   void dispose() {
     WidgetsBinding.instance.removeObserver(this);
     _pollTimer?.cancel();
+    _highlightTimer?.cancel();
     _scroll.removeListener(_trackScroll);
     _composer.dispose();
     _composerFocus.dispose();
@@ -121,11 +125,102 @@ class _GroupChatScreenState extends State<GroupChatScreen>
         _isLocked = page.isLocked;
       });
       _jumpToBottom();
+      _maybeShowPinHint();
     } catch (error) {
       if (mounted) setState(() => _error = error);
     } finally {
       if (mounted) setState(() => _loading = false);
     }
+  }
+
+  void _maybeShowPinHint() {
+    if (!_isManager || _messages.isEmpty || _pinnedMessages.isNotEmpty ||
+        _pinHintShown) return;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted || _pinHintShown || !_isManager ||
+          _pinnedMessages.isNotEmpty) return;
+      _pinHintShown = true;
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+        content: Text('Tekan lama pesan untuk menyematkannya.'),
+        duration: Duration(seconds: 4),
+      ));
+    });
+  }
+
+  Future<void> _openPinnedMessage(GroupMessageItem selected) async {
+    final matches = _pinnedMessages.where((item) => item.id == selected.id);
+    if (matches.isEmpty || !mounted) return;
+    final message = matches.first;
+    final target = _messageKeys[message.id]?.currentContext;
+    if (target == null) {
+      await _showMessageDetail(message);
+      return;
+    }
+    _highlightTimer?.cancel();
+    setState(() => _highlightedMessageId = message.id);
+    _highlightTimer = Timer(const Duration(milliseconds: 1600), () {
+      if (mounted) setState(() => _highlightedMessageId = null);
+    });
+    await Scrollable.ensureVisible(
+      target,
+      alignment: .4,
+      duration: MediaQuery.disableAnimationsOf(context)
+          ? Duration.zero : const Duration(milliseconds: 240),
+      curve: Curves.easeOutCubic,
+    );
+  }
+
+  Future<void> _showPinnedMessages() async {
+    final pins = List<GroupMessageItem>.of(_pinnedMessages);
+    if (pins.isEmpty) return;
+    final selected = await showModalBottomSheet<GroupMessageItem>(
+      context: context,
+      isScrollControlled: true,
+      useSafeArea: true,
+      showDragHandle: true,
+      builder: (sheetContext) => FractionallySizedBox(
+        heightFactor: .65,
+        child: Column(children: [
+          Padding(
+            padding: const EdgeInsets.fromLTRB(20, 0, 20, 16),
+            child: Row(children: [
+              Icon(Icons.push_pin_rounded,
+                  color: Theme.of(sheetContext).colorScheme.primary, size: 20),
+              const SizedBox(width: 10),
+              Expanded(child: Text('Pesan disematkan',
+                  style: Theme.of(sheetContext).textTheme.titleMedium)),
+              Text('${pins.length}'),
+            ]),
+          ),
+          Expanded(child: ListView.separated(
+            padding: const EdgeInsets.fromLTRB(12, 0, 12, 24),
+            itemCount: pins.length,
+            separatorBuilder: (_, _) => const Divider(height: 1),
+            itemBuilder: (_, index) {
+              final message = pins[index];
+              return ListTile(
+                contentPadding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
+                title: Text(message.author.name, maxLines: 1,
+                    overflow: TextOverflow.ellipsis),
+                subtitle: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(_pinnedMessagePreview(message), maxLines: 2,
+                        overflow: TextOverflow.ellipsis),
+                    const SizedBox(height: 4),
+                    Text(formatDate(message.createdAt),
+                        style: Theme.of(sheetContext).textTheme.labelSmall),
+                  ],
+                ),
+                trailing: const Icon(Icons.chevron_right_rounded),
+                onTap: () => Navigator.of(sheetContext).pop(message),
+              );
+            },
+          )),
+        ]),
+      ),
+    );
+    if (mounted && selected != null) await _openPinnedMessage(selected);
   }
 
   Future<void> _refreshLatest({bool silent = false}) async {
@@ -886,16 +981,18 @@ class _GroupChatScreenState extends State<GroupChatScreen>
       children: [
         Column(
           children: [
-            if (_pinnedMessages.isNotEmpty)
-              _PinnedMessagesStrip(
-                messages: _pinnedMessages,
-                onTap: _showMessageDetail,
-              ),
-            if (_isManager &&
-                !_loading &&
-                _messages.isNotEmpty &&
-                _pinnedMessages.isEmpty)
-              const _PinHint(),
+            AnimatedSize(
+              duration: MediaQuery.disableAnimationsOf(context)
+                  ? Duration.zero : const Duration(milliseconds: 180),
+              alignment: Alignment.topCenter,
+              child: _pinnedMessages.isEmpty
+                  ? const SizedBox.shrink()
+                  : _PinnedMessagesStrip(
+                      messages: _pinnedMessages,
+                      onTap: _openPinnedMessage,
+                      onShowAll: _showPinnedMessages,
+                    ),
+            ),
             Expanded(
               child: Stack(
                 key: _chatViewportKey,
@@ -980,6 +1077,7 @@ class _GroupChatScreenState extends State<GroupChatScreen>
               _MessageBubble(
                 key: _messageKeys.putIfAbsent(message.id, () => GlobalKey()),
                 message: message,
+                highlighted: _highlightedMessageId == message.id,
                 onLongPress: () => _showActions(message),
                 animateOnInsert: _justSentMessageIds.contains(message.id),
                 popOnInsert: _incomingMessageIds.contains(message.id),
@@ -1117,122 +1215,151 @@ class _ReplyComposer extends StatelessWidget {
   );
 }
 
-class _PinnedMessagesStrip extends StatelessWidget {
-  const _PinnedMessagesStrip({required this.messages, required this.onTap});
+String _pinnedMessagePreview(GroupMessageItem message) => switch (message.state) {
+  'active' => message.text ?? '',
+  'deleted' => 'Pesan telah dihapus',
+  'hidden' => 'Pesan disembunyikan oleh PJ',
+  'blocked' => 'Pesan dari pengguna yang diblokir',
+  _ => 'Pesan tidak tersedia',
+};
+
+class _PinnedMessagesStrip extends StatefulWidget {
+  const _PinnedMessagesStrip({
+    required this.messages,
+    required this.onTap,
+    required this.onShowAll,
+  });
   final List<GroupMessageItem> messages;
   final ValueChanged<GroupMessageItem> onTap;
+  final VoidCallback onShowAll;
 
   @override
-  Widget build(BuildContext context) {
-    final colors = Theme.of(context).colorScheme;
-    return Padding(
-      padding: const EdgeInsets.fromLTRB(12, 6, 12, 0),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            children: [
-              Icon(Icons.push_pin_rounded, size: 15, color: colors.primary),
-              const SizedBox(width: 6),
-              Text(
-                'Pesan disematkan',
-                style: Theme.of(context).textTheme.labelMedium?.copyWith(
-                  fontWeight: FontWeight.w800,
-                  color: colors.primary,
-                ),
-              ),
-              const SizedBox(width: 6),
-              Text(
-                '${messages.length}',
-                style: Theme.of(context).textTheme.labelSmall,
-              ),
-            ],
-          ),
-          const SizedBox(height: 4),
-          SizedBox(
-            height: 66,
-            child: ListView.separated(
-              scrollDirection: Axis.horizontal,
-              itemCount: messages.length,
-              separatorBuilder: (_, _) => const SizedBox(width: 8),
-              itemBuilder: (context, index) {
-                final message = messages[index];
-                final preview = switch (message.state) {
-                  'active' => message.text ?? '',
-                  'deleted' => 'Pesan telah dihapus',
-                  'hidden' => 'Pesan disembunyikan oleh PJ',
-                  'blocked' => 'Pesan dari pengguna yang diblokir',
-                  _ => 'Pesan tidak tersedia',
-                };
-                return SizedBox(
-                  width: 250,
-                  child: Card(
-                    margin: EdgeInsets.zero,
-                    color: colors.surfaceContainerLow,
-                    child: InkWell(
-                      onTap: () => onTap(message),
-                      borderRadius: BorderRadius.circular(12),
-                      child: Padding(
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 12,
-                          vertical: 8,
-                        ),
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text(
-                              message.author.name,
-                              maxLines: 1,
-                              overflow: TextOverflow.ellipsis,
-                              style: const TextStyle(
-                                fontWeight: FontWeight.w800,
-                              ),
-                            ),
-                            const SizedBox(height: 3),
-                            Text(
-                              preview,
-                              maxLines: 1,
-                              overflow: TextOverflow.ellipsis,
-                              style: Theme.of(context).textTheme.bodySmall,
-                            ),
-                          ],
-                        ),
-                      ),
-                    ),
-                  ),
-                );
-              },
-            ),
-          ),
-        ],
-      ),
-    );
-  }
+  State<_PinnedMessagesStrip> createState() => _PinnedMessagesStripState();
 }
 
-class _PinHint extends StatelessWidget {
-  const _PinHint();
+class _PinnedMessagesStripState extends State<_PinnedMessagesStrip> {
+  String? _activeId;
+  double _dragDistance = 0;
+  int _direction = 1;
+
+  int get _index {
+    final index = widget.messages.indexWhere((item) => item.id == _activeId);
+    return index < 0 ? 0 : index;
+  }
+
+  @override
+  void initState() {
+    super.initState();
+    if (widget.messages.isNotEmpty) _activeId = widget.messages.first.id;
+  }
+
+  @override
+  void didUpdateWidget(covariant _PinnedMessagesStrip oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (!widget.messages.any((item) => item.id == _activeId)) {
+      _activeId = widget.messages.isEmpty ? null : widget.messages.first.id;
+    }
+  }
+
+  void _step(int direction) {
+    if (widget.messages.length < 2) return;
+    final next = (_index + direction) % widget.messages.length;
+    setState(() {
+      _direction = direction;
+      _activeId = widget.messages[next].id;
+    });
+  }
 
   @override
   Widget build(BuildContext context) {
+    if (widget.messages.isEmpty) return const SizedBox.shrink();
     final colors = Theme.of(context).colorScheme;
+    final message = widget.messages[_index];
+    final reduceMotion = MediaQuery.disableAnimationsOf(context);
     return Padding(
-      padding: const EdgeInsets.fromLTRB(16, 8, 16, 2),
-      child: Row(
-        children: [
-          Icon(
-            Icons.push_pin_outlined,
-            size: 16,
-            color: colors.onSurfaceVariant,
-          ),
-          const SizedBox(width: 8),
-          Text(
-            'Tekan lama pesan untuk menyematkannya.',
-            style: Theme.of(
-              context,
-            ).textTheme.bodySmall?.copyWith(color: colors.onSurfaceVariant),
-          ),
-        ],
+      padding: const EdgeInsets.fromLTRB(12, 6, 12, 4),
+      child: Material(
+        color: const Color(0xFFFFF5E8).withValues(alpha: .9),
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(12),
+          side: BorderSide(color: colors.primary.withValues(alpha: .12)),
+        ),
+        clipBehavior: Clip.antiAlias,
+        child: ConstrainedBox(
+          constraints: const BoxConstraints(minHeight: 60),
+          child: Row(children: [
+            Expanded(child: Semantics(
+              onIncrease: widget.messages.length > 1 ? () => _step(1) : null,
+              onDecrease: widget.messages.length > 1 ? () => _step(-1) : null,
+              child: GestureDetector(
+                onHorizontalDragStart: (_) => _dragDistance = 0,
+                onHorizontalDragUpdate: (details) => _dragDistance += details.delta.dx,
+                onHorizontalDragEnd: (details) {
+                  final velocity = details.primaryVelocity ?? 0;
+                  if (_dragDistance.abs() > 24 || velocity.abs() > 120) {
+                    _step((_dragDistance.abs() > 24 ? _dragDistance : velocity) < 0 ? 1 : -1);
+                  }
+                },
+                child: InkWell(
+                  onTap: () => widget.onTap(message),
+                  child: Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 10),
+                    child: Row(children: [
+                      Container(width: 3, height: 32,
+                          decoration: BoxDecoration(color: colors.primary,
+                              borderRadius: BorderRadius.circular(3))),
+                      const SizedBox(width: 8),
+                      Icon(Icons.push_pin_rounded, size: 16, color: colors.primary),
+                      const SizedBox(width: 8),
+                      Expanded(child: AnimatedSwitcher(
+                        duration: reduceMotion ? Duration.zero : const Duration(milliseconds: 160),
+                        switchInCurve: Curves.easeOutCubic,
+                        switchOutCurve: Curves.easeOutCubic,
+                        layoutBuilder: (current, previous) => Stack(
+                          alignment: Alignment.centerLeft,
+                          children: [...previous, if (current != null) current],
+                        ),
+                        transitionBuilder: (child, animation) => FadeTransition(
+                          opacity: animation,
+                          child: SlideTransition(
+                            position: Tween<Offset>(
+                              begin: reduceMotion ? Offset.zero : Offset(.08 * _direction, 0),
+                              end: Offset.zero,
+                            ).animate(animation),
+                            child: child,
+                          ),
+                        ),
+                        child: Column(
+                          key: ValueKey(message.id),
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Text('Pesan disematkan · ${message.author.name}',
+                                maxLines: 1, overflow: TextOverflow.ellipsis,
+                                style: TextStyle(fontSize: 11, color: colors.primary,
+                                    fontWeight: FontWeight.w700)),
+                            const SizedBox(height: 3),
+                            Text(_pinnedMessagePreview(message), maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                                style: const TextStyle(fontSize: 13)),
+                          ],
+                        ),
+                      )),
+                    ]),
+                  ),
+                ),
+              ),
+            )),
+            Text('${_index + 1}/${widget.messages.length}',
+                style: TextStyle(fontSize: 11, color: colors.onSurfaceVariant)),
+            IconButton(
+              tooltip: 'Semua pesan disematkan',
+              constraints: const BoxConstraints(minWidth: 44, minHeight: 44),
+              onPressed: widget.onShowAll,
+              icon: Icon(Icons.format_list_bulleted_rounded, size: 20, color: colors.primary),
+            ),
+          ]),
+        ),
       ),
     );
   }
@@ -1245,6 +1372,7 @@ class _MessageBubble extends StatefulWidget {
     this.onReplyTap,
     this.animateOnInsert = false,
     this.popOnInsert = false,
+    this.highlighted = false,
     super.key,
   });
   final GroupMessageItem message;
@@ -1252,6 +1380,7 @@ class _MessageBubble extends StatefulWidget {
   final VoidCallback? onReplyTap;
   final bool animateOnInsert;
   final bool popOnInsert;
+  final bool highlighted;
 
   @override
   State<_MessageBubble> createState() => _MessageBubbleState();
@@ -1318,7 +1447,8 @@ class _MessageBubbleState extends State<_MessageBubble> {
                 child: GestureDetector(
                   onLongPress: widget.onLongPress,
                   onTap: message.state == 'blocked' ? widget.onLongPress : null,
-                  child: Container(
+                  child: AnimatedContainer(
+                    duration: reduceMotion ? Duration.zero : const Duration(milliseconds: 180),
                     constraints: BoxConstraints(maxWidth: maxBubbleWidth),
                     margin: const EdgeInsets.symmetric(vertical: 3),
                     padding: const EdgeInsets.symmetric(
@@ -1326,10 +1456,13 @@ class _MessageBubbleState extends State<_MessageBubble> {
                       vertical: 6,
                     ),
                     decoration: BoxDecoration(
-                      color: message.isOwn
+                      color: widget.highlighted
+                          ? colors.primary.withValues(alpha: .12)
+                          : message.isOwn
                           ? colors.primaryContainer
                           : Colors.white,
-                      border: Border.all(color: const Color(0xFFF0E7DE)),
+                      border: Border.all(color: widget.highlighted
+                          ? colors.primary : const Color(0xFFF0E7DE)),
                       borderRadius: BorderRadius.circular(14).copyWith(
                         bottomRight: message.isOwn
                             ? const Radius.circular(4)
