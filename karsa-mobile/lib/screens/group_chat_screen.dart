@@ -20,6 +20,7 @@ class GroupChatScreen extends StatefulWidget {
 class _GroupChatScreenState extends State<GroupChatScreen>
     with WidgetsBindingObserver, SingleTickerProviderStateMixin {
   final _composer = TextEditingController();
+  final _composerFocus = FocusNode();
   final _scroll = ScrollController();
   final _stageKey = GlobalKey();
   final _chatViewportKey = GlobalKey();
@@ -73,6 +74,7 @@ class _GroupChatScreenState extends State<GroupChatScreen>
     _pollTimer?.cancel();
     _scroll.removeListener(_trackScroll);
     _composer.dispose();
+    _composerFocus.dispose();
     _scroll.dispose();
     _sendFlightController.dispose();
     super.dispose();
@@ -283,8 +285,10 @@ class _GroupChatScreenState extends State<GroupChatScreen>
   }
 
   Future<void> _send() async {
-    final text = _composer.text.trim();
+    final draft = _composer.text;
+    final text = draft.trim();
     if (text.isEmpty || _sending) return;
+    _composerFocus.requestFocus();
     _startSendFlight(text);
     setState(() => _sending = true);
     try {
@@ -317,7 +321,16 @@ class _GroupChatScreenState extends State<GroupChatScreen>
         _messages.removeWhere((item) => item.id == message.id);
         _messages.add(message);
         _pruneMessageKeys();
-        _composer.clear();
+        // Jangan hapus pesan baru yang diketik selagi pengiriman berlangsung.
+        if (_composer.text == draft) {
+          _composer.clear();
+        } else if (_composer.text.startsWith(draft)) {
+          final nextDraft = _composer.text.substring(draft.length);
+          _composer.value = TextEditingValue(
+            text: nextDraft,
+            selection: TextSelection.collapsed(offset: nextDraft.length),
+          );
+        }
         _replyTo = null;
         _flyingText = null;
       });
@@ -993,7 +1006,8 @@ class _GroupChatScreenState extends State<GroupChatScreen>
             Expanded(
               child: TextField(
                 controller: _composer,
-                enabled: !disabled && !_sending,
+                focusNode: _composerFocus,
+                enabled: !disabled,
                 maxLength: 2000,
                 minLines: 1,
                 maxLines: 5,
@@ -1001,6 +1015,8 @@ class _GroupChatScreenState extends State<GroupChatScreen>
                   hintText: disabled ? 'Grup dikunci oleh PJ' : 'Tulis pesan',
                   counterText: '',
                 ),
+                // Aksi submit bawaan melepas fokus dan menutup keyboard.
+                onEditingComplete: () {},
                 onSubmitted: (_) => _send(),
               ),
             ),
@@ -1307,7 +1323,7 @@ class _MessageBubbleState extends State<_MessageBubble> {
                     margin: const EdgeInsets.symmetric(vertical: 3),
                     padding: const EdgeInsets.symmetric(
                       horizontal: 10,
-                      vertical: 8,
+                      vertical: 6,
                     ),
                     decoration: BoxDecoration(
                       color: message.isOwn
@@ -1326,31 +1342,35 @@ class _MessageBubbleState extends State<_MessageBubble> {
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Row(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            Flexible(
-                              child: Text(
-                                message.author.name,
-                                style: TextStyle(
-                                  fontSize: 12,
-                                  fontWeight: FontWeight.w700,
-                                  color: colors.primary,
+                        if (!message.isOwn || message.isPinned) ...[
+                          Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              if (!message.isOwn)
+                                Flexible(
+                                  child: Text(
+                                    message.author.name,
+                                    style: TextStyle(
+                                      fontSize: 12,
+                                      fontWeight: FontWeight.w700,
+                                      color: colors.primary,
+                                    ),
+                                  ),
                                 ),
-                              ),
-                            ),
-                            if (message.author.isGroupManager) ...[
-                              const SizedBox(width: 6),
-                              const Icon(Icons.verified_rounded, size: 15),
+                              if (!message.isOwn &&
+                                  message.author.isGroupManager) ...[
+                                const SizedBox(width: 6),
+                                const Icon(Icons.verified_rounded, size: 15),
+                              ],
+                              if (message.isPinned) ...[
+                                if (!message.isOwn) const SizedBox(width: 6),
+                                const Icon(Icons.push_pin_rounded, size: 14),
+                              ],
                             ],
-                            if (message.isPinned) ...[
-                              const SizedBox(width: 6),
-                              const Icon(Icons.push_pin_rounded, size: 14),
-                            ],
-                          ],
-                        ),
+                          ),
+                          const SizedBox(height: 3),
+                        ],
                         if (message.replyTo != null) ...[
-                          const SizedBox(height: 4),
                           InkWell(
                             onTap: widget.onReplyTap,
                             borderRadius: BorderRadius.circular(8),
@@ -1370,18 +1390,33 @@ class _MessageBubbleState extends State<_MessageBubble> {
                               ),
                             ),
                           ),
+                          const SizedBox(height: 4),
                         ],
-                        const SizedBox(height: 4),
-                        Text(
-                          _content,
-                          style: TextStyle(
-                            fontStyle: muted ? FontStyle.italic : null,
+                        Text.rich(
+                          TextSpan(
+                            children: [
+                              TextSpan(
+                                text: _content,
+                                style: TextStyle(
+                                  fontStyle: muted ? FontStyle.italic : null,
+                                ),
+                              ),
+                              WidgetSpan(
+                                alignment: PlaceholderAlignment.baseline,
+                                baseline: TextBaseline.alphabetic,
+                                child: Padding(
+                                  padding: const EdgeInsets.only(left: 6),
+                                  child: Text(
+                                    '${formatTime(message.createdAt)}${message.editedAt == null ? '' : ' · diedit'}',
+                                    style: Theme.of(context).textTheme.labelSmall
+                                        ?.copyWith(
+                                          color: colors.onSurfaceVariant,
+                                        ),
+                                  ),
+                                ),
+                              ),
+                            ],
                           ),
-                        ),
-                        const SizedBox(height: 3),
-                        Text(
-                          '${formatTime(message.createdAt)}${message.editedAt == null ? '' : ' · diedit'}',
-                          style: Theme.of(context).textTheme.labelSmall,
                         ),
                       ],
                     ),
