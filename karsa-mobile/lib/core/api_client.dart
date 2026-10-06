@@ -449,6 +449,25 @@ class ApiClient {
     return LibArticle.fromJson(data);
   }
 
+  Future<LibAiState> libAiState(String articleId, String revision) async {
+    final data = await _request('GET', '/lib/articles/$articleId/ai',
+      query: {'revision': revision}) as Map<String, dynamic>;
+    return LibAiState.fromJson(data);
+  }
+
+  Future<Map<String, dynamic>> libAiSummary(String articleId, String revision) async {
+    return await _request('POST', '/lib/articles/$articleId/ai/summary',
+      body: {'revision': revision}, requestTimeout: const Duration(seconds: 45)) as Map<String, dynamic>;
+  }
+
+  Future<Map<String, dynamic>> askLibAi(String articleId, {
+    required String revision, required String question, required String requestId,
+  }) async {
+    return await _request('POST', '/lib/articles/$articleId/ai/messages',
+      body: {'revision': revision, 'question': question, 'request_id': requestId},
+      requestTimeout: const Duration(seconds: 45)) as Map<String, dynamic>;
+  }
+
   Future<LibAuthorProfile> libAuthorProfile(String authorId) async {
     final data =
         await _request('GET', '/lib/authors/$authorId') as Map<String, dynamic>;
@@ -568,6 +587,7 @@ class ApiClient {
     bool authenticated = true,
     Map<String, String>? extraHeaders,
     bool retry = true,
+    Duration requestTimeout = const Duration(seconds: 20),
   }) async {
     final generation = _sessionGeneration;
     final headers = <String, String>{
@@ -585,12 +605,12 @@ class ApiClient {
 
     final streamed = await _http
         .send(request)
-        .timeout(const Duration(seconds: 20));
+        .timeout(requestTimeout);
     // Timeout kedua menjaga badan respons yang menggantung setelah
     // header diterima; tanpa ini pembacaan stream bisa menunggu selamanya.
     final response = await http.Response.fromStream(
       streamed,
-    ).timeout(const Duration(seconds: 20));
+    ).timeout(requestTimeout);
     if (authenticated && generation != _sessionGeneration) {
       throw const ApiException(
         'Sesi telah berubah. Silakan masuk kembali.',
@@ -612,6 +632,7 @@ class ApiClient {
         authenticated: authenticated,
         extraHeaders: extraHeaders,
         retry: false,
+        requestTimeout: requestTimeout,
       );
     }
 

@@ -115,10 +115,15 @@ jobs:
       - run: npx prisma generate
       - run: npm run typecheck
       - run: npm run test:groups
+      - run: npm run test:lib-ai
       - name: Prepare isolated smoke database
         run: |
           npx prisma db push --skip-generate
           npm run db:seed
+      - name: Test AI cache, quotas, isolation and retries
+        env:
+          AI_TEST_DB: "true"
+        run: npm run test:lib-ai:integration
       - name: Run mobile group API smoke tests
         shell: bash
         run: |

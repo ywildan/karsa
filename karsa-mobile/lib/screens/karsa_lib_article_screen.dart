@@ -4,6 +4,7 @@ import '../core/api_client.dart';
 import '../core/models.dart';
 import '../widgets/common.dart';
 import '../widgets/lib_report_dialog.dart';
+import '../widgets/lib_ai_sheet.dart';
 import 'karsa_lib_author_screen.dart';
 
 class KarsaLibArticleScreen extends StatefulWidget {
@@ -20,6 +21,7 @@ class _KarsaLibArticleScreenState extends State<KarsaLibArticleScreen> {
   final _comment = TextEditingController();
   final _focus = FocusNode();
   final _discussionKey = GlobalKey();
+  final Map<int, GlobalKey> _paragraphKeys = {};
   final Set<String> _deleting = {};
   String? _replyToId;
   String? _replyToName;
@@ -67,6 +69,23 @@ class _KarsaLibArticleScreenState extends State<KarsaLibArticleScreen> {
     if (sent == true) _message('Laporan terkirim untuk ditinjau.');
   }
 
+  Future<void> _openAi(LibArticle article, {required bool summarize}) async {
+    if (!article.aiEnabled || article.aiRevision == null) return;
+    _focus.unfocus();
+    final result = await showLibAiSheet(context, api: widget.api, article: article, summarize: summarize);
+    if (!mounted || result == null) return;
+    if (result.reloadArticle) {
+      setState(_load);
+      _message('Artikel diperbarui. Materi dimuat ulang.');
+      return;
+    }
+    final target = _paragraphKeys[result.source]?.currentContext;
+    if (target != null) {
+      await Scrollable.ensureVisible(target, alignment: .1,
+        duration: MediaQuery.disableAnimationsOf(context) ? Duration.zero : const Duration(milliseconds: 250));
+    }
+  }
+
   @override
   Widget build(BuildContext context) => Scaffold(
     appBar: AppBar(title: const Text('Artikel'), actions: [
@@ -77,6 +96,7 @@ class _KarsaLibArticleScreenState extends State<KarsaLibArticleScreen> {
       if (snapshot.connectionState != ConnectionState.done) return const LoadingState();
       if (snapshot.hasError) return ErrorState(message: friendlyError(snapshot.error!), onRetry: () => setState(_load));
       final article = snapshot.data!;
+      final paragraphs = article.body.trim().split(RegExp(r'\n\s*\n')).map((part) => part.trim()).where((part) => part.isNotEmpty).toList();
       return Column(children: [
         Expanded(child: CustomScrollView(slivers: [
           SliverPadding(padding: const EdgeInsets.fromLTRB(22, 12, 22, 24),
@@ -104,7 +124,13 @@ class _KarsaLibArticleScreenState extends State<KarsaLibArticleScreen> {
                   label: Text('${_commentCount ?? article.commentsCount} komentar')),
               ]),
               const Divider(height: 32),
-              SelectableText(article.body, style: const TextStyle(fontSize: 16, height: 1.85, color: KarsaColors.ink)),
+              SelectionArea(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                for (var index = 0; index < paragraphs.length; index++) Padding(
+                  key: _paragraphKeys.putIfAbsent(index + 1, () => GlobalKey()),
+                  padding: EdgeInsets.only(bottom: index == paragraphs.length - 1 ? 0 : 16),
+                  child: Text(paragraphs[index], style: const TextStyle(fontSize: 16, height: 1.85, color: KarsaColors.ink)),
+                ),
+              ])),
               const Divider(height: 48),
               SectionHeading(key: _discussionKey, title: 'Diskusi', subtitle: 'Berbagi tanggapan dengan teman satu prodi.'),
             ]))),
@@ -127,15 +153,23 @@ class _KarsaLibArticleScreenState extends State<KarsaLibArticleScreen> {
             );
           }),
         ])),
-        _composer(),
+        _composer(article),
       ]);
     }),
   );
 
-  Widget _composer() => Container(
+  Widget _composer(LibArticle article) => Container(
     decoration: const BoxDecoration(color: Colors.white, border: Border(top: BorderSide(color: KarsaColors.border))),
     child: SafeArea(top: false, child: Padding(padding: const EdgeInsets.fromLTRB(16, 8, 16, 10), child: Column(
       mainAxisSize: MainAxisSize.min, children: [
+        if (MediaQuery.viewInsetsOf(context).bottom == 0) ...[
+          _ArticleAiPreview(
+            enabled: article.aiEnabled && article.aiRevision != null,
+            onSummary: () => _openAi(article, summarize: true),
+            onAsk: () => _openAi(article, summarize: false),
+          ),
+          const SizedBox(height: 12),
+        ],
         if (_replyToId != null) Row(children: [
           Expanded(child: Text('Membalas $_replyToName', style: const TextStyle(fontSize: 13, color: KarsaColors.orange))),
           IconButton(tooltip: 'Batal membalas', onPressed: _sending ? null : () => setState(() { _replyToId = null; _replyToName = null; }),
@@ -215,5 +249,101 @@ class _KarsaLibArticleScreenState extends State<KarsaLibArticleScreen> {
   }
   void _message(String message) {
     if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(message)));
+  }
+}
+
+/// Aktivasi mengikuti flag backend; backend lama otomatis tetap disabled.
+class _ArticleAiPreview extends StatelessWidget {
+  const _ArticleAiPreview({required this.enabled, required this.onSummary, required this.onAsk});
+  final bool enabled;
+  final VoidCallback onSummary;
+  final VoidCallback onAsk;
+
+  @override
+  Widget build(BuildContext context) {
+    final disabledColor = KarsaColors.muted.withValues(alpha: .75);
+    final shape = RoundedRectangleBorder(
+      borderRadius: BorderRadius.circular(12),
+    );
+    final summarize = OutlinedButton.icon(
+      onPressed: enabled ? onSummary : null,
+      style: OutlinedButton.styleFrom(
+        disabledForegroundColor: disabledColor,
+        minimumSize: const Size(0, 44),
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+        side: const BorderSide(color: KarsaColors.border),
+        shape: shape,
+      ),
+      icon: const Icon(Icons.auto_awesome_outlined, size: 18),
+      label: const Text('Ringkas'),
+    );
+    final ask = FilledButton.icon(
+      onPressed: enabled ? onAsk : null,
+      style: FilledButton.styleFrom(
+        disabledForegroundColor: disabledColor,
+        disabledBackgroundColor: const Color(0xFFF4E6D8),
+        minimumSize: const Size(0, 44),
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+        shape: shape,
+      ),
+      icon: const Icon(Icons.chat_bubble_outline_rounded, size: 18),
+      label: const Text('Tanya AI'),
+    );
+
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Wrap(
+          spacing: 8,
+          runSpacing: 4,
+          crossAxisAlignment: WrapCrossAlignment.center,
+          children: [
+            const Text(
+              'Teman baca',
+              style: TextStyle(
+                fontSize: 12,
+                fontWeight: FontWeight.w700,
+                color: KarsaColors.muted,
+              ),
+            ),
+            if (!enabled) Container(
+              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+              decoration: BoxDecoration(
+                color: const Color(0xFFFFF2E7),
+                borderRadius: BorderRadius.circular(6),
+              ),
+              child: const Text(
+                'Dalam pengembangan',
+                style: TextStyle(
+                  fontSize: 10,
+                  fontWeight: FontWeight.w600,
+                  color: KarsaColors.muted,
+                ),
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: 6),
+        LayoutBuilder(
+          builder: (context, constraints) {
+            if (constraints.maxWidth < 280 ||
+                MediaQuery.textScalerOf(context).scale(14) > 21) {
+              return Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [summarize, const SizedBox(height: 6), ask],
+              );
+            }
+            return Row(
+              children: [
+                Expanded(child: summarize),
+                const SizedBox(width: 8),
+                Expanded(child: ask),
+              ],
+            );
+          },
+        ),
+      ],
+    );
   }
 }

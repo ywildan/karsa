@@ -6,6 +6,7 @@ import { z } from "zod";
 import type { MobileActor } from "@/lib/mobile/auth";
 import { prisma } from "@/lib/prisma";
 import { notifyArticleReport } from "./notifications";
+import { aiConfig, aiRevision } from "./ai-policy";
 
 import {
   KARSA_LIB_ARTICLE_MAX_BODY,
@@ -346,6 +347,8 @@ export async function readArticle(actor: MobileActor, articleId: string): Promis
       body: article.body,
       published_at: article.published_at,
       updated_at: article.updated_at,
+      ai_enabled: aiConfig() !== null,
+      ai_revision: aiRevision(article, aiConfig()),
       author: {
         id: article.author_id,
         name: displayName(article.author.libProfile?.display_name, "Mahasiswa Karsa"),

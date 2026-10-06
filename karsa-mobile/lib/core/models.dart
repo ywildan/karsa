@@ -149,6 +149,8 @@ class LibArticle {
     this.updatedAt,
     this.status,
     this.archivedAt,
+    this.aiEnabled = false,
+    this.aiRevision,
   });
 
   final String id;
@@ -165,6 +167,8 @@ class LibArticle {
   final DateTime? updatedAt;
   final DateTime? archivedAt;
   final String? status;
+  final bool aiEnabled;
+  final String? aiRevision;
 
   factory LibArticle.fromJson(Map<String, dynamic> json) {
     final author = json['author'] as Map<String, dynamic>? ?? const {};
@@ -183,8 +187,62 @@ class LibArticle {
       updatedAt: DateTime.tryParse(json['updated_at'] as String? ?? ''),
       archivedAt: DateTime.tryParse(json['archived_at'] as String? ?? ''),
       status: json['status'] as String?,
+      aiEnabled: json['ai_enabled'] == true,
+      aiRevision: json['ai_revision'] as String?,
     );
   }
+}
+
+class LibAiQuota {
+  const LibAiQuota({required this.remaining, required this.limit, required this.summaryRemaining});
+  final int remaining;
+  final int limit;
+  final int summaryRemaining;
+  factory LibAiQuota.fromJson(Map<String, dynamic> json) => LibAiQuota(
+    remaining: (json['remaining'] as num?)?.toInt() ?? 0,
+    limit: (json['limit'] as num?)?.toInt() ?? 0,
+    summaryRemaining: (json['summary_remaining'] as num?)?.toInt() ?? 0,
+  );
+}
+
+class LibAiText {
+  const LibAiText({required this.body, required this.sources});
+  final String body;
+  final List<int> sources;
+  factory LibAiText.fromJson(Map<String, dynamic> json) => LibAiText(
+    body: json['body'] as String? ?? '',
+    sources: (json['sources'] as List? ?? const []).whereType<num>().map((value) => value.toInt()).toList(),
+  );
+}
+
+class LibAiTurn {
+  const LibAiTurn({required this.id, required this.question, required this.answer, required this.sources});
+  final String id;
+  final String question;
+  final String answer;
+  final List<int> sources;
+  factory LibAiTurn.fromJson(Map<String, dynamic> json) => LibAiTurn(
+    id: json['id'] as String? ?? '',
+    question: json['question'] as String? ?? '',
+    answer: json['answer'] as String? ?? '',
+    sources: (json['sources'] as List? ?? const []).whereType<num>().map((value) => value.toInt()).toList(),
+  );
+}
+
+class LibAiState {
+  const LibAiState({required this.enabled, required this.revision, required this.turns, this.summary, this.quota});
+  final bool enabled;
+  final String revision;
+  final List<LibAiTurn> turns;
+  final LibAiText? summary;
+  final LibAiQuota? quota;
+  factory LibAiState.fromJson(Map<String, dynamic> json) => LibAiState(
+    enabled: json['enabled'] == true,
+    revision: json['revision'] as String? ?? '',
+    turns: (json['messages'] as List? ?? const []).map((item) => LibAiTurn.fromJson(item as Map<String, dynamic>)).toList(),
+    summary: json['summary'] is Map<String, dynamic> ? LibAiText.fromJson(json['summary'] as Map<String, dynamic>) : null,
+    quota: json['quota'] is Map<String, dynamic> ? LibAiQuota.fromJson(json['quota'] as Map<String, dynamic>) : null,
+  );
 }
 
 class LibBootstrap {

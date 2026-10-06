@@ -20,6 +20,7 @@ export default function PrivacyPage() {
         <p>Saat kamu masuk dengan Google, Karsa menerima informasi akun yang diperlukan untuk login, seperti nama, alamat email, foto profil, dan pengenal akun Google. Sistem dapat menyimpan token autentikasi dan informasi sesi agar proses masuk berjalan. Karsa tidak meminta atau menyimpan kata sandi Google-mu.</p>
         <p>Untuk fitur akademik, kami memproses NIM bila tersedia, kelas, program studi, semester, mata kuliah, penugasan PJ, kategori dan riwayat poin, laporan, serta peringkat. Untuk Karsa Lib, kami memproses nama tampilan, fakultas, program studi, kelas opsional, permohonan penulis, artikel, komentar, dan laporan konten.</p>
         <p>Untuk grup kelas, kami menyimpan pesan, balasan, laporan, status blokir, penyematan, dan tindakan moderasi. Kami juga mencatat informasi teknis seperlunya, seperti waktu sesi, nama perangkat yang dikirim aplikasi, versi dokumen yang disetujui saat login, serta log aktivitas penting untuk keamanan dan audit.</p>
+        <p>Bila Teman baca AI artikel diaktifkan dan kamu menggunakannya, Karsa memproses isi artikel, pertanyaan, jawaban AI, rujukan paragraf, dan jumlah pemakaian harian. Percakapan dicatat untuk akun dan artikel terkait, tidak ditampilkan kepada pembaca lain. Ringkasan artikel dapat dipakai bersama oleh pembaca yang berhak mengakses artikel tersebut.</p>
       </LegalSection>
 
       <LegalSection title="2. Tujuan penggunaan">
@@ -30,6 +31,7 @@ export default function PrivacyPage() {
       <LegalSection title="3. Siapa yang dapat melihat data">
         <p>Pengguna hanya mendapat akses sesuai fitur dan perannya. Anggota kelas dapat melihat ruang grup kelas yang tersedia. Artikel terbit, nama penulis, komentar, dan jumlah pembaca ditampilkan kepada pengguna Karsa Lib dari program studi yang sama. Admin dapat mengakses data yang diperlukan untuk pengelolaan, peninjauan permohonan penulis, audit, dan moderasi laporan.</p>
         <p>Karsa menggunakan penyedia layanan untuk autentikasi Google, hosting aplikasi, penyimpanan database, dan—bila diaktifkan—pengiriman email pemberitahuan laporan artikel kepada pengelola. Data tidak digunakan untuk menjual profil pengguna atau menayangkan iklan yang dipersonalisasi.</p>
+        <p>Saat kamu meminta ringkasan baru atau bertanya kepada Teman baca, isi artikel dan pertanyaan yang diperlukan, termasuk konteks percakapan terbaru, dikirim ke penyedia AI yang digunakan Karsa. Karsa tidak menambahkan nama akun, email, NIM, dan token login sebagai informasi akun dalam prompt. Jangan memasukkan data pribadi atau rahasia dalam pertanyaan. Pengolahan dan penyimpanan oleh penyedia AI mengikuti ketentuan penyedia yang digunakan.</p>
       </LegalSection>
 
       <LegalSection title="4. Penyimpanan, penghapusan, dan keamanan">
