@@ -67,8 +67,13 @@ class ReleaseGuardsTest(unittest.TestCase):
     def test_config_cli_writes_next_version_to_github_output(self):
         script = Path(__file__).resolve().parents[1] / 'scripts' / 'mobile_release.py'
         output = Path(self.temp.name) / 'github-output.txt'
+        # Run the CLI against a fixture pubspec instead of the repo's real one,
+        # so future release version bumps cannot break this guard test.
+        fixture = Path(self.temp.name) / 'karsa-mobile' / 'pubspec.yaml'
+        fixture.parent.mkdir(parents=True, exist_ok=True)
+        fixture.write_text('name: karsa_mobile\nversion: 2.0.8+10\n')
         env = os.environ | self.env | {'GITHUB_OUTPUT': str(output)}
-        result = subprocess.run([sys.executable, str(script)], cwd=Path(__file__).resolve().parents[1],
+        result = subprocess.run([sys.executable, str(script)], cwd=self.temp.name,
                                 env=env, capture_output=True, text=True, check=False)
         self.assertEqual(result.returncode, 0, result.stderr)
         self.assertIn('version=2.0.9\n', output.read_text())
