@@ -1,10 +1,12 @@
+import os
+import subprocess
 import sys
 import tempfile
 import unittest
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / 'scripts'))
-from mobile_release import build_config, normalize_origin
+from mobile_release import build_config, next_release_version, normalize_origin, write_pubspec_version
 from verify_mobile_apk import signing_certificate, verify_metadata, verify_manifest_security
 
 
@@ -14,16 +16,63 @@ class ReleaseGuardsTest(unittest.TestCase):
         self.addCleanup(self.temp.cleanup)
         self.pubspec = Path(self.temp.name) / 'pubspec.yaml'
         self.pubspec.write_text('name: karsa_mobile\nversion: 2.0.8+10\n')
+        self.tags = Path(self.temp.name) / 'tags.txt'
+        self.tags.write_text('karsa-v2.0.8\n')
         self.env = dict(GITHUB_REF='refs/heads/main', GITHUB_EVENT_NAME='workflow_dispatch',
-                        GITHUB_RUN_NUMBER='65', PUBLISH_RELEASE='true')
+                        GITHUB_RUN_NUMBER='65', PUBLISH_RELEASE='true', RELEASE_TAGS_FILE=str(self.tags))
 
     def test_manual_production_release(self):
         self.env['API_BASE_URL_INPUT'] = 'https://WWW.SIKARSA.ID:443/'
         result = build_config(self.env, self.pubspec)
         self.assertEqual(result['api_base_url'], 'https://www.sikarsa.id')
-        self.assertEqual(result['tag'], 'karsa-v2.0.8')
+        self.assertEqual(result['version'], '2.0.9')
+        self.assertEqual(result['tag'], 'karsa-v2.0.9')
+        self.assertEqual(result['pubspec_build'], '11')
         self.assertEqual(result['publish'], 'true')
         self.assertEqual(result['sign_release'], 'true')
+
+    def test_manual_release_uses_unreleased_source_version(self):
+        self.pubspec.write_text('name: karsa_mobile\nversion: 2.1.0+12\n')
+        result = build_config(self.env, self.pubspec)
+        self.assertEqual((result['version'], result['pubspec_build']), ('2.1.0', '12'))
+
+    def test_release_tags_use_numeric_order_and_ignore_other_tags(self):
+        self.assertEqual(next_release_version('2.0.8', ['karsa-v2.0.9', 'karsa-v2.0.10',
+                                                       'karsa-v1.99.99', 'other-v9.0.0']), '2.0.11')
+        self.tags.write_text('')
+        self.assertEqual(build_config(self.env, self.pubspec)['version'], '2.0.8')
+
+    def test_release_requires_a_readable_tag_list(self):
+        self.env.pop('RELEASE_TAGS_FILE')
+        with self.assertRaises(ValueError):
+            build_config(self.env, self.pubspec)
+        self.env['RELEASE_TAGS_FILE'] = str(self.tags.with_name('missing-tags.txt'))
+        with self.assertRaises(ValueError):
+            build_config(self.env, self.pubspec)
+
+    def test_version_writer_preserves_other_pubspec_fields(self):
+        write_pubspec_version(self.pubspec, '2.0.9', 11)
+        self.assertEqual(self.pubspec.read_text(), 'name: karsa_mobile\nversion: 2.0.9+11\n')
+        with self.assertRaises(ValueError):
+            write_pubspec_version(self.pubspec, '2.0.10; echo bad', 12)
+
+    def test_version_writer_cli_used_by_workflow(self):
+        script = Path(__file__).resolve().parents[1] / 'scripts' / 'mobile_release.py'
+        result = subprocess.run([sys.executable, str(script), '--write-pubspec', str(self.pubspec),
+                                 '--version', '2.0.9', '--pubspec-build', '11'],
+                                capture_output=True, text=True, check=False)
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertIn('version: 2.0.9+11', self.pubspec.read_text())
+
+    def test_config_cli_writes_next_version_to_github_output(self):
+        script = Path(__file__).resolve().parents[1] / 'scripts' / 'mobile_release.py'
+        output = Path(self.temp.name) / 'github-output.txt'
+        env = os.environ | self.env | {'GITHUB_OUTPUT': str(output)}
+        result = subprocess.run([sys.executable, str(script)], cwd=Path(__file__).resolve().parents[1],
+                                env=env, capture_output=True, text=True, check=False)
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertIn('version=2.0.9\n', output.read_text())
+        self.assertIn('pubspec_build=11\n', output.read_text())
 
     def test_staging_cannot_publish_or_use_production_signing(self):
         self.env['API_BASE_URL_INPUT'] = 'https://staging.example.com'

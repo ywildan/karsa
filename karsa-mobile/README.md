@@ -39,7 +39,7 @@ Workflow `.github/workflows/karsa-mobile-build.yml` melakukan seluruh proses di 
 6. Pada `main` dengan backend produksi, menggunakan keystore permanen dan memeriksa sertifikat, package, versi, ABI, manifest login, serta backup.
 7. Mengunggah APK bertanda tangan produksi dan `release-metadata.json` sebagai artifact `karsa-mobile-apk-<commit>`.
 
-Push dan PR menjalankan validasi/build, tanpa membuat GitHub Release. Untuk publikasi, naikkan versi semver di `pubspec.yaml`, masukkan perubahan ke `main`, lalu jalankan workflow dari tab **Actions** dengan `publish_release=true`. Tag versi yang sudah ada akan ditolak sebelum build. Workflow manual default hanya membuat build untuk pemeriksaan.
+Push dan PR menjalankan validasi/build, tanpa membuat GitHub Release. Untuk publikasi, jalankan workflow dari tab **Actions** pada branch `main` dengan `publish_release=true`; tidak perlu menaikkan versi secara manual. Workflow memilih versi patch berikutnya dari tag yang ada (atau memakai versi di `pubspec.yaml` jika sudah lebih tinggi), membangun dan memverifikasi APK, kemudian menyimpan versi baru ke `pubspec.yaml` di `main` dan menerbitkan GitHub Release. Jika build gagal, versi di repo tidak berubah. Workflow manual tanpa checkbox hanya membuat build untuk pemeriksaan. Penyimpanan versi otomatis memerlukan izin `contents: write` untuk job release dan akses push bot ke `main`.
 
 URL backend dapat diganti menjadi HTTPS origin melalui input manual workflow. Nilai default-nya `https://www.sikarsa.id`. Build staging tidak memakai signing produksi dan tidak boleh dipublikasikan sebagai release. Untuk staging, gunakan instalasi terpisah dari aplikasi produksi.
 
