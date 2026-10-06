@@ -27,7 +27,7 @@ on:
         required: true
         default: https://www.sikarsa.id
       publish_release:
-        description: Publish a new production APK release (main only; bump version first)
+        description: Publish the next production APK version automatically (main only)
         type: boolean
         required: true
         default: false
@@ -47,6 +47,7 @@ jobs:
       api_base_url: ${{ steps.config.outputs.api_base_url }}
       version: ${{ steps.config.outputs.version }}
       tag: ${{ steps.config.outputs.tag }}
+      pubspec_build: ${{ steps.config.outputs.pubspec_build }}
       build_number: ${{ steps.config.outputs.build_number }}
       publish: ${{ steps.config.outputs.publish }}
       sign_release: ${{ steps.config.outputs.sign_release }}
@@ -54,31 +55,28 @@ jobs:
       - uses: actions/checkout@v6
       - name: Test release guards
         run: python3 -m unittest discover -s tests -p 'test_mobile_release*.py'
+      - name: Read existing mobile release tags
+        if: github.event_name == 'workflow_dispatch' && inputs.publish_release == true
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh api "repos/$GITHUB_REPOSITORY/tags?per_page=100" --paginate --jq '.[].name' > "$RUNNER_TEMP/karsa-mobile-tags.txt"
       - name: Validate configuration
         id: config
         env:
           API_BASE_URL_INPUT: ${{ inputs.api_base_url || 'https://www.sikarsa.id' }}
           PUBLISH_RELEASE: ${{ inputs.publish_release && 'true' || 'false' }}
+          RELEASE_TAGS_FILE: ${{ runner.temp }}/karsa-mobile-tags.txt
         run: python3 scripts/mobile_release.py
       - name: Require a new release version
         if: steps.config.outputs.publish == 'true'
         env:
-          GH_TOKEN: ${{ github.token }}
           TAG: ${{ steps.config.outputs.tag }}
         shell: bash
         run: |
           set -euo pipefail
-          existing="$(gh api "repos/$GITHUB_REPOSITORY/releases" --paginate --jq '.[].tag_name')"
-          if rg --fixed-strings --line-regexp "$TAG" <<< "$existing" > /dev/null; then
-            echo "::error::Release $TAG already exists. Bump the app version before publishing."
+          if grep -Fqx "$TAG" "$RUNNER_TEMP/karsa-mobile-tags.txt"; then
+            echo "::error::Tag $TAG already exists; automatic version selection failed."
             exit 1
-          fi
-          if git ls-remote --exit-code --tags origin "refs/tags/$TAG" > "$RUNNER_TEMP/karsa-tag.txt"; then
-            echo "::error::Tag $TAG already exists. Bump the app version before publishing."
-            exit 1
-          else
-            status=$?
-            if [[ "$status" -ne 2 ]]; then exit "$status"; fi
           fi
 
   validate-backend:
@@ -174,6 +172,13 @@ jobs:
           cp karsa-mobile/assets/*.png karsa-mobile-build/assets/
           cp karsa-mobile/android/AndroidManifest.xml karsa-mobile-build/android/app/src/main/AndroidManifest.xml
           cp -R karsa-mobile/android/res/. karsa-mobile-build/android/app/src/main/res/
+
+      - name: Apply automatic release version
+        if: needs.prepare.outputs.publish == 'true'
+        env:
+          VERSION: ${{ needs.prepare.outputs.version }}
+          PUBSPEC_BUILD: ${{ needs.prepare.outputs.pubspec_build }}
+        run: python3 scripts/mobile_release.py --write-pubspec karsa-mobile-build/pubspec.yaml --version "$VERSION" --pubspec-build "$PUBSPEC_BUILD"
 
       - name: Set Android minimum SDK
         run: |
@@ -397,11 +402,46 @@ jobs:
           du -h release-assets/*.apk
           printf '\nOnly arm64-v8a is published to the release; the other two stay in this artifact.\n'
 
+      - name: Save release version to main
+        id: version-commit
+        env:
+          VERSION: ${{ needs.prepare.outputs.version }}
+          PUBSPEC_BUILD: ${{ needs.prepare.outputs.pubspec_build }}
+          TAG: ${{ needs.prepare.outputs.tag }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          if git ls-remote --exit-code --tags origin "refs/tags/$TAG" > /dev/null; then
+            echo "::error::Tag $TAG was created during this build. Run the workflow again."
+            exit 1
+          else
+            status=$?
+            if [[ "$status" -ne 2 ]]; then exit "$status"; fi
+          fi
+          remote_sha="$(git ls-remote --exit-code origin refs/heads/main | cut -f1)"
+          if [[ "$remote_sha" != "$GITHUB_SHA" ]]; then
+            echo "::error::main changed during the release build. Run the workflow again from the latest main."
+            exit 1
+          fi
+          python3 scripts/mobile_release.py --write-pubspec karsa-mobile/pubspec.yaml --version "$VERSION" --pubspec-build "$PUBSPEC_BUILD"
+          git add karsa-mobile/pubspec.yaml
+          if git diff --cached --quiet; then
+            target_sha="$GITHUB_SHA"
+          else
+            git config user.name 'github-actions[bot]'
+            git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+            git commit -m "chore(mobile): release $VERSION"
+            git push origin HEAD:refs/heads/main
+            target_sha="$(git rev-parse HEAD)"
+          fi
+          echo "sha=$target_sha" >> "$GITHUB_OUTPUT"
+
       - name: Create GitHub release
         env:
           GH_TOKEN: ${{ github.token }}
           VERSION: ${{ needs.prepare.outputs.version }}
           TAG: ${{ needs.prepare.outputs.tag }}
+          TARGET_SHA: ${{ steps.version-commit.outputs.sha }}
         shell: bash
         run: |
           set -euo pipefail
@@ -417,8 +457,15 @@ jobs:
             echo "::error::Release $TAG already exists. Bump the app version."
             exit 1
           fi
+          if git ls-remote --exit-code --tags origin "refs/tags/$TAG" > /dev/null; then
+            echo "::error::Tag $TAG already exists. Run the workflow again."
+            exit 1
+          else
+            status=$?
+            if [[ "$status" -ne 2 ]]; then exit "$status"; fi
+          fi
           gh release create "$TAG" "$apk" release-assets/release-metadata.json \
-            --target "$GITHUB_SHA" \
+            --target "$TARGET_SHA" \
             --title "Karsa Mobile $VERSION" \
             --notes "Memerlukan Android 7 atau lebih baru dengan ARM64. Pasang sebagai pembaruan aplikasi yang sudah ada." \
             --generate-notes

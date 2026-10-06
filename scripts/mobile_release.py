@@ -1,11 +1,14 @@
-"""Validate build inputs before they reach Flutter or a public release."""
+"""Validate build inputs and prepare an immutable mobile release version."""
 
+import argparse
 import os
 import re
 from pathlib import Path
 from urllib.parse import urlsplit
 
 PRODUCTION_URL = "https://www.sikarsa.id"
+VERSION_LINE = re.compile(r"^version:[ \t]*([0-9]+\.[0-9]+\.[0-9]+)\+([1-9][0-9]*)[ \t]*$", re.M)
+RELEASE_TAG = re.compile(r"karsa-v([0-9]+)\.([0-9]+)\.([0-9]+)")
 
 
 def normalize_origin(raw: str) -> str:
@@ -21,11 +24,31 @@ def normalize_origin(raw: str) -> str:
     return f"https://{host.lower()}" + (f":{port}" if port and port != 443 else "")
 
 
-def read_version(pubspec: Path) -> str:
-    matches = re.findall(r"^version:\s*([0-9]+\.[0-9]+\.[0-9]+)\+([1-9][0-9]*)\s*$", pubspec.read_text(), re.M)
+def read_pubspec_version(pubspec: Path) -> tuple[str, int]:
+    matches = VERSION_LINE.findall(pubspec.read_text())
     if len(matches) != 1:
         raise ValueError("pubspec must contain one version: <major>.<minor>.<patch>+<build>")
-    return matches[0][0]
+    return matches[0][0], int(matches[0][1])
+
+
+def next_release_version(source_version: str, tags: list[str]) -> str:
+    source_parts = tuple(int(part) for part in source_version.split("."))
+    released = [tuple(int(part) for part in match.groups())
+                for tag in tags if (match := RELEASE_TAG.fullmatch(tag.strip()))]
+    if not released:
+        return source_version
+    latest = max(released)
+    next_from_tags = (latest[0], latest[1], latest[2] + 1)
+    return ".".join(str(part) for part in max(source_parts, next_from_tags))
+
+
+def write_pubspec_version(pubspec: Path, version: str, build: int) -> None:
+    if not re.fullmatch(r"[0-9]+\.[0-9]+\.[0-9]+", version) or build < 1:
+        raise ValueError("Invalid release version")
+    read_pubspec_version(pubspec)
+    source = pubspec.read_text()
+    updated = VERSION_LINE.sub(f"version: {version}+{build}", source, count=1)
+    pubspec.write_text(updated)
 
 
 def build_config(env: dict, pubspec: Path) -> dict[str, str]:
@@ -37,19 +60,46 @@ def build_config(env: dict, pubspec: Path) -> dict[str, str]:
     build_number = env.get("GITHUB_RUN_NUMBER", "")
     if not re.fullmatch(r"[1-9][0-9]*", build_number):
         raise ValueError("Invalid GitHub build counter")
-    version = read_version(pubspec)
+    source_version, source_build = read_pubspec_version(pubspec)
+    version = source_version
+    pubspec_build = source_build
+    if requested:
+        tags_file = env.get("RELEASE_TAGS_FILE")
+        if not tags_file:
+            raise ValueError("Release tag list is required before publishing")
+        try:
+            tags = Path(tags_file).read_text().splitlines()
+        except OSError as error:
+            raise ValueError("Could not read the release tag list") from error
+        version = next_release_version(source_version, tags)
+        if version != source_version:
+            pubspec_build += 1
     return {
         "api_base_url": url,
         "version": version,
         "tag": f"karsa-v{version}",
+        "pubspec_build": str(pubspec_build),
         "build_number": build_number,
         "publish": str(requested).lower(),
         "sign_release": str(trusted_main and url == PRODUCTION_URL).lower(),
     }
 
 
-if __name__ == "__main__":
+def main() -> None:
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument("--write-pubspec", type=Path)
+    parser.add_argument("--version")
+    parser.add_argument("--pubspec-build", type=int)
+    args = parser.parse_args()
     try:
+        if args.write_pubspec is not None:
+            if args.version is None or args.pubspec_build is None:
+                parser.error("--write-pubspec requires --version and --pubspec-build")
+            write_pubspec_version(args.write_pubspec, args.version, args.pubspec_build)
+            print(f"Updated {args.write_pubspec} to {args.version}+{args.pubspec_build}")
+            return
+        if args.version is not None or args.pubspec_build is not None:
+            parser.error("--version and --pubspec-build require --write-pubspec")
         config = build_config(dict(os.environ), Path("karsa-mobile/pubspec.yaml"))
     except ValueError as error:
         raise SystemExit(str(error)) from error
@@ -57,3 +107,7 @@ if __name__ == "__main__":
         for key, value in config.items():
             output.write(f"{key}={value}\n")
     print(f"Validated {config['version']}; publish={config['publish']}; signing={config['sign_release']}")
+
+
+if __name__ == "__main__":
+    main()
