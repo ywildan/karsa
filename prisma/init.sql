@@ -856,6 +856,8 @@ CREATE TABLE IF NOT EXISTS "LibAuthorRequest" (
     "updated_at"    TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
     CONSTRAINT "LibAuthorRequest_pkey" PRIMARY KEY ("id")
 );
+ALTER TABLE "LibAuthorRequest" ADD COLUMN IF NOT EXISTS "instagram_username" TEXT;
+ALTER TABLE "LibAuthorRequest" ADD COLUMN IF NOT EXISTS "tiktok_username" TEXT;
 
 CREATE TABLE IF NOT EXISTS "LibAuthorAccess" (
     "user_id"       TEXT         NOT NULL,

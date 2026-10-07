@@ -14,18 +14,32 @@ class _KarsaLibAuthorRequestScreenState extends State<KarsaLibAuthorRequestScree
   final _form = GlobalKey<FormState>();
   final _motivation = TextEditingController();
   final _topics = TextEditingController();
+  final _instagram = TextEditingController();
+  final _tiktok = TextEditingController();
   bool _accepted = false;
   bool _sending = false;
   String? _error;
 
   @override
-  void dispose() { _motivation.dispose(); _topics.dispose(); super.dispose(); }
+  void dispose() { _motivation.dispose(); _topics.dispose(); _instagram.dispose(); _tiktok.dispose(); super.dispose(); }
+
+  String? _validateUsername(String? value) {
+    final username = (value ?? '').trim().replaceFirst(RegExp(r'^@'), '');
+    if (username.isEmpty && (value ?? '').trim().isEmpty) return null;
+    if (!RegExp(r'^[a-zA-Z0-9._]{1,30}$').hasMatch(username)) {
+      return 'Isi username dengan huruf, angka, titik, atau garis bawah.';
+    }
+    return null;
+  }
 
   Future<void> _send() async {
     if (_sending || !_accepted || !_form.currentState!.validate()) return;
     setState(() { _sending = true; _error = null; });
     try {
-      await widget.api.requestLibAuthor(motivation: _motivation.text.trim(), topics: _topics.text.trim());
+      await widget.api.requestLibAuthor(
+        motivation: _motivation.text.trim(), topics: _topics.text.trim(),
+        instagramUsername: _instagram.text.trim(), tiktokUsername: _tiktok.text.trim(),
+      );
       if (mounted) {
         setState(() => _sending = false);
         WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -66,6 +80,26 @@ class _KarsaLibAuthorRequestScreenState extends State<KarsaLibAuthorRequestScree
             decoration: const InputDecoration(labelText: 'Topik yang ingin ditulis', alignLabelWithHint: true,
                 hintText: 'Misalnya: akuntansi dasar, pajak, atau tips belajar.'),
             validator: (value) => value?.trim().isEmpty != false ? 'Tambahkan topik yang ingin dibagikan.' : null,
+          ),
+          const SizedBox(height: 16),
+          TextFormField(
+            controller: _instagram, enabled: !_sending, maxLength: 31,
+            autocorrect: false, enableSuggestions: false,
+            decoration: const InputDecoration(
+              labelText: 'Username Instagram (opsional)', hintText: '@username',
+              helperText: 'Isi username saja, tanpa tautan profil.',
+            ),
+            validator: _validateUsername,
+          ),
+          const SizedBox(height: 16),
+          TextFormField(
+            controller: _tiktok, enabled: !_sending, maxLength: 31,
+            autocorrect: false, enableSuggestions: false,
+            decoration: const InputDecoration(
+              labelText: 'Username TikTok (opsional)', hintText: '@username',
+              helperText: 'Isi username saja, tanpa tautan profil.',
+            ),
+            validator: _validateUsername,
           ),
           CheckboxListTile(
             contentPadding: EdgeInsets.zero, checkboxShape: const CircleBorder(),

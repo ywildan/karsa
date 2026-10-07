@@ -549,6 +549,8 @@ class ApiClient {
   Future<Map<String, dynamic>> requestLibAuthor({
     required String motivation,
     required String topics,
+    String? instagramUsername,
+    String? tiktokUsername,
   }) async =>
       await _request(
             'POST',
@@ -556,6 +558,8 @@ class ApiClient {
             body: {
               'motivation': motivation,
               'topics': topics,
+              if (instagramUsername != null) 'instagram_username': instagramUsername,
+              if (tiktokUsername != null) 'tiktok_username': tiktokUsername,
               'accepted_guidelines': true,
             },
           )

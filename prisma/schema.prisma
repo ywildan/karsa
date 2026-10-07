@@ -452,6 +452,8 @@ model LibAuthorRequest {
   user_id       String
   motivation    String    @db.Text
   topics        String    @db.Text
+  instagram_username String?
+  tiktok_username    String?
   status        String    @default("PENDING")
   decision_note String?   @db.Text
   decided_by_id String?

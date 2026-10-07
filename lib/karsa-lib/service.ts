@@ -35,9 +35,15 @@ const commentInputSchema = z.object({
   body: z.string().trim().min(1).max(KARSA_LIB_COMMENT_MAX_BODY),
   parent_id: idSchema.nullish().transform((value) => value || null),
 });
+const socialUsernameSchema = z.string().trim()
+  .regex(/^@?[a-zA-Z0-9._]{1,30}$|^$/, "Isi username dengan huruf, angka, titik, atau garis bawah.")
+  .transform((value) => value.replace(/^@/, ""))
+  .nullish().transform((value) => value || null);
 const requestInputSchema = z.object({
   motivation: z.string().trim().min(20).max(2_000),
   topics: z.string().trim().min(3).max(500),
+  instagram_username: socialUsernameSchema,
+  tiktok_username: socialUsernameSchema,
   accepted_guidelines: z.literal(true),
 });
 const reportInputSchema = z.object({
@@ -500,7 +506,10 @@ export async function submitAuthorRequest(actor: MobileActor, input: unknown): P
   const pending = await prisma.libAuthorRequest.findFirst({ where: { user_id: actor.id, status: "PENDING" }, select: { id: true } });
   if (pending) return fail(409, "REQUEST_PENDING", "Permohonanmu sedang ditinjau.");
   const request = await prisma.libAuthorRequest.create({
-    data: { user_id: actor.id, motivation: parsed.data.motivation, topics: parsed.data.topics },
+    data: {
+      user_id: actor.id, motivation: parsed.data.motivation, topics: parsed.data.topics,
+      instagram_username: parsed.data.instagram_username, tiktok_username: parsed.data.tiktok_username,
+    },
     select: { id: true, status: true, submitted_at: true },
   });
   return { ok: true, data: request, status: 201 };

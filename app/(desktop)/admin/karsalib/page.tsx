@@ -17,7 +17,7 @@ export default async function KarsaLibAdminPage() {
   const [requests, writers, reports, articles, stats] = await Promise.all([
     prisma.libAuthorRequest.findMany({
       where: { status: "PENDING" }, orderBy: { submitted_at: "asc" }, take: 100,
-      select: { id: true, motivation: true, topics: true, submitted_at: true, user: { select: { name: true, email: true, libProfile: { select: { display_name: true, faculty: true, prodi: { select: { name: true } } } } } } },
+      select: { id: true, motivation: true, topics: true, instagram_username: true, tiktok_username: true, submitted_at: true, user: { select: { name: true, email: true, libProfile: { select: { display_name: true, faculty: true, prodi: { select: { name: true } } } } } } },
     }),
     prisma.libAuthorAccess.findMany({
       where: { revoked_at: null }, orderBy: { granted_at: "desc" }, take: 100,
@@ -69,7 +69,12 @@ export default async function KarsaLibAdminPage() {
           const profile = request.user.libProfile;
           return <div key={request.id} className="grid gap-4 px-5 py-4 lg:grid-cols-[1fr_1fr_auto] lg:items-start">
             <div><p className="font-medium">{profile?.display_name || request.user.name || "Mahasiswa"}</p><p className="text-xs text-muted-foreground">{request.user.email}</p><p className="mt-1 text-xs text-muted-foreground">{profile?.prodi.name || "Prodi belum diatur"}{profile?.faculty ? ` · ${profile.faculty}` : ""}</p><p className="mt-2 text-[11px] text-muted-foreground">Diajukan {formatDateTimeWib(request.submitted_at)}</p></div>
-            <div className="space-y-2 text-sm"><p><span className="font-medium">Alasan:</span> {request.motivation}</p><p><span className="font-medium">Topik:</span> {request.topics}</p></div>
+            <div className="space-y-2 text-sm">
+              <p><span className="font-medium">Alasan:</span> {request.motivation}</p>
+              <p><span className="font-medium">Topik:</span> {request.topics}</p>
+              <p><span className="font-medium">Instagram:</span> {request.instagram_username ? `@${request.instagram_username}` : "Belum diisi"}</p>
+              <p><span className="font-medium">TikTok:</span> {request.tiktok_username ? `@${request.tiktok_username}` : "Belum diisi"}</p>
+            </div>
             <div className="flex gap-2"><form action={decideLibAuthorRequestAction}><input type="hidden" name="id" value={request.id} /><input type="hidden" name="decision" value="APPROVE" /><button className="inline-flex h-9 items-center gap-1.5 rounded-md bg-primary px-3 text-xs font-medium text-primary-foreground"><CircleCheck className="h-4 w-4" />Setujui</button></form><form action={decideLibAuthorRequestAction}><input type="hidden" name="id" value={request.id} /><input type="hidden" name="decision" value="REJECT" /><button className="h-9 rounded-md border border-border px-3 text-xs font-medium hover:bg-accent">Tolak</button></form></div>
           </div>;
         })}</div>}
