@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { aiConfig, aiDay, aiRevision, articleParagraphs, canAccessAiArticle, parseAiAnswer, requestAi, AiProviderError } from '../lib/karsa-lib/ai-policy';
+import { aiConfig, aiDay, aiRevision, articleParagraphs, canAccessAiArticle, normalizeAiBreaks, parseAiAnswer, requestAi, AiProviderError } from '../lib/karsa-lib/ai-policy';
 import { readAiJson } from '../lib/karsa-lib/ai-http';
 
 const env = { AI_ENABLED: 'true', AI_API_KEY: 'unit-test-not-a-real-key', AI_MODEL: 'test-model', AI_BASE_URL: 'https://ai.example.com/v1' };
@@ -47,6 +47,30 @@ test('unreadable answers and invented paragraph sources are rejected', () => {
   for (const content of ['not JSON', '{"answer":"","sources":[]}', '{"answer":"x","sources":[999]}']) {
     assert.throws(() => parseAiAnswer(content, 2), AiProviderError);
   }
+});
+
+test('run-together numbered lists are split without breaking decimals', () => {
+  assert.equal(
+    normalizeAiBreaks('1. indonesia adalah negara kepulauan 2. kekayaan indonesia melimpah 3. persatuan penting'),
+    '1. indonesia adalah negara kepulauan\n2. kekayaan indonesia melimpah\n3. persatuan penting',
+  );
+  assert.equal(normalizeAiBreaks('Ringkasan: 1. aaa 2. bbb'), 'Ringkasan:\n1. aaa\n2. bbb');
+  assert.equal(normalizeAiBreaks('1. satu\n2. dua'), '1. satu\n2. dua');
+  assert.equal(normalizeAiBreaks('Nilai pi 3.14 dan tahun 2024. Maju terus.'), 'Nilai pi 3.14 dan tahun 2024. Maju terus.');
+  assert.deepEqual(
+    parseAiAnswer('{"answer":"1. satu 2. dua 3. tiga","sources":[1]}', 1),
+    { answer: '1. satu\n2. dua\n3. tiga', sources: [1] },
+  );
+});
+
+test('summary prompt requires one numbered point per line', async () => {
+  let system = '';
+  await requestAi(config, article, null, [], (async (url, options) => {
+    system = (JSON.parse(String(options?.body)).messages as { content: string }[])[0].content;
+    return Response.json({ choices: [{ message: { content: '{"answer":"1. satu 2. dua","sources":[1]}' } }] });
+  }) as typeof fetch);
+  assert.ok(system.includes('setiap poin bernomor pada barisnya sendiri'));
+  assert.ok(!system.includes('dalam satu string'));
 });
 
 test('compatible endpoint receives server key, bounded request and article context only', async () => {

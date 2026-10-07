@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import '../core/api_client.dart';
 import '../core/models.dart';
 import '../core/pending_submission.dart';
+import 'ai_text.dart';
 import 'common.dart';
 
 class LibAiSheetResult {
@@ -153,8 +154,11 @@ class _LibAiSheetState extends State<_LibAiSheet> {
     padding: const EdgeInsets.all(16),
     decoration: BoxDecoration(color: const Color(0xFFFFF2E7), borderRadius: BorderRadius.circular(16)),
     child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-      SelectableText(text, style: const TextStyle(fontSize: 15, height: 1.6)),
-      if (sources.isNotEmpty) _sources(sources),
+      AiAnswerText(text),
+      if (sources.isNotEmpty) ...[
+        const SizedBox(height: 8),
+        _sources(sources),
+      ],
     ]),
   );
 
@@ -182,7 +186,12 @@ class _LibAiSheetState extends State<_LibAiSheet> {
           if (_error != null) TextButton(onPressed: _load, child: const Text('Coba lagi')),
         ])))
       : _summarize ? _summaryView() : _chatView()),
-    if (!_loading && _enabled && !_summarize) _composer(),
+    if (!_loading && _enabled && !_summarize)
+      AnimatedContainer(
+        duration: const Duration(milliseconds: 180),
+        curve: Curves.easeOut,
+        child: _composer(),
+      ),
   ]);
 
   Widget _summaryView() => ListView(padding: const EdgeInsets.all(18), children: [
@@ -233,28 +242,45 @@ class _LibAiSheetState extends State<_LibAiSheet> {
       child: Text(_error!, style: const TextStyle(fontSize: 12, color: KarsaColors.muted))),
   ]);
 
-  Widget _composer() => SafeArea(top: false, child: Padding(
-    padding: const EdgeInsets.fromLTRB(14, 8, 14, 10),
-    child: Column(mainAxisSize: MainAxisSize.min, children: [
-      if (MediaQuery.viewInsetsOf(context).bottom == 0) ...[
-        Text('${_quota?.remaining ?? 0} / ${_quota?.limit ?? 0} pertanyaan tersisa hari ini',
-          style: const TextStyle(fontSize: 11, color: KarsaColors.muted)),
+  /// Composer selalu memakai struktur widget yang sama walau keyboard
+  /// buka/tutup: hanya visibilitas teks pembantu yang berubah, bukan
+  /// kehadiran widgetnya. Mengganti kehadiran widget saat inset berubah
+  /// menggeser layout dan membuat fokus TextField terlepas.
+  Widget _composer() {
+    final keyboardOpen = MediaQuery.viewInsetsOf(context).bottom > 0;
+    return SafeArea(top: false, child: Padding(
+      padding: const EdgeInsets.fromLTRB(14, 8, 14, 10),
+      child: Column(mainAxisSize: MainAxisSize.min, children: [
+        AnimatedOpacity(
+          duration: const Duration(milliseconds: 150),
+          opacity: keyboardOpen ? 0 : 1,
+          child: IgnorePointer(
+            ignoring: keyboardOpen,
+            child: Text('${_quota?.remaining ?? 0} / ${_quota?.limit ?? 0} pertanyaan tersisa hari ini',
+              style: const TextStyle(fontSize: 11, color: KarsaColors.muted)),
+          ),
+        ),
         const SizedBox(height: 8),
-      ],
-      Row(crossAxisAlignment: CrossAxisAlignment.end, children: [
-        Expanded(child: TextField(controller: _question, focusNode: _focus,
-          enabled: (_quota?.remaining ?? 0) > 0, minLines: 1, maxLines: 3, maxLength: 600,
-          onEditingComplete: () {}, onSubmitted: (_) => _send(),
-          decoration: const InputDecoration(hintText: 'Tanya tentang materi…', counterText: ''))),
-        const SizedBox(width: 8),
-        IconButton.filled(tooltip: 'Kirim pertanyaan', onPressed: _sending || (_quota?.remaining ?? 0) == 0 ? null : _send,
-          icon: const Icon(Icons.arrow_upward_rounded)),
+        Row(crossAxisAlignment: CrossAxisAlignment.end, children: [
+          Expanded(child: TextField(controller: _question, focusNode: _focus,
+            enabled: (_quota?.remaining ?? 0) > 0, minLines: 1, maxLines: 3, maxLength: 600,
+            textInputAction: TextInputAction.newline,
+            onEditingComplete: () {}, onSubmitted: (_) {},
+            decoration: const InputDecoration(hintText: 'Tanya tentang materi…', counterText: ''))),
+          const SizedBox(width: 8),
+          IconButton.filled(tooltip: 'Kirim pertanyaan', onPressed: _sending || (_quota?.remaining ?? 0) == 0 ? null : _send,
+            icon: const Icon(Icons.arrow_upward_rounded)),
+        ]),
+        AnimatedOpacity(
+          duration: const Duration(milliseconds: 150),
+          opacity: keyboardOpen ? 0 : 1,
+          child: const Column(mainAxisSize: MainAxisSize.min, children: [
+            SizedBox(height: 7),
+            Text('Artikel dan pertanyaan dikirim ke penyedia AI. Periksa kembali jawaban.',
+              style: TextStyle(fontSize: 10, color: KarsaColors.muted), textAlign: TextAlign.center),
+          ]),
+        ),
       ]),
-      if (MediaQuery.viewInsetsOf(context).bottom == 0) ...[
-        const SizedBox(height: 7),
-        const Text('Artikel dan pertanyaan dikirim ke penyedia AI. Periksa kembali jawaban.',
-          style: TextStyle(fontSize: 10, color: KarsaColors.muted), textAlign: TextAlign.center),
-      ],
-    ]),
-  ));
+    ));
+  }
 }
