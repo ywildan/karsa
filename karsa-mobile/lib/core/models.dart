@@ -194,14 +194,21 @@ class LibArticle {
 }
 
 class LibAiQuota {
-  const LibAiQuota({required this.remaining, required this.limit, required this.summaryRemaining});
+  const LibAiQuota({required this.remaining, required this.limit, required this.summaryRemaining,
+    this.websearchTier = 'free', this.websearchLimit = 0, this.websearchRemaining = 0});
   final int remaining;
   final int limit;
   final int summaryRemaining;
+  final String websearchTier;
+  final int websearchLimit;
+  final int websearchRemaining;
   factory LibAiQuota.fromJson(Map<String, dynamic> json) => LibAiQuota(
     remaining: (json['remaining'] as num?)?.toInt() ?? 0,
     limit: (json['limit'] as num?)?.toInt() ?? 0,
     summaryRemaining: (json['summary_remaining'] as num?)?.toInt() ?? 0,
+    websearchTier: json['websearch_tier'] as String? ?? 'free',
+    websearchLimit: (json['websearch_limit'] as num?)?.toInt() ?? 0,
+    websearchRemaining: (json['websearch_remaining'] as num?)?.toInt() ?? 0,
   );
 }
 
@@ -215,17 +222,34 @@ class LibAiText {
   );
 }
 
+class LibAiWebSource {
+  const LibAiWebSource({required this.title, required this.url, this.publishedAt});
+  final String title;
+  final String url;
+  final String? publishedAt;
+  factory LibAiWebSource.fromJson(Map<String, dynamic> json) => LibAiWebSource(
+    title: json['title'] as String? ?? '',
+    url: json['url'] as String? ?? '',
+    publishedAt: json['published_at'] as String?,
+  );
+}
+
 class LibAiTurn {
-  const LibAiTurn({required this.id, required this.question, required this.answer, required this.sources});
+  const LibAiTurn({required this.id, required this.question, required this.answer, required this.sources,
+    this.webSearch = false, this.webSources = const []});
   final String id;
   final String question;
   final String answer;
   final List<int> sources;
+  final bool webSearch;
+  final List<LibAiWebSource> webSources;
   factory LibAiTurn.fromJson(Map<String, dynamic> json) => LibAiTurn(
     id: json['id'] as String? ?? '',
     question: json['question'] as String? ?? '',
     answer: json['answer'] as String? ?? '',
     sources: (json['sources'] as List? ?? const []).whereType<num>().map((value) => value.toInt()).toList(),
+    webSearch: json['web_search'] == true,
+    webSources: (json['web_sources'] as List? ?? const []).whereType<Map<String, dynamic>>().map(LibAiWebSource.fromJson).toList(),
   );
 }
 
