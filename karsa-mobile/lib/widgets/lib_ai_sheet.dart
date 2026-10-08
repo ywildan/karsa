@@ -390,17 +390,12 @@ class _LibAiSheetState extends State<_LibAiSheet> {
         ),
         const SizedBox(height: 8),
         Row(crossAxisAlignment: CrossAxisAlignment.end, children: [
-          Column(mainAxisSize: MainAxisSize.min, children: [
-            IconButton(
-              tooltip: _webSearchArmed ? 'Web search aktif untuk pertanyaan berikut' : 'Aktifkan web search',
-              onPressed: _sending ? null : _onWebSearchTap,
-              icon: Icon(Icons.public_outlined,
-                color: _webSearchArmed ? KarsaColors.orange : KarsaColors.muted),
-            ),
-            Text('web', style: TextStyle(fontSize: 10,
-              color: _webSearchArmed ? KarsaColors.orange : KarsaColors.muted,
-              fontWeight: _webSearchArmed ? FontWeight.w700 : FontWeight.w400)),
-          ]),
+          IconButton(
+            tooltip: _webSearchArmed ? 'Web search aktif untuk pertanyaan berikut' : 'Aktifkan web search',
+            onPressed: _sending ? null : _onWebSearchTap,
+            icon: Icon(Icons.public_outlined,
+              color: _webSearchArmed ? KarsaColors.orange : KarsaColors.muted),
+          ),
           const SizedBox(width: 4),
           Expanded(child: TextField(controller: _question, focusNode: _focus,
             enabled: (_quota?.remaining ?? 0) > 0, minLines: 1, maxLines: 3, maxLength: 600,
