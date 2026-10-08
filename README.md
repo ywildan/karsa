@@ -3,7 +3,7 @@
 **Sistem Pencatatan Poin Keaktifan Mahasiswa UNTIDAR**
 *Setiap karsa, satu poin.*
 
-> Dokumen sumber kebenaran: [`docs/PRD-Karsa-v2.md`](docs/PRD-Karsa-v2.md)
+> Dokumen sumber kebenaran: [`docs/ARSITEKTUR.md`](docs/ARSITEKTUR.md) · [Teman baca](docs/TEMAN-BACA.md) · [Rilis mobile](docs/RILIS-MOBILE.md) · [Kontribusi](docs/PANDUAN-KONTRIBUSI.md) · [Operasional](docs/OPERASIONAL.md) · [Keamanan](docs/KEAMANAN.md)
 
 ---
 
