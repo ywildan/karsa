@@ -251,7 +251,7 @@ class _LibAiSheetState extends State<_LibAiSheet> {
       ],
     ],
     const SizedBox(height: 14),
-    const Text('AI dapat keliru. Periksa kembali artikel dan sumber belajarmu.', style: TextStyle(fontSize: 12, color: KarsaColors.muted)),
+    const Text('AI dapat keliru. Periksa kembali artikel dan sumber belajarmu.', textAlign: TextAlign.center, style: TextStyle(fontSize: 12, color: KarsaColors.muted)),
   ]);
 
   Widget _chatView() => ListView(controller: _scroll, padding: const EdgeInsets.fromLTRB(18, 10, 18, 18), children: [
