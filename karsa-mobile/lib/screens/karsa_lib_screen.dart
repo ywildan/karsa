@@ -387,7 +387,10 @@ class _ArticleCard extends StatelessWidget {
   final VoidCallback onReport;
   final String? viewPeriodLabel;
   @override
-  Widget build(BuildContext context) => Card(
+  Widget build(BuildContext context) => InkWell(
+    onTap: onOpen,
+    borderRadius: BorderRadius.circular(20),
+    child: Card(
     clipBehavior: Clip.antiAlias,
     child: Padding(padding: const EdgeInsets.all(18), child: Column(
       crossAxisAlignment: CrossAxisAlignment.start, children: [
@@ -434,6 +437,7 @@ class _ArticleCard extends StatelessWidget {
         )),
       ],
     )),
+    ),
   );
 }
 
