@@ -54,4 +54,15 @@ BEGIN
     END LOOP;
   END IF;
 END $$;
+
+-- Web search (Tavily) + kolom analitik usage — 2026-10-08.
+-- Idempoten: aman dijalankan ulang di database yang sudah punya tabel AI.
+ALTER TABLE "User" ADD COLUMN IF NOT EXISTS "premium_tier" TEXT NOT NULL DEFAULT 'free';
+ALTER TABLE "LibAiTurn" ADD COLUMN IF NOT EXISTS "web_search" BOOLEAN NOT NULL DEFAULT false;
+ALTER TABLE "LibAiTurn" ADD COLUMN IF NOT EXISTS "latency_ms" INTEGER;
+ALTER TABLE "LibAiTurn" ADD COLUMN IF NOT EXISTS "prompt_tokens" INTEGER;
+ALTER TABLE "LibAiTurn" ADD COLUMN IF NOT EXISTS "completion_tokens" INTEGER;
+ALTER TABLE "LibAiTurn" ADD COLUMN IF NOT EXISTS "search_error" TEXT;
+ALTER TABLE "LibAiTurn" ADD COLUMN IF NOT EXISTS "web_sources" JSONB;
+
 COMMIT;
