@@ -130,6 +130,24 @@ test('web_sources are filtered, not fatal, when invalid', () => {
   assert.throws(() => parseAiAnswer(JSON.stringify({ answer: 'Jawaban', sources: [99], web_sources: [good] }), 2), AiProviderError);
 });
 
+test('malformed web_sources never fail the whole answer', () => {
+  const base = (web_sources: unknown) =>
+    parseAiAnswer(JSON.stringify({ answer: 'Jawaban', sources: [1], web_sources }), 2);
+  // null / non-array / missing fields are filtered, not fatal
+  assert.deepEqual(base(null), { answer: 'Jawaban', sources: [1] });
+  assert.deepEqual(base('bukan-array'), { answer: 'Jawaban', sources: [1] });
+  assert.deepEqual(base([{ url: 'https://a.example/x' }]), { answer: 'Jawaban', sources: [1] });
+  assert.deepEqual(base([{ title: '', url: 'https://a.example/x' }]), { answer: 'Jawaban', sources: [1] });
+  assert.deepEqual(base([{ title: 'T', url: 123 }]), { answer: 'Jawaban', sources: [1] });
+  assert.deepEqual(base([null, 42, 'x']), { answer: 'Jawaban', sources: [1] });
+  // valid items still pass through, capped at 5
+  const many = Array.from({ length: 7 }, (_, i) => ({ title: `T${i}`, url: `https://a.example/${i}` }));
+  const parsed = base(many);
+  assert.equal(parsed.web_sources?.length, 5);
+  assert.deepEqual(base([{ title: ' T ', url: 'https://a.example/x', published_at: '2026-10-01' }]).web_sources,
+    [{ title: 'T', url: 'https://a.example/x', published_at: '2026-10-01' }]);
+});
+
 test('web search results are injected into the prompt as untrusted context', async () => {
   let system = '';
   let webContext = '';

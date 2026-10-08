@@ -103,12 +103,6 @@ export function normalizeAiBreaks(value: string): string {
   return text.split('\n').map((line) => line.trimEnd()).join('\n').trim();
 }
 
-const webSourceSchema = z.object({
-  title: z.string().trim().min(1).max(200),
-  url: z.string().trim().min(1).max(500),
-  published_at: z.string().trim().max(32).optional(),
-});
-
 const isHttpsUrl = (value: string): boolean => {
   try {
     const url = new URL(value);
@@ -118,19 +112,40 @@ const isHttpsUrl = (value: string): boolean => {
   }
 };
 
+/**
+ * Ambil hanya sumber web yang valid dari nilai apa pun yang dikembalikan model.
+ * Tidak pernah melempar — item rusak (bukan objek, judul kosong, URL tidak
+ * valid, dsb.) dibuang diam-diam agar tidak menggagalkan seluruh jawaban.
+ */
+function extractWebSources(value: unknown): WebSource[] {
+  if (!Array.isArray(value)) return [];
+  const sources: WebSource[] = [];
+  for (const item of value) {
+    if (typeof item !== 'object' || item === null) continue;
+    const record = item as Record<string, unknown>;
+    const title = typeof record.title === 'string' ? record.title.trim().slice(0, 200) : '';
+    const url = typeof record.url === 'string' ? record.url.trim().slice(0, 500) : '';
+    const publishedAt = typeof record.published_at === 'string' ? record.published_at.trim().slice(0, 32) : '';
+    if (title.length < 1 || !isHttpsUrl(url)) continue;
+    sources.push(publishedAt ? { title, url, published_at: publishedAt } : { title, url });
+    if (sources.length >= 5) break;
+  }
+  return sources;
+}
+
 export function parseAiAnswer(content: string, paragraphCount: number): AiAnswer {
   const json = content.trim().replace(/^```(?:json)?\s*/i, '').replace(/\s*```$/, '');
   try {
     const result = z.object({
       answer: z.string().trim().min(1).max(6000),
       sources: z.array(z.number().int()).max(12),
-      web_sources: z.array(webSourceSchema).max(5).optional(),
+      // web_sources divalidasi longgar: bentuk apa pun diterima di sini,
+      // yang tidak valid difilter oleh extractWebSources di bawah.
+      web_sources: z.unknown().optional(),
     }).parse(JSON.parse(json));
     if (result.sources.some(source => source < 1 || source > paragraphCount)) throw new AiProviderError();
     // Sumber web yang tidak valid difilter, bukan menggagalkan seluruh jawaban.
-    const webSources = (result.web_sources ?? [])
-      .filter(source => isHttpsUrl(source.url))
-      .map(({ title, url, published_at }) => published_at ? { title, url, published_at } : { title, url });
+    const webSources = extractWebSources(result.web_sources);
     const answer: AiAnswer = { answer: normalizeAiBreaks(result.answer), sources: [...new Set(result.sources)] };
     if (webSources.length) answer.web_sources = webSources;
     return answer;
