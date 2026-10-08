@@ -24,6 +24,8 @@ export interface UserSnapshot {
   image: string | null;
   nim: string | null;
   is_admin: boolean;
+  /** Tier langganan web search: "free" | "premium" | "plus". */
+  premium_tier: string;
   kelas_id: string | null;
   is_pj: boolean;
   libProfile: {
@@ -48,6 +50,7 @@ const snapshotSelect = {
   image: true,
   nim: true,
   is_admin: true,
+  premium_tier: true,
   kelas_id: true,
   kelasMatkulAsPj: { select: { id: true }, take: 1 },
   libProfile: {
@@ -78,6 +81,7 @@ interface SnapshotRow {
   image: string | null;
   nim: string | null;
   is_admin: boolean;
+  premium_tier: string;
   kelas_id: string | null;
   kelasMatkulAsPj: { id: string }[];
   libProfile: UserSnapshot["libProfile"];
@@ -92,6 +96,7 @@ function toSnapshot(row: SnapshotRow): UserSnapshot {
     image: row.image,
     nim: row.nim,
     is_admin: row.is_admin,
+    premium_tier: row.premium_tier,
     kelas_id: row.kelas_id,
     is_pj: row.kelasMatkulAsPj.length > 0,
     libProfile: row.libProfile,
