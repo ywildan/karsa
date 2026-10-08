@@ -23,6 +23,7 @@ class _KarsaLibArticleScreenState extends State<KarsaLibArticleScreen> {
   final _discussionKey = GlobalKey();
   final Map<int, GlobalKey> _paragraphKeys = {};
   final Set<String> _deleting = {};
+  final Set<String> _expandedThreads = {};
   String? _replyToId;
   String? _replyToName;
   int? _commentCount;
@@ -143,13 +144,9 @@ class _KarsaLibArticleScreenState extends State<KarsaLibArticleScreen> {
               padding: EdgeInsets.fromLTRB(24, 0, 24, 32),
               child: Text('Belum ada komentar. Mulai diskusinya, yuk.', style: TextStyle(fontSize: 14, color: KarsaColors.muted))));
             return SliverPadding(padding: const EdgeInsets.fromLTRB(20, 0, 20, 24),
-              sliver: SliverList.separated(itemCount: rows.length, separatorBuilder: (_, _) => const SizedBox(height: 12),
-                itemBuilder: (_, index) => Card(child: Padding(padding: const EdgeInsets.all(16), child: Column(children: [
-                  _commentLine(rows[index]),
-                  for (final reply in rows[index].replies) Padding(
-                    padding: const EdgeInsets.only(left: 22, top: 12), child: _commentLine(reply, isReply: true)),
-                ]))),
-              ),
+              sliver: SliverList.separated(itemCount: rows.length,
+                separatorBuilder: (_, _) => const SizedBox(height: 16),
+                itemBuilder: (_, index) => _commentThread(rows[index])),
             );
           }),
         ])),
@@ -188,29 +185,89 @@ class _KarsaLibArticleScreenState extends State<KarsaLibArticleScreen> {
     ))),
   );
 
+  Widget _commentThread(LibComment comment) {
+    final replies = comment.replies;
+    final expanded = _expandedThreads.contains(comment.id);
+    return Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+      _commentLine(comment),
+      if (replies.isNotEmpty) ...[
+        const SizedBox(height: 8),
+        GestureDetector(
+          onTap: () => setState(() {
+            if (expanded) { _expandedThreads.remove(comment.id); } else { _expandedThreads.add(comment.id); }
+          }),
+          child: Padding(
+            padding: const EdgeInsets.only(left: 42),
+            child: Text(expanded ? '— Sembunyikan balasan' : '— Lihat ${replies.length} balasan',
+              style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: KarsaColors.muted)),
+          ),
+        ),
+        if (expanded) ...[
+          const SizedBox(height: 12),
+          for (final reply in replies)
+            Padding(padding: const EdgeInsets.only(left: 42, bottom: 12),
+              child: _commentLine(reply, isReply: true)),
+        ],
+      ],
+    ]);
+  }
+
   Widget _commentLine(LibComment comment, {bool isReply = false}) => Row(
     crossAxisAlignment: CrossAxisAlignment.start, children: [
-      InitialAvatar(name: comment.author, radius: isReply ? 15 : 18),
+      InitialAvatar(name: comment.author, radius: isReply ? 14 : 16),
       const SizedBox(width: 10),
       Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-        Text(comment.author, style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w700)),
-        if (comment.createdAt != null) Text(formatRelativeTime(comment.createdAt!), style: const TextStyle(fontSize: 12, color: KarsaColors.muted)),
-        const SizedBox(height: 6),
-        Text(comment.isDeleted ? 'Komentar dihapus' : comment.body ?? '',
-          style: TextStyle(fontSize: 14, height: 1.6, color: comment.isDeleted ? KarsaColors.muted : KarsaColors.ink,
-            fontStyle: comment.isDeleted ? FontStyle.italic : FontStyle.normal)),
-        if (!comment.isDeleted) Wrap(spacing: 8, crossAxisAlignment: WrapCrossAlignment.center, children: [
-          if (!isReply) TextButton(onPressed: _sending ? null : () {
-            setState(() { _replyToId = comment.id; _replyToName = comment.author; });
-            _focus.requestFocus();
-          }, child: const Text('Balas')),
-          PopupMenuButton<String>(tooltip: 'Opsi komentar', enabled: !_deleting.contains(comment.id),
-            onSelected: (value) => value == 'delete' ? _deleteComment(comment) : _report(commentId: comment.id),
-            itemBuilder: (_) => [
-              const PopupMenuItem(value: 'report', child: Text('Laporkan')),
-              if (comment.isOwn) const PopupMenuItem(value: 'delete', child: Text('Hapus komentar')),
-            ]),
-          if (_deleting.contains(comment.id)) const SizedBox.square(dimension: 16, child: CircularProgressIndicator(strokeWidth: 2)),
+        RichText(
+          text: TextSpan(
+            style: const TextStyle(fontSize: 14, height: 1.45, color: KarsaColors.ink),
+            children: [
+              TextSpan(text: comment.author, style: const TextStyle(fontWeight: FontWeight.w700)),
+              TextSpan(
+                text: '  ${comment.isDeleted ? 'Komentar dihapus' : comment.body ?? ''}',
+                style: TextStyle(
+                  color: comment.isDeleted ? KarsaColors.muted : KarsaColors.ink,
+                  fontStyle: comment.isDeleted ? FontStyle.italic : FontStyle.normal),
+              ),
+            ],
+          ),
+        ),
+        const SizedBox(height: 4),
+        Row(children: [
+          if (comment.createdAt != null)
+            Text(formatRelativeTime(comment.createdAt!),
+              style: const TextStyle(fontSize: 12, color: KarsaColors.muted)),
+          if (!comment.isDeleted) ...[
+            const SizedBox(width: 12),
+            if (!isReply)
+              GestureDetector(
+                onTap: _sending ? null : () {
+                  setState(() { _replyToId = comment.id; _replyToName = comment.author; });
+                  _focus.requestFocus();
+                },
+                child: const Padding(
+                  padding: EdgeInsets.symmetric(vertical: 4),
+                  child: Text('Balas',
+                    style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: KarsaColors.muted)),
+                ),
+              ),
+            if (!isReply) const SizedBox(width: 12),
+            PopupMenuButton<String>(
+              tooltip: 'Opsi komentar',
+              enabled: !_deleting.contains(comment.id),
+              padding: EdgeInsets.zero,
+              iconSize: 20,
+              icon: const Icon(Icons.more_horiz_rounded, color: KarsaColors.muted),
+              onSelected: (value) => value == 'delete' ? _deleteComment(comment) : _report(commentId: comment.id),
+              itemBuilder: (_) => [
+                const PopupMenuItem(value: 'report', child: Text('Laporkan')),
+                if (comment.isOwn) const PopupMenuItem(value: 'delete', child: Text('Hapus komentar')),
+              ],
+            ),
+          ],
+          if (_deleting.contains(comment.id)) ...[
+            const SizedBox(width: 8),
+            const SizedBox.square(dimension: 14, child: CircularProgressIndicator(strokeWidth: 2)),
+          ],
         ]),
       ])),
     ],
