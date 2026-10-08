@@ -18,8 +18,8 @@ sheet Flutter `karsa-mobile/lib/widgets/lib_ai_sheet.dart`.
 - Disclaimer di bawah sheet, rata tengah: *"AI dapat keliru. Periksa kembali
   artikel dan sumber belajarmu."*
 - APK tidak menyimpan API key, endpoint penyedia, atau nama model.
-- **Web search (ikon "web")** — di tab Tanya materi ada ikon globe + label
-  "web" di baris chat. Diketuk → aktif untuk 1 pertanyaan berikutnya
+- **Web search (ikon globe)** — di tab Tanya materi ada ikon globe di baris
+  chat. Diketuk → aktif untuk 1 pertanyaan berikutnya
   (one-shot, lalu otomatis mati). AI menjawab memakai hasil pencarian web
   realtime (Tavily) di samping isi artikel, dengan daftar sumber web yang
   bisa diketuk. Kuota habis → popup "Kuota Web Search Habis" + tombol
@@ -77,7 +77,7 @@ adapter tambahan. Tidak ada auto-retry dan redirect tidak diikuti.
   cache tidak memakai kuota dan tidak memanggil provider.
 - Semua request baru ke provider juga memakai counter global 100/hari
   (reservasi atomik di PostgreSQL).
-- **Web search** (ikon "web"): kuota terpisah per tier (`User.premium_tier`,
+- **Web search** (ikon globe): kuota terpisah per tier (`User.premium_tier`,
   diatur manual oleh admin) —
   gratis 3x/**bulan**, premium 3x/hari, plus 5x/hari; global 100/hari.
   Search yang gagal (error, bukan fallback) **tidak** memakan kuota.
