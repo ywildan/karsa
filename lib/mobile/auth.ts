@@ -54,6 +54,7 @@ export async function mobileUserPayload(userId: string) {
     nim: snapshot.nim,
     kelas_id: snapshot.kelas_id,
     is_admin: snapshot.is_admin,
+    premium_tier: snapshot.premium_tier,
     lib_profile: snapshot.libProfile,
     capabilities: {
       record_points: !snapshot.is_admin && snapshot.is_pj,
