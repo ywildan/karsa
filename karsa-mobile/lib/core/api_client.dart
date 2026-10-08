@@ -462,9 +462,10 @@ class ApiClient {
 
   Future<Map<String, dynamic>> askLibAi(String articleId, {
     required String revision, required String question, required String requestId,
+    bool webSearch = false,
   }) async {
     return await _request('POST', '/lib/articles/$articleId/ai/messages',
-      body: {'revision': revision, 'question': question, 'request_id': requestId},
+      body: {'revision': revision, 'question': question, 'request_id': requestId, 'web_search': webSearch},
       requestTimeout: const Duration(seconds: 45)) as Map<String, dynamic>;
   }
 

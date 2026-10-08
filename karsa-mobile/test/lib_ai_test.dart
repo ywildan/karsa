@@ -30,6 +30,7 @@ class ArticleAiApi extends ApiClient {
   @override
   Future<Map<String, dynamic>> askLibAi(String articleId, {
     required String revision, required String question, required String requestId,
+    bool webSearch = false,
   }) {
     providerCalls++;
     return response.future;

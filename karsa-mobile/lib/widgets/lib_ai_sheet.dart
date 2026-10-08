@@ -1,10 +1,15 @@
 import 'package:flutter/material.dart';
+import 'package:url_launcher/url_launcher.dart';
 
 import '../core/api_client.dart';
 import '../core/models.dart';
 import '../core/pending_submission.dart';
 import 'ai_text.dart';
 import 'common.dart';
+
+/// URL halaman paket/plan — sumber kebenaran tunggal harga & tier.
+/// TODO: ganti dengan URL halaman plan yang sebenarnya (mis. di karsa-landing).
+const _planUrl = 'https://karsa-landing.vercel.app/paket';
 
 class LibAiSheetResult {
   const LibAiSheetResult({this.source, this.reloadArticle = false});
@@ -49,10 +54,12 @@ class _LibAiSheetState extends State<_LibAiSheet> {
   LibAiText? _summary;
   String _revision = '';
   String? _pendingQuestion;
+  bool _pendingWebSearch = false;
   String? _error;
   bool _loading = true;
   bool _enabled = false;
   bool _sending = false;
+  bool _webSearchArmed = false;
   late bool _summarize;
 
   @override
@@ -128,6 +135,55 @@ class _LibAiSheetState extends State<_LibAiSheet> {
     }
   }
 
+  /// Ikon "web": one-shot untuk 1 pertanyaan berikutnya. Bila kuota habis,
+  /// tampilkan dialog penawaran paket, bukan mengaktifkan mode.
+  void _onWebSearchTap() {
+    if ((_quota?.websearchRemaining ?? 0) == 0) {
+      _showWebSearchQuotaDialog();
+      return;
+    }
+    setState(() => _webSearchArmed = !_webSearchArmed);
+  }
+
+  Future<void> _showWebSearchQuotaDialog() async {
+    if (!mounted) return;
+    final isFree = (_quota?.websearchTier ?? 'free') == 'free';
+    await showDialog<void>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Kuota Web Search Habis'),
+        content: Text(isFree
+            ? 'Jatah gratis 3x bulan ini telah habis. Lihat paket untuk fitur extra web search.'
+            : 'Jatah hari ini habis, coba lagi besok.'),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(context), child: const Text('Tutup')),
+          if (isFree)
+            FilledButton(
+              onPressed: () {
+                Navigator.pop(context);
+                _openPlan();
+              },
+              child: const Text('Lihat Paket'),
+            ),
+        ],
+      ),
+    );
+  }
+
+  Future<void> _openPlan() async {
+    final uri = Uri.tryParse(_planUrl);
+    if (uri != null) {
+      await launchUrl(uri, mode: LaunchMode.externalApplication);
+    }
+  }
+
+  Future<void> _openWebSource(String url) async {
+    final uri = Uri.tryParse(url);
+    if (uri != null && (uri.scheme == 'https' || uri.scheme == 'http')) {
+      await launchUrl(uri, mode: LaunchMode.externalApplication);
+    }
+  }
+
   Future<void> _createSummary() async {
     if (_sending || !_enabled || (_quota?.summaryRemaining ?? 0) == 0) return;
     setState(() { _sending = true; _error = null; });
@@ -143,13 +199,14 @@ class _LibAiSheetState extends State<_LibAiSheet> {
     final draft = _question.text;
     final text = draft.trim();
     if (_sending || !_enabled || text.isEmpty || (_quota?.remaining ?? 0) == 0) return;
+    final useWebSearch = _webSearchArmed;
     _focus.requestFocus();
-    setState(() { _sending = true; _pendingQuestion = text; _error = null; });
+    setState(() { _sending = true; _pendingQuestion = text; _pendingWebSearch = useWebSearch; _webSearchArmed = false; _error = null; });
     _scrollToEnd();
     try {
       final response = await widget.api.askLibAi(widget.article.id,
-        revision: _revision, question: text,
-        requestId: _submission.keyFor({'article': widget.article.id, 'revision': _revision, 'question': text}));
+        revision: _revision, question: text, webSearch: useWebSearch,
+        requestId: _submission.keyFor({'article': widget.article.id, 'revision': _revision, 'question': text, 'web_search': useWebSearch}));
       _submission.complete();
       if (!mounted) return;
       final turn = LibAiTurn.fromJson(response);
@@ -165,10 +222,14 @@ class _LibAiSheetState extends State<_LibAiSheet> {
       });
     } catch (error) {
       if (error is ApiException && error.code == 'AI_REQUEST_FAILED') _submission.complete();
-      _handleError(error);
+      if (error is ApiException && error.code == 'AI_QUOTA_EXCEEDED' && useWebSearch) {
+        _showWebSearchQuotaDialog();
+      } else {
+        _handleError(error);
+      }
       await _syncQuota();
     } finally {
-      if (mounted) { setState(() { _sending = false; _pendingQuestion = null; }); _scrollToEnd(); }
+      if (mounted) { setState(() { _sending = false; _pendingQuestion = null; _pendingWebSearch = false; }); _scrollToEnd(); }
     }
   }
 
@@ -179,15 +240,44 @@ class _LibAiSheetState extends State<_LibAiSheet> {
     ),
   ]);
 
-  Widget _answer(String text, List<int> sources) => Container(
+  Widget _webSources(List<LibAiWebSource> webSources) => Column(
+    crossAxisAlignment: CrossAxisAlignment.start,
+    children: [
+      const Text('Sumber web:', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600)),
+      for (final source in webSources)
+        TextButton(
+          onPressed: () => _openWebSource(source.url),
+          child: Text(source.title.isEmpty ? source.url : '${source.title} ↗',
+              style: const TextStyle(fontSize: 12)),
+        ),
+    ],
+  );
+
+  Widget _answer(String text, List<int> sources, {bool webSearch = false, List<LibAiWebSource> webSources = const []}) => Container(
     width: double.infinity,
     padding: const EdgeInsets.all(16),
     decoration: BoxDecoration(color: const Color(0xFFFFF2E7), borderRadius: BorderRadius.circular(16)),
     child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+      if (webSearch) ...[
+        Container(
+          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+          decoration: BoxDecoration(color: KarsaColors.orange.withValues(alpha: 0.14), borderRadius: BorderRadius.circular(8)),
+          child: const Row(mainAxisSize: MainAxisSize.min, children: [
+            Icon(Icons.public_outlined, size: 12, color: KarsaColors.orange),
+            SizedBox(width: 4),
+            Text('dari web', style: TextStyle(fontSize: 11, color: KarsaColors.orange, fontWeight: FontWeight.w600)),
+          ]),
+        ),
+        const SizedBox(height: 8),
+      ],
       AiAnswerText(text),
       if (sources.isNotEmpty) ...[
         const SizedBox(height: 8),
         _sources(sources),
+      ],
+      if (webSources.isNotEmpty) ...[
+        const SizedBox(height: 8),
+        _webSources(webSources),
       ],
     ]),
   );
@@ -269,11 +359,12 @@ class _LibAiSheetState extends State<_LibAiSheet> {
     for (final turn in _turns) ...[
       Padding(padding: const EdgeInsets.fromLTRB(24, 12, 0, 8), child: Text(turn.question, textAlign: TextAlign.right,
         style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w600))),
-      _answer(turn.answer, turn.sources),
+      _answer(turn.answer, turn.sources, webSearch: turn.webSearch, webSources: turn.webSources),
     ],
     if (_pendingQuestion != null) ...[
       Padding(padding: const EdgeInsets.only(top: 16, bottom: 8), child: Text(_pendingQuestion!, textAlign: TextAlign.right)),
-      const Text('Teman baca sedang menyiapkan jawaban…', style: TextStyle(color: KarsaColors.muted, fontSize: 12)),
+      Text(_pendingWebSearch ? 'Mencari info terbaru…' : 'Teman baca sedang menyiapkan jawaban…',
+        style: const TextStyle(color: KarsaColors.muted, fontSize: 12)),
     ],
     if (_error != null) Padding(padding: const EdgeInsets.only(top: 12),
       child: Text(_error!, style: const TextStyle(fontSize: 12, color: KarsaColors.muted))),
@@ -299,6 +390,18 @@ class _LibAiSheetState extends State<_LibAiSheet> {
         ),
         const SizedBox(height: 8),
         Row(crossAxisAlignment: CrossAxisAlignment.end, children: [
+          Column(mainAxisSize: MainAxisSize.min, children: [
+            IconButton(
+              tooltip: _webSearchArmed ? 'Web search aktif untuk pertanyaan berikut' : 'Aktifkan web search',
+              onPressed: _sending ? null : _onWebSearchTap,
+              icon: Icon(Icons.public_outlined,
+                color: _webSearchArmed ? KarsaColors.orange : KarsaColors.muted),
+            ),
+            Text('web', style: TextStyle(fontSize: 10,
+              color: _webSearchArmed ? KarsaColors.orange : KarsaColors.muted,
+              fontWeight: _webSearchArmed ? FontWeight.w700 : FontWeight.w400)),
+          ]),
+          const SizedBox(width: 4),
           Expanded(child: TextField(controller: _question, focusNode: _focus,
             enabled: (_quota?.remaining ?? 0) > 0, minLines: 1, maxLines: 3, maxLength: 600,
             textInputAction: TextInputAction.newline,
