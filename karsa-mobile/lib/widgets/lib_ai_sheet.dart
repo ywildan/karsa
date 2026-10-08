@@ -43,6 +43,7 @@ class _LibAiSheetState extends State<_LibAiSheet> {
   final _focus = FocusNode();
   final _scroll = ScrollController();
   final _submission = PendingSubmission();
+  late final PageController _pages;
   final List<LibAiTurn> _turns = [];
   LibAiQuota? _quota;
   LibAiText? _summary;
@@ -55,9 +56,34 @@ class _LibAiSheetState extends State<_LibAiSheet> {
   late bool _summarize;
 
   @override
-  void initState() { super.initState(); _summarize = widget.summarize; _load(); }
+  void initState() {
+    super.initState();
+    _summarize = widget.summarize;
+    _pages = PageController(initialPage: _summarize ? 0 : 1);
+    _load();
+  }
   @override
-  void dispose() { _question.dispose(); _focus.dispose(); _scroll.dispose(); super.dispose(); }
+  void dispose() { _question.dispose(); _focus.dispose(); _scroll.dispose(); _pages.dispose(); super.dispose(); }
+
+  /// Pindah tab lewat tombol: perbarui indikator segera, lalu animasikan
+  /// PageView bila sudah terpasang. [onPageChanged] menyinkronkan [_summarize]
+  /// saat pengguna menggeser langsung.
+  void _goToPage(int page) {
+    if (_summarize != (page == 0)) setState(() => _summarize = page == 0);
+    if (_pages.hasClients) {
+      _pages.animateToPage(page, duration: const Duration(milliseconds: 250), curve: Curves.easeOut);
+    }
+  }
+
+  /// Pastikan posisi PageView mengikuti tab terpilih (mis. tab sempat ditekan
+  /// saat konten masih loading sehingga PageView belum terpasang).
+  void _syncPageWithTab() {
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted || !_pages.hasClients) return;
+      final target = _summarize ? 0 : 1;
+      if ((_pages.page?.round() ?? -1) != target) _pages.jumpToPage(target);
+    });
+  }
 
   Future<void> _load() async {
     setState(() { _loading = true; _error = null; });
@@ -70,7 +96,11 @@ class _LibAiSheetState extends State<_LibAiSheet> {
       });
       _scrollToEnd();
     } catch (error) { _handleError(error); }
-    finally { if (mounted) setState(() => _loading = false); }
+    finally {
+      if (!mounted) return;
+      setState(() => _loading = false);
+      _syncPageWithTab();
+    }
   }
 
   void _handleError(Object error) {
@@ -175,9 +205,9 @@ class _LibAiSheetState extends State<_LibAiSheet> {
       IconButton(tooltip: 'Tutup Teman baca', onPressed: () => Navigator.pop(context), icon: const Icon(Icons.close_rounded)),
     ])),
     Row(children: [
-      Expanded(child: TextButton(onPressed: () { _focus.unfocus(); setState(() => _summarize = true); },
+      Expanded(child: TextButton(onPressed: () { _focus.unfocus(); _goToPage(0); },
         child: Text('Ringkasan', style: TextStyle(color: _summarize ? KarsaColors.orange : KarsaColors.muted)))),
-      Expanded(child: TextButton(onPressed: () => setState(() => _summarize = false),
+      Expanded(child: TextButton(onPressed: () => _goToPage(1),
         child: Text('Tanya materi', style: TextStyle(color: !_summarize ? KarsaColors.orange : KarsaColors.muted)))),
     ]),
     Expanded(child: _loading ? const LoadingState(message: 'Menyiapkan Teman baca…')
@@ -185,7 +215,14 @@ class _LibAiSheetState extends State<_LibAiSheet> {
           Text(_error ?? 'Teman baca masih dalam pengembangan.'),
           if (_error != null) TextButton(onPressed: _load, child: const Text('Coba lagi')),
         ])))
-      : _summarize ? _summaryView() : _chatView()),
+      : PageView(
+          controller: _pages,
+          onPageChanged: (index) {
+            final summarize = index == 0;
+            if (summarize != _summarize) setState(() => _summarize = summarize);
+          },
+          children: [_summaryView(), _chatView()],
+        )),
     if (!_loading && _enabled && !_summarize)
       AnimatedContainer(
         duration: const Duration(milliseconds: 180),
@@ -200,7 +237,7 @@ class _LibAiSheetState extends State<_LibAiSheet> {
     if (_summary != null) ...[
       _answer(_summary!.body, _summary!.sources),
       const SizedBox(height: 12),
-      FilledButton(onPressed: () => setState(() => _summarize = false), child: const Text('Tanya tentang ringkasan')),
+      FilledButton(onPressed: () => _goToPage(1), child: const Text('Tanya tentang ringkasan')),
     ] else ...[
       const Text('Poin-poin penting artikel', style: TextStyle(fontSize: 20, fontWeight: FontWeight.w700)),
       const SizedBox(height: 10),
