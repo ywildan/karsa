@@ -162,6 +162,55 @@ class KarsaApp extends StatelessWidget {
               borderRadius: BorderRadius.all(Radius.circular(KarsaRadius.card)),
             ),
           ),
+          // Menu titik tiga (PopupMenuButton) sebelumnya jatuh ke default
+          // Material karena temanya tidak pernah didefinisikan. Samakan
+          // dengan bahasa desain card: putih, radius md, border hangat,
+          // tanpa surface tint.
+          popupMenuTheme: PopupMenuThemeData(
+            color: KarsaColors.card,
+            surfaceTintColor: Colors.transparent,
+            elevation: 6,
+            iconColor: KarsaColors.muted,
+            shape: const RoundedRectangleBorder(
+              borderRadius: BorderRadius.all(Radius.circular(KarsaRadius.md)),
+              side: BorderSide(color: KarsaColors.border),
+            ),
+            textStyle: const TextStyle(
+              color: KarsaColors.ink,
+              fontSize: KarsaType.body,
+              fontWeight: FontWeight.w600,
+            ),
+          ),
+          menuTheme: MenuThemeData(
+            style: MenuStyle(
+              backgroundColor: const WidgetStatePropertyAll(KarsaColors.card),
+              surfaceTintColor: const WidgetStatePropertyAll(Colors.transparent),
+              elevation: const WidgetStatePropertyAll(6),
+              shape: WidgetStatePropertyAll(
+                RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(KarsaRadius.md),
+                  side: const BorderSide(color: KarsaColors.border),
+                ),
+              ),
+            ),
+          ),
+          dropdownMenuTheme: DropdownMenuThemeData(
+            menuStyle: MenuStyle(
+              backgroundColor: const WidgetStatePropertyAll(KarsaColors.card),
+              surfaceTintColor: const WidgetStatePropertyAll(Colors.transparent),
+              elevation: const WidgetStatePropertyAll(6),
+              shape: WidgetStatePropertyAll(
+                RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(KarsaRadius.md),
+                  side: const BorderSide(color: KarsaColors.border),
+                ),
+              ),
+            ),
+            textStyle: const TextStyle(
+              color: KarsaColors.ink,
+              fontSize: KarsaType.body,
+            ),
+          ),
           navigationBarTheme: NavigationBarThemeData(
             backgroundColor: KarsaColors.card,
             indicatorColor: scheme.primaryContainer,
