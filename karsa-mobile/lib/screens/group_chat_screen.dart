@@ -637,6 +637,9 @@ class _GroupChatScreenState extends State<GroupChatScreen>
             children: [
               DropdownButtonFormField<String>(
                 initialValue: reason,
+                dropdownColor: KarsaColors.card,
+                borderRadius: BorderRadius.circular(KarsaRadius.md),
+                icon: const Icon(Icons.keyboard_arrow_down_rounded, color: KarsaColors.muted),
                 items: labels.entries
                     .map(
                       (item) => DropdownMenuItem(
