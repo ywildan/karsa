@@ -40,7 +40,7 @@ class _ReportScreenState extends State<ReportScreen> {
       builder: (context, snapshot) => CustomScrollView(
         physics: const AlwaysScrollableScrollPhysics(),
         slivers: [
-          const SliverAppBar(title: Text('Laporan saya')),
+          const SliverAppBar(pinned: true, title: Text('Laporan saya')),
           if (snapshot.connectionState != ConnectionState.done)
             const SliverFillRemaining(hasScrollBody: false, child: LoadingState())
           else if (snapshot.hasError)

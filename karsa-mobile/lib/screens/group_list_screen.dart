@@ -33,7 +33,7 @@ class _GroupListScreenState extends State<GroupListScreen> {
         _query.isEmpty || group.courseName.toLowerCase().contains(_query) ||
         group.className.toLowerCase().contains(_query)).toList() ?? [];
       return CustomScrollView(physics: const AlwaysScrollableScrollPhysics(), slivers: [
-        const SliverAppBar(title: Text('Grup kelas')),
+        const SliverAppBar(pinned: true, title: Text('Grup kelas')),
         SliverToBoxAdapter(child: Padding(padding: const EdgeInsets.fromLTRB(20, 12, 20, 14),
           child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
             const SectionHeading(title: 'Diskusi mata kuliah', subtitle: 'Percakapan untuk kelas yang kamu ikuti.'),
@@ -96,7 +96,7 @@ class _GroupCard extends StatelessWidget {
           const SizedBox(height: 10),
           Row(children: [
             Expanded(child: Text(_preview, maxLines: 1, overflow: TextOverflow.ellipsis,
-              style: const TextStyle(fontSize: 13, color: KarsaColors.muted))),
+              style: const TextStyle(fontSize: KarsaType.caption, color: KarsaColors.muted))),
             if (group.lastMessage != null) ...[
               const SizedBox(width: 8),
               Text(formatRelativeTime(group.lastMessage!.createdAt),

@@ -3,10 +3,11 @@ import 'package:flutter/material.dart';
 
 import '../core/app_controller.dart';
 import '../core/legal_links.dart';
+import '../widgets/common.dart';
 
-const _brandOrange = Color(0xFFCF6A12);
-const _ink = Color(0xFF2F241C);
-const _muted = Color(0xFF71675F);
+const _brandOrange = KarsaColors.orange;
+const _ink = KarsaColors.ink;
+const _muted = KarsaColors.muted;
 
 class SignInScreen extends StatefulWidget {
   const SignInScreen({required this.controller, super.key});
@@ -88,7 +89,7 @@ class _SignInScreenState extends State<SignInScreen> {
     final busy = widget.controller.state == SessionState.authenticating;
 
     return Scaffold(
-      backgroundColor: const Color(0xFFFCF8F2),
+      backgroundColor: KarsaColors.background,
       body: SafeArea(
         child: Padding(
           padding: const EdgeInsets.fromLTRB(24, 18, 24, 20),
@@ -112,7 +113,7 @@ class _SignInScreenState extends State<SignInScreen> {
                     children: [
                       Text('SiKarsa', style: TextStyle(fontSize: 20, fontWeight: FontWeight.w800, color: _ink, height: 1)),
                       SizedBox(height: 4),
-                      Text('UNTIDAR', style: TextStyle(fontSize: 10, fontWeight: FontWeight.w700, letterSpacing: 2, color: _brandOrange)),
+                      Text('UNTIDAR', style: TextStyle(fontSize: KarsaType.caption, fontWeight: FontWeight.w700, letterSpacing: 2, color: KarsaColors.accentInk)),
                     ],
                   ),
                   const Spacer(),
@@ -138,7 +139,7 @@ class _SignInScreenState extends State<SignInScreen> {
                       width: index == _page ? 25 : 7,
                       height: 7,
                       decoration: BoxDecoration(
-                        color: index == _page ? _brandOrange : const Color(0xFFE5D7C9),
+                        color: index == _page ? _brandOrange : KarsaColors.tintStrong,
                         borderRadius: BorderRadius.circular(8),
                       ),
                     ),
@@ -155,8 +156,8 @@ class _SignInScreenState extends State<SignInScreen> {
               Container(
                 padding: const EdgeInsets.fromLTRB(5, 8, 12, 8),
                 decoration: BoxDecoration(
-                  color: Colors.white,
-                  border: Border.all(color: const Color(0xFFEADBC9)),
+                  color: KarsaColors.card,
+                  border: Border.all(color: KarsaColors.tintStrong),
                   borderRadius: BorderRadius.circular(17),
                 ),
                 child: Row(
@@ -177,13 +178,13 @@ class _SignInScreenState extends State<SignInScreen> {
                             const TextSpan(text: 'Saya telah membaca dan menyetujui '),
                             TextSpan(
                               text: 'Syarat Penggunaan',
-                              style: const TextStyle(color: _brandOrange, fontWeight: FontWeight.w700, decoration: TextDecoration.underline),
+                              style: const TextStyle(color: KarsaColors.accentInk, fontWeight: FontWeight.w700, decoration: TextDecoration.underline),
                               recognizer: _termsRecognizer,
                             ),
                             const TextSpan(text: ', serta memahami '),
                             TextSpan(
                               text: 'Kebijakan Privasi',
-                              style: const TextStyle(color: _brandOrange, fontWeight: FontWeight.w700, decoration: TextDecoration.underline),
+                              style: const TextStyle(color: KarsaColors.accentInk, fontWeight: FontWeight.w700, decoration: TextDecoration.underline),
                               recognizer: _privacyRecognizer,
                             ),
                             const TextSpan(text: ' SiKarsa.'),
@@ -207,14 +208,14 @@ class _SignInScreenState extends State<SignInScreen> {
                 child: FilledButton.icon(
                   style: FilledButton.styleFrom(
                     backgroundColor: _brandOrange,
-                    foregroundColor: Colors.white,
+                    foregroundColor: KarsaColors.onOrange,
                     shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
                   ),
                   onPressed: busy || !_acceptedTerms
                       ? null
                       : () => widget.controller.signIn(termsAccepted: _acceptedTerms),
                   icon: busy
-                      ? const SizedBox.square(dimension: 19, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
+                      ? const SizedBox.square(dimension: 19, child: CircularProgressIndicator(strokeWidth: 2, color: KarsaColors.onOrange))
                       : const Icon(Icons.login_rounded),
                   label: Text(busy ? (widget.controller.waitingForBrowser ? 'Menunggu login di browser…' : 'Menyiapkan akun…') : 'Masuk dengan Google'),
                 ),
@@ -304,7 +305,7 @@ class _IntroductionPage extends StatelessWidget {
                       ),
                     ),
                     Center(
-                      child: Icon(introduction.icon, size: 112, color: Colors.white.withValues(alpha: .93)),
+                      child: Icon(introduction.icon, size: 112, color: KarsaColors.onOrange.withValues(alpha: .93)),
                     ),
                     Positioned(
                       left: 22,
@@ -312,7 +313,7 @@ class _IntroductionPage extends StatelessWidget {
                       child: Container(
                         padding: const EdgeInsets.symmetric(horizontal: 13, vertical: 9),
                         decoration: BoxDecoration(
-                          color: const Color(0xFFFFF8EE),
+                          color: KarsaColors.tintSoft,
                           borderRadius: BorderRadius.circular(13),
                         ),
                         child: Row(
@@ -320,7 +321,7 @@ class _IntroductionPage extends StatelessWidget {
                           children: [
                             Icon(introduction.detailIcon, size: 17, color: _brandOrange),
                             const SizedBox(width: 7),
-                            Text(introduction.detail, style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w700, color: _ink)),
+                            Text(introduction.detail, style: const TextStyle(fontSize: KarsaType.caption, fontWeight: FontWeight.w700, color: _ink)),
                           ],
                         ),
                       ),
@@ -332,7 +333,7 @@ class _IntroductionPage extends StatelessWidget {
             const SizedBox(height: 25),
             Text(
               introduction.label,
-              style: const TextStyle(color: _brandOrange, fontSize: 11, fontWeight: FontWeight.w800, letterSpacing: 1.5),
+              style: const TextStyle(color: KarsaColors.accentInk, fontSize: KarsaType.caption, fontWeight: FontWeight.w800, letterSpacing: 1.5),
             ),
             const SizedBox(height: 9),
             Text(

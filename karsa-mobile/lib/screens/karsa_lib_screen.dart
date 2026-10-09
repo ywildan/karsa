@@ -1,5 +1,4 @@
 import 'dart:async';
-import 'dart:ui';
 
 import 'package:flutter/material.dart';
 
@@ -23,52 +22,22 @@ class KarsaLibScreen extends StatefulWidget {
 }
 
 class _KarsaLibScreenState extends State<KarsaLibScreen> {
-  late Future<LibBootstrap> _bootstrap;
-  Future<List<LibArticle>>? _feed;
+  LibBootstrap? _bootstrap;
+  List<LibArticle>? _articles;
+  Object? _bootstrapError;
+  Object? _feedError;
+  bool _loadingBootstrap = true;
+  bool _loadingFeed = false;
+  int _feedVersion = 0;
   final TextEditingController _searchController = TextEditingController();
   Timer? _searchDebounce;
   String _sort = 'latest';
   String _searchQuery = '';
 
-
   @override
   void initState() {
     super.initState();
-    _load();
-  }
-
-  void _load() {
-    _bootstrap = widget.api.libBootstrap();
-    _feed = null;
-  }
-
-  Future<List<LibArticle>> _requestFeed() => widget.api.libFeed(
-        sort: _sort,
-        query: _searchQuery,
-      );
-
-  void _selectSort(String sort) {
-    if (_sort == sort) return;
-    setState(() {
-      _sort = sort;
-      _feed = _requestFeed();
-    });
-  }
-
-  void _applySearch(String value) {
-    final query = value.trim();
-    if (query == _searchQuery) return;
-    setState(() {
-      _searchQuery = query;
-      _feed = _requestFeed();
-    });
-  }
-
-  void _onSearchChanged(String value) {
-    _searchDebounce?.cancel();
-    _searchDebounce = Timer(const Duration(milliseconds: 350), () {
-      if (mounted) _applySearch(value);
-    });
+    _loadBootstrap();
   }
 
   @override
@@ -78,24 +47,77 @@ class _KarsaLibScreenState extends State<KarsaLibScreen> {
     super.dispose();
   }
 
-  Future<void> _refresh() async {
-    setState(_load);
+  Future<void> _loadBootstrap() async {
+    setState(() => _bootstrapError = null);
     try {
-      final bootstrap = await _bootstrap;
-      if (!mounted || bootstrap.profile == null) return;
-      final feed = _feed ??= _requestFeed();
-      setState(() {});
-      await feed;
-    } catch (_) {
-      // FutureBuilder displays the request error and its retry action.
+      final bootstrap = await widget.api.libBootstrap();
+      if (!mounted) return;
+      setState(() {
+        _bootstrap = bootstrap;
+        _loadingBootstrap = false;
+      });
+      await _loadFeed();
+    } catch (error) {
+      if (!mounted) return;
+      setState(() {
+        _bootstrapError = error;
+        _loadingBootstrap = false;
+      });
     }
   }
 
+  /// Muat feed tanpa membuang daftar lama: posisi scroll dan konten tetap
+  /// tampil selama permintaan berjalan.
+  Future<void> _loadFeed() async {
+    final version = ++_feedVersion;
+    setState(() => _loadingFeed = true);
+    try {
+      final articles = await widget.api.libFeed(
+        sort: _sort,
+        query: _searchQuery,
+      );
+      if (!mounted || version != _feedVersion) return;
+      setState(() {
+        _articles = articles;
+        _feedError = null;
+        _loadingFeed = false;
+      });
+    } catch (error) {
+      if (!mounted || version != _feedVersion) return;
+      setState(() {
+        _feedError = error;
+        _loadingFeed = false;
+      });
+    }
+  }
+
+  void _selectSort(String sort) {
+    if (_sort == sort) return;
+    setState(() => _sort = sort);
+    _loadFeed();
+  }
+
+  void _applySearch(String value) {
+    final query = value.trim();
+    if (query == _searchQuery) return;
+    setState(() => _searchQuery = query);
+    _loadFeed();
+  }
+
+  void _onSearchChanged(String value) {
+    _searchDebounce?.cancel();
+    _searchDebounce = Timer(const Duration(milliseconds: 350), () {
+      if (mounted) _applySearch(value);
+    });
+  }
+
+  Future<void> _refresh() => _loadBootstrap();
+
   @override
   Widget build(BuildContext context) => Scaffold(
-        backgroundColor: const Color(0xFFFFFBF7),
+        backgroundColor: KarsaColors.background,
         appBar: AppBar(
-          titleSpacing: 18,
+          titleSpacing: KarsaSpace.lg,
           title: Row(
             children: [
               Container(
@@ -104,68 +126,83 @@ class _KarsaLibScreenState extends State<KarsaLibScreen> {
                 alignment: Alignment.center,
                 decoration: BoxDecoration(
                   color: Theme.of(context).colorScheme.primary,
-                  borderRadius: BorderRadius.circular(11),
+                  borderRadius: BorderRadius.circular(KarsaRadius.md),
                 ),
-                child: const Text('K', style: TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.w800)),
+                child: const Text('K', style: TextStyle(color: KarsaColors.onOrange, fontSize: 18, fontWeight: FontWeight.w800)),
               ),
               const SizedBox(width: 10),
               const Text('Karsa ', style: TextStyle(fontWeight: FontWeight.w700)),
               Text('Lib', style: TextStyle(color: Theme.of(context).colorScheme.primary, fontWeight: FontWeight.w700)),
             ],
           ),
-          actions: [
-            FutureBuilder<LibBootstrap>(future: _bootstrap, builder: (context, snapshot) {
-              final bootstrap = snapshot.data;
-              if (bootstrap?.profile == null) return const SizedBox.shrink();
-              final pending = bootstrap!.latestRequest?['status'] == 'PENDING';
-              return PopupMenuButton<String>(
-                tooltip: 'Menu Karsa Lib',
-                onSelected: (value) {
-                  if (value == 'vault') _openVault();
-                  if (value == 'request') _authorRequest();
-                  if (value == 'profile') Navigator.of(context).push<void>(MaterialPageRoute(
-                    builder: (_) => KarsaLibAuthorScreen(api: widget.api, authorId: widget.user.id)));
-                },
-                itemBuilder: (_) => [
-                  if (bootstrap.canWrite) ...[
-                    const PopupMenuItem(value: 'vault', child: Text('Tulisan saya')),
-                    const PopupMenuItem(value: 'profile', child: Text('Profil penulis saya')),
-                  ] else PopupMenuItem(value: 'request', enabled: !pending,
-                      child: Text(pending ? 'Permohonan sedang ditinjau' : 'Ajukan akses penulis')),
-                  const PopupMenuItem(enabled: false, child: Text('Fakultas dan prodi dikunci')),
-                ],
-              );
-            }),
-          ],
+          actions: [_authorMenu()],
         ),
-        floatingActionButton: FutureBuilder<LibBootstrap>(
-          future: _bootstrap,
-          builder: (context, snapshot) => snapshot.data?.canWrite == true && snapshot.data?.profile != null
-              ? FloatingActionButton.extended(
-                  onPressed: () => _compose(context),
-                  icon: const Icon(Icons.edit_rounded),
-                  label: const Text('Tulis'),
-                )
-              : const SizedBox.shrink(),
-        ),
-        body: FutureBuilder<LibBootstrap>(
-          future: _bootstrap,
-          builder: (context, snapshot) {
-            if (snapshot.connectionState != ConnectionState.done) {
-              return const Center(child: CircularProgressIndicator());
-            }
-            if (snapshot.hasError) {
-              return ErrorState(message: friendlyError(snapshot.error!), onRetry: _refresh);
-            }
-            final bootstrap = snapshot.data!;
-            if (bootstrap.profile == null) return _setup(bootstrap);
-            return _feedView(bootstrap);
-          },
-        ),
+        floatingActionButton: _composeFab(),
+        body: _body(),
       );
 
+  Widget _authorMenu() {
+    final bootstrap = _bootstrap;
+    if (bootstrap?.profile == null) return const SizedBox.shrink();
+    final pending = bootstrap!.latestRequest?['status'] == 'PENDING';
+    return PopupMenuButton<String>(
+      tooltip: 'Menu Karsa Lib',
+      onSelected: (value) {
+        if (value == 'vault') _openVault();
+        if (value == 'request') _authorRequest();
+        if (value == 'profile') Navigator.of(context).push<void>(MaterialPageRoute(
+          builder: (_) => KarsaLibAuthorScreen(api: widget.api, authorId: widget.user.id)));
+      },
+      itemBuilder: (_) => [
+        if (bootstrap.canWrite) ...[
+          const PopupMenuItem(value: 'vault', child: Text('Tulisan saya')),
+          const PopupMenuItem(value: 'profile', child: Text('Profil penulis saya')),
+        ] else PopupMenuItem(value: 'request', enabled: !pending,
+            child: Text(pending ? 'Permohonan sedang ditinjau' : 'Ajukan akses penulis')),
+        const PopupMenuItem(enabled: false, child: Text('Fakultas dan prodi dikunci')),
+      ],
+    );
+  }
+
+  Widget? _composeFab() {
+    final bootstrap = _bootstrap;
+    if (bootstrap == null || !bootstrap.canWrite || bootstrap.profile == null) {
+      return null;
+    }
+    return FloatingActionButton.extended(
+      onPressed: () => _compose(context),
+      icon: const Icon(Icons.edit_rounded),
+      label: const Text('Tulis'),
+    );
+  }
+
+  Widget _body() {
+    if (_loadingBootstrap) {
+      return const LoadingState(message: 'Memuat Karsa Lib…');
+    }
+    if (_bootstrapError != null) {
+      return ErrorState(message: friendlyError(_bootstrapError!), onRetry: _refresh);
+    }
+    final bootstrap = _bootstrap;
+    if (bootstrap == null) return const SizedBox.shrink();
+    if (bootstrap.profile == null) return _setup(bootstrap);
+    return _feedView(bootstrap);
+  }
+
+  /// Tinggi tetap header kontrol: dasar terukur + pertumbuhan dari skala teks,
+  /// ditambah ruang garis progres saat feed dimuat ulang.
+  double _controlsHeight(BuildContext context) {
+    final growth =
+        (MediaQuery.textScalerOf(context).scale(KarsaType.body) - KarsaType.body)
+            .clamp(0, 40)
+            .toDouble();
+    return 138 + growth + (_loadingFeed ? 4 : 0);
+  }
+
   Widget _feedView(LibBootstrap bootstrap) {
-    _feed ??= _requestFeed();
+    final articles = _articles;
+    final showInitialLoading = _loadingFeed && articles == null;
+    final showInitialError = _feedError != null && articles == null;
     return RefreshIndicator(
         onRefresh: _refresh,
         child: CustomScrollView(
@@ -175,46 +212,63 @@ class _KarsaLibScreenState extends State<KarsaLibScreen> {
             if (!bootstrap.canWrite)
               SliverToBoxAdapter(child: _writerAccessCard(bootstrap)),
             SliverPersistentHeader(pinned: true, delegate: _FeedControls(
-              height: 138 + (MediaQuery.textScalerOf(context).scale(14) - 14).clamp(0, 40).toDouble(),
-              child: Column(children: [_searchField(), _feedHeader(bootstrap)]),
+              height: _controlsHeight(context),
+              child: Column(children: [
+                _SearchField(
+                  controller: _searchController,
+                  onChanged: _onSearchChanged,
+                  onSubmitted: (value) {
+                    _searchDebounce?.cancel();
+                    _applySearch(value);
+                  },
+                  onCleared: () => _applySearch(''),
+                ),
+                _feedHeader(bootstrap),
+                if (_loadingFeed)
+                  const LinearProgressIndicator(minHeight: 3, backgroundColor: KarsaColors.tintSoft),
+              ]),
             )),
-            FutureBuilder<List<LibArticle>>(
-              future: _feed,
-              builder: (context, snapshot) {
-                if (snapshot.connectionState != ConnectionState.done) {
-                  return const SliverFillRemaining(child: Center(child: CircularProgressIndicator()));
-                }
-                if (snapshot.hasError) {
-                  return SliverFillRemaining(child: ErrorState(message: friendlyError(snapshot.error!), onRetry: _refresh));
-                }
-                final articles = snapshot.data!;
-                if (articles.isEmpty) {
-                  return SliverFillRemaining(
-                    child: EmptyState(
-                      title: _searchQuery.isEmpty ? 'Belum ada artikel' : 'Artikel tidak ditemukan',
-                      message: _searchQuery.isEmpty
-                          ? 'Saat ada tulisan baru dari prodimu, artikel itu akan muncul di sini.'
-                          : 'Tidak ada judul yang cocok di program studimu. Coba kata kunci lain.',
-                      icon: Icons.auto_stories_outlined,
-                    ),
-                  );
-                }
-                return SliverPadding(
-                  padding: const EdgeInsets.fromLTRB(16, 2, 16, 100),
-                  sliver: SliverList.separated(
-                    itemCount: articles.length,
-                    separatorBuilder: (_, _) => const SizedBox(height: 12),
-                    itemBuilder: (context, index) => _ArticleCard(
-                      article: articles[index],
+            if (showInitialLoading)
+              const SliverFillRemaining(
+                hasScrollBody: false,
+                child: LoadingState(message: 'Memuat tulisan dari prodimu…'),
+              )
+            else if (showInitialError)
+              SliverFillRemaining(
+                hasScrollBody: false,
+                child: ErrorState(message: friendlyError(_feedError!), onRetry: _loadFeed),
+              )
+            else if (articles != null && articles.isEmpty)
+              SliverFillRemaining(
+                hasScrollBody: false,
+                child: EmptyState(
+                  title: _searchQuery.isEmpty ? 'Belum ada artikel' : 'Artikel tidak ditemukan',
+                  message: _searchQuery.isEmpty
+                      ? 'Saat ada tulisan baru dari prodimu, artikel itu akan muncul di sini.'
+                      : 'Tidak ada judul yang cocok di program studimu. Coba kata kunci lain.',
+                  icon: Icons.auto_stories_outlined,
+                ),
+              )
+            else
+              SliverPadding(
+                padding: const EdgeInsets.fromLTRB(
+                  KarsaSpace.gutter, KarsaSpace.xs, KarsaSpace.gutter, KarsaSpace.scrollBottom,
+                ),
+                sliver: SliverList.separated(
+                  itemCount: articles?.length ?? 0,
+                  separatorBuilder: (_, _) => const SizedBox(height: KarsaSpace.md),
+                  itemBuilder: (context, index) {
+                    final article = articles![index];
+                    return _ArticleCard(
+                      article: article,
                       viewPeriodLabel: _sort == 'trending_7d' ? '7 hari' : _sort == 'trending_30d' ? '30 hari' : null,
-                      onOpen: () => _openArticle(articles[index]),
-                      onAuthor: () => _openAuthor(articles[index]),
-                      onReport: () => _reportArticle(articles[index]),
-                    ),
-                  ),
-                );
-              },
-            ),
+                      onOpen: () => _openArticle(article),
+                      onAuthor: () => _openAuthor(article),
+                      onReport: () => _reportArticle(article),
+                    );
+                  },
+                ),
+              ),
           ],
         ),
       );
@@ -223,7 +277,7 @@ class _KarsaLibScreenState extends State<KarsaLibScreen> {
   Widget _welcome(LibBootstrap bootstrap) {
     final names = bootstrap.programs.where((p) => p.id == bootstrap.profile!.programId);
     final program = names.isEmpty ? 'Program studimu' : names.first.name;
-    return Padding(padding: const EdgeInsets.fromLTRB(20, 14, 20, 12),
+    return Padding(padding: const EdgeInsets.fromLTRB(KarsaSpace.gutter, 14, KarsaSpace.gutter, KarsaSpace.md),
       child: SectionHeading(title: program, subtitle: 'Tulisan dan pengalaman dari teman satu prodi.'),
     );
   }
@@ -232,7 +286,7 @@ class _KarsaLibScreenState extends State<KarsaLibScreen> {
     final request = bootstrap.latestRequest;
     final status = request?['status'];
     if (status == null) {
-      return Padding(padding: const EdgeInsets.fromLTRB(20, 0, 20, 12),
+      return Padding(padding: const EdgeInsets.fromLTRB(KarsaSpace.gutter, 0, KarsaSpace.gutter, KarsaSpace.md),
         child: Card(child: ListTile(
           leading: const Icon(Icons.edit_note_rounded, color: KarsaColors.orange),
           title: const Text('Ingin berbagi tulisan?'),
@@ -241,7 +295,7 @@ class _KarsaLibScreenState extends State<KarsaLibScreen> {
           onTap: _authorRequest,
         )));
     }
-    return Padding(padding: const EdgeInsets.fromLTRB(20, 0, 20, 12),
+    return Padding(padding: const EdgeInsets.fromLTRB(KarsaSpace.gutter, 0, KarsaSpace.gutter, KarsaSpace.md),
       child: InfoNotice(
         icon: status == 'PENDING' ? Icons.hourglass_top_rounded : Icons.info_outline_rounded,
         title: status == 'PENDING' ? 'Permohonan sedang ditinjau' : 'Permohonan belum disetujui',
@@ -253,7 +307,7 @@ class _KarsaLibScreenState extends State<KarsaLibScreen> {
   }
 
   Widget _feedHeader(LibBootstrap bootstrap) => Padding(
-    padding: const EdgeInsets.symmetric(horizontal: 18),
+    padding: const EdgeInsets.symmetric(horizontal: KarsaSpace.gutter),
     child: SingleChildScrollView(scrollDirection: Axis.horizontal,
       child: Row(children: [
         _sortChip('Terbaru', 'latest'),
@@ -263,46 +317,14 @@ class _KarsaLibScreenState extends State<KarsaLibScreen> {
     ),
   );
 
-  Widget _searchField() => Padding(
-        padding: const EdgeInsets.fromLTRB(18, 2, 18, 12),
-        child: TextField(
-          controller: _searchController,
-          autofocus: false,
-          maxLength: 100,
-          onChanged: (value) { setState(() {}); _onSearchChanged(value); },
-          onSubmitted: (value) {
-            _searchDebounce?.cancel();
-            _applySearch(value);
-          },
-          textInputAction: TextInputAction.search,
-          decoration: InputDecoration(
-            hintText: 'Cari judul artikel di prodimu',
-            prefixIcon: const Icon(Icons.search_rounded),
-            counterText: '',
-            suffixIcon: _searchController.text.isEmpty
-                ? null
-                : IconButton(
-                    tooltip: 'Hapus pencarian',
-                    onPressed: () {
-                      _searchDebounce?.cancel();
-                      _searchController.clear();
-                      _applySearch('');
-                    },
-                    icon: const Icon(Icons.close_rounded),
-                  ),
-          ),
-        ),
-      );
-
   Widget _sortChip(String label, String value) => Padding(
-        padding: const EdgeInsets.only(left: 3),
+        padding: const EdgeInsets.only(right: KarsaSpace.sm),
         child: ChoiceChip(
           label: Text(label),
           selected: _sort == value,
           onSelected: (_) => _selectSort(value),
-          labelStyle: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600),
+          labelStyle: const TextStyle(fontSize: KarsaType.caption, fontWeight: FontWeight.w600),
           visualDensity: VisualDensity.compact,
-          padding: EdgeInsets.zero,
           side: BorderSide.none,
         ),
       );
@@ -357,7 +379,7 @@ class _KarsaLibScreenState extends State<KarsaLibScreen> {
 
   void _message(String text) {
     if (!mounted) return;
-    ScaffoldMessenger.of(context)..hideCurrentSnackBar()..showSnackBar(SnackBar(content: Text(text), behavior: SnackBarBehavior.floating));
+    showKarsaSnack(context, text);
   }
 }
 
@@ -369,14 +391,87 @@ class _FeedControls extends SliverPersistentHeaderDelegate {
   double get minExtent => height;
   @override
   double get maxExtent => height;
+
+  // Permukaan solid dengan garis tetap, bukan blur: BackdropFilter pada header
+  // yang menempel ikut digambar ulang setiap frame scroll dan menjatuhkan
+  // framerate. Garis tetap juga membuat header tidak perlu dibangun ulang
+  // saat scroll, karena tidak bergantung pada posisi konten.
   @override
-  Widget build(BuildContext context, double shrinkOffset, bool overlapsContent) => ClipRect(
-    child: BackdropFilter(filter: ImageFilter.blur(sigmaX: 12, sigmaY: 12),
-      child: Container(color: KarsaColors.background.withValues(alpha: .94),
-        padding: const EdgeInsets.only(top: 8), child: child)),
+  Widget build(BuildContext context, double shrinkOffset, bool overlapsContent) => Container(
+    decoration: const BoxDecoration(
+      color: KarsaColors.background,
+      border: Border(bottom: BorderSide(color: KarsaColors.border)),
+    ),
+    padding: const EdgeInsets.only(top: KarsaSpace.sm),
+    child: child,
   );
+
   @override
-  bool shouldRebuild(covariant _FeedControls oldDelegate) => true;
+  bool shouldRebuild(covariant _FeedControls oldDelegate) =>
+      oldDelegate.height != height || oldDelegate.child != child;
+}
+
+/// Kolom pencarian berdiri sendiri agar ketikan hanya membangun ulang
+/// subtree ini, bukan seluruh feed.
+class _SearchField extends StatefulWidget {
+  const _SearchField({
+    required this.controller,
+    required this.onChanged,
+    required this.onSubmitted,
+    required this.onCleared,
+  });
+  final TextEditingController controller;
+  final ValueChanged<String> onChanged;
+  final ValueChanged<String> onSubmitted;
+  final VoidCallback onCleared;
+
+  @override
+  State<_SearchField> createState() => _SearchFieldState();
+}
+
+class _SearchFieldState extends State<_SearchField> {
+  @override
+  void initState() {
+    super.initState();
+    widget.controller.addListener(_onTextChanged);
+  }
+
+  @override
+  void dispose() {
+    widget.controller.removeListener(_onTextChanged);
+    super.dispose();
+  }
+
+  void _onTextChanged() => setState(() {});
+
+  @override
+  Widget build(BuildContext context) => Padding(
+        padding: const EdgeInsets.fromLTRB(
+          KarsaSpace.gutter, KarsaSpace.xs, KarsaSpace.gutter, KarsaSpace.md,
+        ),
+        child: TextField(
+          controller: widget.controller,
+          maxLength: 100,
+          onChanged: widget.onChanged,
+          onSubmitted: widget.onSubmitted,
+          textInputAction: TextInputAction.search,
+          decoration: InputDecoration(
+            hintText: 'Cari judul artikel di prodimu',
+            prefixIcon: const Icon(Icons.search_rounded),
+            counterText: '',
+            suffixIcon: widget.controller.text.isEmpty
+                ? null
+                : IconButton(
+                    tooltip: 'Hapus pencarian',
+                    onPressed: () {
+                      widget.controller.clear();
+                      widget.onCleared();
+                    },
+                    icon: const Icon(Icons.close_rounded),
+                  ),
+          ),
+        ),
+      );
 }
 
 class _ArticleCard extends StatelessWidget {
@@ -469,7 +564,7 @@ class _ProfileSetupState extends State<_ProfileSetup> {
         const SizedBox(height: 14),
         Text('Siapkan ruang belajarmu', textAlign: TextAlign.center, style: Theme.of(context).textTheme.headlineSmall?.copyWith(fontWeight: FontWeight.w700)),
         const SizedBox(height: 7),
-        const Text('Pilih identitas program studi agar feed Karsa Lib menampilkan artikel yang tepat untukmu.', textAlign: TextAlign.center, style: TextStyle(color: Colors.black54, fontSize: 14, height: 1.5)),
+        const Text('Pilih identitas program studi agar feed Karsa Lib menampilkan artikel yang tepat untukmu.', textAlign: TextAlign.center, style: TextStyle(color: KarsaColors.muted, fontSize: KarsaType.body, height: 1.5)),
         const SizedBox(height: 22),
         TextField(enabled: !_saving, controller: _name, textCapitalization: TextCapitalization.words, maxLength: 80, onChanged: (_) => setState(() {}), decoration: const InputDecoration(labelText: 'Nama yang ditampilkan', prefixIcon: Icon(Icons.person_outline))),
         const SizedBox(height: 12),
@@ -484,11 +579,14 @@ class _ProfileSetupState extends State<_ProfileSetup> {
         setState(() { _programId = value; _classId = null; });
       }),
         if (widget.bootstrap.faculties.isEmpty || (_facultyId != null && widget.bootstrap.programs.where((program) => program.facultyId == _facultyId).isEmpty))
-          const Padding(padding: EdgeInsets.only(top: 7), child: Text('Pilihan fakultas/prodi belum tersedia. Admin Karsa perlu mengatur Fakultas dan menghubungkan Prodi terlebih dahulu.', style: TextStyle(fontSize: 13, color: Colors.black54, height: 1.4))),
+          const Padding(padding: EdgeInsets.only(top: 7), child: Text('Pilihan fakultas/prodi belum tersedia. Admin Karsa perlu mengatur Fakultas dan menghubungkan Prodi terlebih dahulu.', style: TextStyle(fontSize: KarsaType.body, color: KarsaColors.muted, height: 1.4))),
         const SizedBox(height: 12),
         DropdownButtonFormField<String>(key: ValueKey('class-$_programId'), initialValue: _classId, isExpanded: true, decoration: const InputDecoration(labelText: 'Kelas (opsional)'), items: [const DropdownMenuItem<String>(value: null, child: Text('Tidak memilih kelas')), ...widget.bootstrap.classes.where((item) => item.programId == _programId).map((item) => DropdownMenuItem(value: item.id, child: Text('${item.name}${item.semesterName == null ? '' : ' · ${item.semesterName}'}', overflow: TextOverflow.ellipsis)))], onChanged: _saving || _programId == null ? null : (value) => setState(() => _classId = value)),
         const SizedBox(height: 15),
-        Container(padding: const EdgeInsets.all(13), decoration: BoxDecoration(color: const Color(0xFFFFF4E9), borderRadius: BorderRadius.circular(13), border: Border.all(color: const Color(0xFFF1DFCE))), child: const Row(crossAxisAlignment: CrossAxisAlignment.start, children: [Icon(Icons.lock_outline, size: 17, color: Color(0xFF9B4B18)), SizedBox(width: 9), Expanded(child: Text('Fakultas dan program studimu tidak dapat diubah setelah disimpan. Pilihan prodi menentukan artikel yang bisa kamu lihat.', style: TextStyle(fontSize: 11, height: 1.5, color: Color(0xFF735C49))))])),
+        const InfoNotice(
+          icon: Icons.lock_outline_rounded,
+          message: 'Fakultas dan program studimu tidak dapat diubah setelah disimpan. Pilihan prodi menentukan artikel yang bisa kamu lihat.',
+        ),
         const SizedBox(height: 18),
         FilledButton(onPressed: _saving || _facultyId == null || _programId == null || _name.text.trim().length < 2 ? null : _save, child: Padding(padding: const EdgeInsets.symmetric(vertical: 13), child: Text(_saving ? 'Menyimpan…' : 'Simpan profil'))),
       ]);

@@ -54,7 +54,7 @@ class _AccountScreenState extends State<AccountScreen> {
     return RefreshIndicator(onRefresh: _refresh, child: CustomScrollView(
       physics: const AlwaysScrollableScrollPhysics(),
       slivers: [
-        const SliverAppBar(title: Text('Akun')),
+        const SliverAppBar(pinned: true, title: Text('Akun')),
         SliverToBoxAdapter(child: ScreenPadding(child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch, children: [
             const SizedBox(height: 18),
@@ -64,9 +64,9 @@ class _AccountScreenState extends State<AccountScreen> {
               style: Theme.of(context).textTheme.titleLarge),
             const SizedBox(height: 4),
             Text(user.email, textAlign: TextAlign.center,
-              style: const TextStyle(fontSize: 13, color: KarsaColors.muted)),
+              style: const TextStyle(fontSize: KarsaType.caption, color: KarsaColors.muted)),
             if (user.nim != null) Text(user.nim!, textAlign: TextAlign.center,
-              style: const TextStyle(fontSize: 13, color: KarsaColors.muted)),
+              style: const TextStyle(fontSize: KarsaType.caption, color: KarsaColors.muted)),
             const SizedBox(height: 28),
             const SectionHeading(title: 'Identitas dan akses'),
             const SizedBox(height: 10),

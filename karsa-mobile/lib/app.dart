@@ -17,7 +17,7 @@ class KarsaApp extends StatelessWidget {
       seedColor: seed,
       brightness: Brightness.light,
       primary: KarsaColors.orange,
-      surface: const Color(0xFFFFFBF7),
+      surface: KarsaColors.background,
     );
     return AnimatedBuilder(
       animation: controller,
@@ -75,52 +75,96 @@ class KarsaApp extends StatelessWidget {
           ),
           filledButtonTheme: FilledButtonThemeData(
             style: FilledButton.styleFrom(
-              minimumSize: const Size(48, 50),
+              minimumSize: const Size(48, 52),
               shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(14),
+                borderRadius: BorderRadius.circular(KarsaRadius.md),
               ),
             ),
           ),
-          snackBarTheme: const SnackBarThemeData(
+          snackBarTheme: SnackBarThemeData(
             behavior: SnackBarBehavior.floating,
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.all(Radius.circular(12)),
+            shape: const RoundedRectangleBorder(
+              borderRadius: BorderRadius.all(Radius.circular(KarsaRadius.md)),
             ),
+            actionTextColor: scheme.onPrimary,
           ),
-          scaffoldBackgroundColor: const Color(0xFFFFFBF7),
-          appBarTheme: const AppBarTheme(
-            backgroundColor: Color(0xFFFFFBF7),
+          scaffoldBackgroundColor: KarsaColors.background,
+          // SliverAppBar jatuh balik ke tema ini untuk warna, elevasi, dan
+          // titleTextStyle, sehingga AppBar dan SliverAppBar tampil identik.
+          appBarTheme: AppBarTheme(
+            backgroundColor: KarsaColors.background,
+            foregroundColor: KarsaColors.ink,
             surfaceTintColor: Colors.transparent,
+            elevation: 0,
+            scrolledUnderElevation: 0,
             centerTitle: false,
-            titleTextStyle: TextStyle(
+            iconTheme: const IconThemeData(color: KarsaColors.ink, size: 24),
+            actionsIconTheme: const IconThemeData(color: KarsaColors.ink, size: 24),
+            titleTextStyle: const TextStyle(
               color: KarsaColors.ink,
-              fontSize: 21,
+              fontSize: KarsaType.headline,
               fontWeight: FontWeight.w800,
             ),
           ),
-          cardTheme: const CardThemeData(
+          cardTheme: CardThemeData(
             elevation: 0,
             margin: EdgeInsets.zero,
-            color: Colors.white,
+            color: KarsaColors.card,
+            shadowColor: Colors.black.withValues(alpha: .04),
             shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.all(Radius.circular(20)),
-              side: BorderSide(color: Color(0xFFF0E7DE)),
+              borderRadius: const BorderRadius.all(Radius.circular(KarsaRadius.card)),
+              side: const BorderSide(color: KarsaColors.border),
             ),
           ),
-          inputDecorationTheme: const InputDecorationTheme(
-            contentPadding: EdgeInsets.symmetric(horizontal: 16, vertical: 16),
+          inputDecorationTheme: InputDecorationTheme(
+            contentPadding: const EdgeInsets.symmetric(
+              horizontal: KarsaSpace.lg, vertical: KarsaSpace.lg,
+            ),
             enabledBorder: OutlineInputBorder(
-              borderRadius: BorderRadius.all(Radius.circular(14)),
-              borderSide: BorderSide(color: KarsaColors.border),
+              borderRadius: const BorderRadius.all(Radius.circular(KarsaRadius.md)),
+              borderSide: const BorderSide(color: KarsaColors.border),
+            ),
+            focusedBorder: OutlineInputBorder(
+              borderRadius: const BorderRadius.all(Radius.circular(KarsaRadius.md)),
+              borderSide: BorderSide(color: scheme.primary, width: 1.6),
             ),
             filled: true,
-            fillColor: Colors.white,
+            fillColor: KarsaColors.card,
             border: OutlineInputBorder(
-              borderRadius: BorderRadius.all(Radius.circular(14)),
+              borderRadius: const BorderRadius.all(Radius.circular(KarsaRadius.md)),
+            ),
+          ),
+          chipTheme: ChipThemeData(
+            shape: const StadiumBorder(),
+            side: const BorderSide(color: KarsaColors.border),
+            materialTapTargetSize: MaterialTapTargetSize.padded,
+            selectedColor: scheme.primaryContainer,
+            checkmarkColor: scheme.onPrimaryContainer,
+            labelStyle: const TextStyle(
+              color: KarsaColors.ink,
+              fontSize: KarsaType.body,
+              fontWeight: FontWeight.w700,
+            ),
+          ),
+          bottomSheetTheme: BottomSheetThemeData(
+            backgroundColor: KarsaColors.background,
+            surfaceTintColor: Colors.transparent,
+            modalBackgroundColor: KarsaColors.background,
+            shape: const RoundedRectangleBorder(
+              borderRadius: BorderRadius.vertical(
+                top: Radius.circular(KarsaRadius.sheet),
+              ),
+            ),
+          ),
+          dialogTheme: DialogThemeData(
+            backgroundColor: KarsaColors.card,
+            surfaceTintColor: Colors.transparent,
+            shape: const RoundedRectangleBorder(
+              borderRadius: BorderRadius.all(Radius.circular(KarsaRadius.card)),
             ),
           ),
           navigationBarTheme: NavigationBarThemeData(
-            backgroundColor: Colors.white,
+            backgroundColor: KarsaColors.card,
             indicatorColor: scheme.primaryContainer,
             labelBehavior: NavigationDestinationLabelBehavior.alwaysShow,
           ),

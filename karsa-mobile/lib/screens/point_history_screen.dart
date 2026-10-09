@@ -72,7 +72,7 @@ class _PointHistoryScreenState extends State<PointHistoryScreen> {
            (RegExp(r'^[0-9]+$').hasMatch(_query) && (row.studentNim?.endsWith(_query) ?? false)) ||
            row.categoryName.toLowerCase().contains(_query))).toList();
         return CustomScrollView(physics: const AlwaysScrollableScrollPhysics(), slivers: [
-          const SliverAppBar(title: Text('Riwayat poin')),
+          const SliverAppBar(pinned: true, title: Text('Riwayat poin')),
           SliverToBoxAdapter(child: Padding(
             padding: const EdgeInsets.fromLTRB(20, 8, 20, 12),
             child: Column(children: [
@@ -105,7 +105,7 @@ class _PointHistoryScreenState extends State<PointHistoryScreen> {
               final newDay = index == 0 || formatDay(rows[index - 1].createdAt) != formatDay(item.createdAt);
               return Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
                 if (newDay) Padding(padding: const EdgeInsets.only(top: 16, bottom: 12),
-                  child: Text(formatDay(item.createdAt), style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w700, color: KarsaColors.muted))),
+                  child: Text(formatDay(item.createdAt), style: const TextStyle(fontSize: KarsaType.caption, fontWeight: FontWeight.w700, color: KarsaColors.muted))),
                 Card(child: Padding(padding: const EdgeInsets.fromLTRB(16, 14, 4, 14), child: Row(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [

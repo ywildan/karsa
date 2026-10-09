@@ -263,42 +263,42 @@ class _LibAiSheetState extends State<_LibAiSheet> {
         color: KarsaColors.orange.withValues(alpha: 0.12),
         borderRadius: BorderRadius.circular(16),
       ),
-      child: Text(text, style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w600)),
+      child: Text(text, style: const TextStyle(fontSize: KarsaType.bodyLarge, fontWeight: FontWeight.w600)),
     ),
   );
 
   Widget _sources(List<int> sources) => Wrap(spacing: 4, children: [    for (final source in sources) TextButton(
       onPressed: () => Navigator.pop(context, LibAiSheetResult(source: source)),
-      child: Text('Paragraf $source ↗', style: const TextStyle(fontSize: 12)),
+      child: Text('Paragraf $source ↗', style: const TextStyle(fontSize: KarsaType.caption)),
     ),
   ]);
 
   Widget _webSources(List<LibAiWebSource> webSources) => Column(
     crossAxisAlignment: CrossAxisAlignment.start,
     children: [
-      const Text('Sumber web:', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600)),
+      const Text('Sumber web:', style: TextStyle(fontSize: KarsaType.caption, fontWeight: FontWeight.w600)),
       for (final source in webSources)
         TextButton(
           onPressed: () => _openWebSource(source.url),
           child: Text(source.title.isEmpty ? source.url : '${source.title} ↗',
-              style: const TextStyle(fontSize: 12)),
+              style: const TextStyle(fontSize: KarsaType.caption)),
         ),
     ],
   );
 
   Widget _answer(String text, List<int> sources, {bool webSearch = false, List<LibAiWebSource> webSources = const []}) => Container(
     width: double.infinity,
-    padding: const EdgeInsets.all(16),
-    decoration: BoxDecoration(color: const Color(0xFFFFF2E7), borderRadius: BorderRadius.circular(16)),
+    padding: const EdgeInsets.all(KarsaSpace.lg),
+    decoration: BoxDecoration(color: KarsaColors.tintSoft, borderRadius: BorderRadius.circular(KarsaRadius.lg)),
     child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
       if (webSearch) ...[
         Container(
-          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-          decoration: BoxDecoration(color: KarsaColors.orange.withValues(alpha: 0.14), borderRadius: BorderRadius.circular(8)),
+          padding: const EdgeInsets.symmetric(horizontal: KarsaSpace.sm, vertical: 3),
+          decoration: BoxDecoration(color: KarsaColors.tintStrong, borderRadius: BorderRadius.circular(KarsaRadius.sm)),
           child: const Row(mainAxisSize: MainAxisSize.min, children: [
-            Icon(Icons.public_outlined, size: 12, color: KarsaColors.orange),
+            Icon(Icons.public_outlined, size: 14, color: KarsaColors.accentInk),
             SizedBox(width: 4),
-            Text('dari web', style: TextStyle(fontSize: 11, color: KarsaColors.orange, fontWeight: FontWeight.w600)),
+            Text('dari web', style: TextStyle(fontSize: KarsaType.caption, color: KarsaColors.accentInk, fontWeight: FontWeight.w600)),
           ]),
         ),
         const SizedBox(height: 8),
@@ -317,21 +317,21 @@ class _LibAiSheetState extends State<_LibAiSheet> {
 
   @override
   Widget build(BuildContext context) => Column(children: [
-    Padding(padding: const EdgeInsets.fromLTRB(18, 0, 8, 8), child: Row(children: [
+    Padding(padding: const EdgeInsets.fromLTRB(KarsaSpace.gutter, 0, KarsaSpace.sm, KarsaSpace.sm), child: Row(children: [
       const Icon(Icons.auto_awesome_outlined, color: KarsaColors.orange, size: 21),
       const SizedBox(width: 8),
       Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-        const Text('Teman baca', style: TextStyle(fontSize: 18, fontWeight: FontWeight.w700)),
+        const Text('Teman baca', style: TextStyle(fontSize: KarsaType.title, fontWeight: FontWeight.w700)),
         Text(widget.article.title, maxLines: 1, overflow: TextOverflow.ellipsis,
-          style: const TextStyle(fontSize: 12, color: KarsaColors.muted)),
+          style: const TextStyle(fontSize: KarsaType.caption, color: KarsaColors.muted)),
       ])),
       IconButton(tooltip: 'Tutup Teman baca', onPressed: () => Navigator.pop(context), icon: const Icon(Icons.close_rounded)),
     ])),
     Row(children: [
       Expanded(child: TextButton(onPressed: () { _focus.unfocus(); _goToPage(0); },
-        child: Text('Ringkasan', style: TextStyle(color: _summarize ? KarsaColors.orange : KarsaColors.muted)))),
+        child: Text('Ringkasan', style: TextStyle(color: _summarize ? KarsaColors.accentInk : KarsaColors.muted)))),
       Expanded(child: TextButton(onPressed: () => _goToPage(1),
-        child: Text('Tanya materi', style: TextStyle(color: !_summarize ? KarsaColors.orange : KarsaColors.muted)))),
+        child: Text('Tanya materi', style: TextStyle(color: !_summarize ? KarsaColors.accentInk : KarsaColors.muted)))),
     ]),
     Expanded(child: _loading ? const LoadingState(message: 'Menyiapkan Teman baca…')
       : !_enabled ? Center(child: SingleChildScrollView(padding: const EdgeInsets.all(24), child: Column(mainAxisSize: MainAxisSize.min, children: [
@@ -354,15 +354,15 @@ class _LibAiSheetState extends State<_LibAiSheet> {
       ),
   ]);
 
-  Widget _summaryView() => ListView(padding: const EdgeInsets.all(18), children: [
+  Widget _summaryView() => ListView(padding: const EdgeInsets.fromLTRB(KarsaSpace.gutter, KarsaSpace.md, KarsaSpace.gutter, KarsaSpace.lg), children: [
     if (_error != null) Padding(padding: const EdgeInsets.only(bottom: 12),
-      child: Text(_error!, style: const TextStyle(fontSize: 12, color: KarsaColors.muted))),
+      child: Text(_error!, style: const TextStyle(fontSize: KarsaType.caption, color: KarsaColors.muted))),
     if (_summary != null) ...[
       _answer(_summary!.body, _summary!.sources),
       const SizedBox(height: 12),
       FilledButton(onPressed: () => _goToPage(1), child: const Text('Tanya tentang ringkasan')),
     ] else ...[
-      const Text('Poin-poin penting artikel', style: TextStyle(fontSize: 20, fontWeight: FontWeight.w700)),
+      const Text('Poin-poin penting artikel', style: TextStyle(fontSize: KarsaType.headline, fontWeight: FontWeight.w700)),
       const SizedBox(height: 10),
       const Text('Buat ringkasan untuk membantu memahami materi. Isi artikel akan dikirim ke penyedia AI Karsa.'),
       const SizedBox(height: 16),
@@ -374,12 +374,12 @@ class _LibAiSheetState extends State<_LibAiSheet> {
       ],
     ],
     const SizedBox(height: 14),
-    const Text('AI dapat keliru. Periksa kembali artikel dan sumber belajarmu.', textAlign: TextAlign.center, style: TextStyle(fontSize: 12, color: KarsaColors.muted)),
+    const Text('AI dapat keliru. Periksa kembali artikel dan sumber belajarmu.', textAlign: TextAlign.center, style: TextStyle(fontSize: KarsaType.caption, color: KarsaColors.muted)),
   ]);
 
-  Widget _chatView() => ListView(controller: _scroll, padding: const EdgeInsets.fromLTRB(18, 10, 18, 18), children: [
+  Widget _chatView() => ListView(controller: _scroll, padding: const EdgeInsets.fromLTRB(KarsaSpace.gutter, KarsaSpace.md, KarsaSpace.gutter, KarsaSpace.lg), children: [
     if (_turns.isEmpty && _pendingQuestion == null && _failedQuestion == null) ...[
-      const Text('Ada bagian yang belum jelas?', style: TextStyle(fontSize: 20, fontWeight: FontWeight.w700)),
+      const Text('Ada bagian yang belum jelas?', style: TextStyle(fontSize: KarsaType.headline, fontWeight: FontWeight.w700)),
       const SizedBox(height: 8),
       const Text('Tanyakan materi dari artikel ini. Jawaban menyertakan rujukan paragraf jika tersedia.'),
       const SizedBox(height: 16),
@@ -396,35 +396,23 @@ class _LibAiSheetState extends State<_LibAiSheet> {
     if (_pendingQuestion != null) ...[
       _questionBubble(_pendingQuestion!),
       Text(_pendingWebSearch ? 'Mencari info terbaru…' : 'Teman baca sedang menyiapkan jawaban…',
-        style: const TextStyle(color: KarsaColors.muted, fontSize: 12)),
+        style: const TextStyle(color: KarsaColors.muted, fontSize: KarsaType.caption)),
     ],
     if (_failedQuestion != null && _pendingQuestion == null) ...[
       _questionBubble(_failedQuestion!),
       Align(
         alignment: Alignment.centerRight,
-        child: GestureDetector(
-          onTap: _retryFailed,
-          child: Padding(
-            padding: const EdgeInsets.only(bottom: 8),
-            child: Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                if (_failedWebSearch) const Padding(
-                  padding: EdgeInsets.only(right: 4),
-                  child: Icon(Icons.public_outlined, size: 14, color: KarsaColors.orange),
-                ),
-                const Icon(Icons.refresh_rounded, size: 14, color: KarsaColors.orange),
-                const SizedBox(width: 4),
-                const Text('Gagal terkirim — ketuk untuk coba lagi',
-                  style: TextStyle(fontSize: 12, color: KarsaColors.orange, fontWeight: FontWeight.w600)),
-              ],
-            ),
-          ),
+        child: KarsaTapAction(
+          onTap: _sending ? null : _retryFailed,
+          icon: Icons.refresh_rounded,
+          label: 'Gagal terkirim — ketuk untuk coba lagi',
+          accessibilityLabel: 'Kirim ulang pertanyaan yang gagal',
+          style: const TextStyle(fontSize: KarsaType.caption, color: KarsaColors.accentInk, fontWeight: FontWeight.w600),
         ),
       ),
     ],
     if (_error != null) Padding(padding: const EdgeInsets.only(top: 12),
-      child: Text(_error!, style: const TextStyle(fontSize: 12, color: KarsaColors.muted))),
+      child: Text(_error!, style: const TextStyle(fontSize: KarsaType.caption, color: KarsaColors.muted))),
   ]);
 
   /// Composer selalu memakai struktur widget yang sama walau keyboard
@@ -442,16 +430,26 @@ class _LibAiSheetState extends State<_LibAiSheet> {
           child: IgnorePointer(
             ignoring: keyboardOpen,
             child: Text('${_quota?.remaining ?? 0} / ${_quota?.limit ?? 0} pertanyaan tersisa hari ini',
-              style: const TextStyle(fontSize: 11, color: KarsaColors.muted)),
+              style: const TextStyle(fontSize: KarsaType.caption, color: KarsaColors.muted)),
           ),
         ),
         const SizedBox(height: 8),
         Row(crossAxisAlignment: CrossAxisAlignment.end, children: [
-          IconButton(
-            tooltip: _webSearchArmed ? 'Web search aktif untuk pertanyaan berikut' : 'Aktifkan web search',
-            onPressed: _sending ? null : _onWebSearchTap,
-            icon: Icon(Icons.public_outlined,
-              color: _webSearchArmed ? KarsaColors.orange : KarsaColors.muted),
+          // Status aktif ditandai bentuk (ikon berisi + lingkaran wash), bukan
+          // hanya warna, dan disampaikan ke pembaca layar lewat tooltip/selected.
+          Semantics(
+            selected: _webSearchArmed,
+            child: Container(
+              decoration: _webSearchArmed
+                  ? const BoxDecoration(color: KarsaColors.tintStrong, shape: BoxShape.circle)
+                  : null,
+              child: IconButton(
+                tooltip: _webSearchArmed ? 'Web search aktif untuk pertanyaan berikut' : 'Aktifkan web search',
+                onPressed: _sending ? null : _onWebSearchTap,
+                icon: Icon(_webSearchArmed ? Icons.public_rounded : Icons.public_outlined,
+                  color: _webSearchArmed ? KarsaColors.accentInk : KarsaColors.muted),
+              ),
+            ),
           ),
           const SizedBox(width: 4),
           Expanded(child: TextField(controller: _question, focusNode: _focus,
@@ -469,7 +467,7 @@ class _LibAiSheetState extends State<_LibAiSheet> {
           child: const Column(mainAxisSize: MainAxisSize.min, children: [
             SizedBox(height: 7),
             Text('Artikel dan pertanyaan dikirim ke penyedia AI. Periksa kembali jawaban.',
-              style: TextStyle(fontSize: 10, color: KarsaColors.muted), textAlign: TextAlign.center),
+              style: const TextStyle(fontSize: KarsaType.caption, color: KarsaColors.muted), textAlign: TextAlign.center),
           ]),
         ),
       ]),

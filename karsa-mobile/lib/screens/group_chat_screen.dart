@@ -1027,7 +1027,7 @@ class _GroupChatScreenState extends State<GroupChatScreen>
   );
 
   Widget _body() {
-    if (_loading) return const Center(child: CircularProgressIndicator());
+    if (_loading) return const LoadingState(message: 'Memuat pesan…');
     if (_error != null)
       return ErrorState(message: friendlyError(_error!), onRetry: _loadInitial);
     if (_messages.isEmpty) {
@@ -1198,7 +1198,7 @@ class _ReplyComposer extends StatelessWidget {
     padding: const EdgeInsets.fromLTRB(12, 8, 4, 8),
     decoration: BoxDecoration(
       color: Theme.of(context).colorScheme.surfaceContainerHighest,
-      borderRadius: BorderRadius.circular(12),
+      borderRadius: BorderRadius.circular(KarsaRadius.md),
     ),
     child: Row(
       children: [
@@ -1209,7 +1209,7 @@ class _ReplyComposer extends StatelessWidget {
             overflow: TextOverflow.ellipsis,
           ),
         ),
-        IconButton(onPressed: onClose, icon: const Icon(Icons.close_rounded)),
+        IconButton(tooltip: 'Batalkan balasan', onPressed: onClose, icon: const Icon(Icons.close_rounded)),
       ],
     ),
   );
@@ -1277,11 +1277,11 @@ class _PinnedMessagesStripState extends State<_PinnedMessagesStrip> {
     final message = widget.messages[_index];
     final reduceMotion = MediaQuery.disableAnimationsOf(context);
     return Padding(
-      padding: const EdgeInsets.fromLTRB(12, 6, 12, 4),
+      padding: const EdgeInsets.fromLTRB(KarsaSpace.md, KarsaSpace.xs, KarsaSpace.md, KarsaSpace.xs),
       child: Material(
-        color: const Color(0xFFFFF5E8).withValues(alpha: .9),
+        color: KarsaColors.tintSoft.withValues(alpha: .9),
         shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(12),
+          borderRadius: BorderRadius.circular(KarsaRadius.md),
           side: BorderSide(color: colors.primary.withValues(alpha: .12)),
         ),
         clipBehavior: Clip.antiAlias,
@@ -1336,12 +1336,12 @@ class _PinnedMessagesStripState extends State<_PinnedMessagesStrip> {
                           children: [
                             Text('Pesan disematkan · ${message.author.name}',
                                 maxLines: 1, overflow: TextOverflow.ellipsis,
-                                style: TextStyle(fontSize: 11, color: colors.primary,
+                                style: TextStyle(fontSize: KarsaType.caption, color: colors.primary,
                                     fontWeight: FontWeight.w700)),
                             const SizedBox(height: 3),
                             Text(_pinnedMessagePreview(message), maxLines: 1,
                                 overflow: TextOverflow.ellipsis,
-                                style: const TextStyle(fontSize: 13)),
+                                style: const TextStyle(fontSize: KarsaType.body)),
                           ],
                         ),
                       )),
@@ -1444,10 +1444,14 @@ class _MessageBubbleState extends State<_MessageBubble> {
                 alignment: message.isOwn
                     ? Alignment.centerRight
                     : Alignment.centerLeft,
-                child: GestureDetector(
-                  onLongPress: widget.onLongPress,
-                  onTap: message.state == 'blocked' ? widget.onLongPress : null,
-                  child: AnimatedContainer(
+                child: Semantics(
+                  button: true,
+                  label: 'Pesan ${message.author.name}. Tekan lama untuk opsi pesan.',
+                  child: GestureDetector(
+                    behavior: HitTestBehavior.opaque,
+                    onLongPress: widget.onLongPress,
+                    onTap: message.state == 'blocked' ? widget.onLongPress : null,
+                    child: AnimatedContainer(
                     duration: reduceMotion ? Duration.zero : const Duration(milliseconds: 180),
                     constraints: BoxConstraints(maxWidth: maxBubbleWidth),
                     margin: const EdgeInsets.symmetric(vertical: 3),
@@ -1460,9 +1464,9 @@ class _MessageBubbleState extends State<_MessageBubble> {
                           ? colors.primary.withValues(alpha: .12)
                           : message.isOwn
                           ? colors.primaryContainer
-                          : Colors.white,
+                          : KarsaColors.card,
                       border: Border.all(color: widget.highlighted
-                          ? colors.primary : const Color(0xFFF0E7DE)),
+                          ? colors.primary : KarsaColors.border),
                       borderRadius: BorderRadius.circular(14).copyWith(
                         bottomRight: message.isOwn
                             ? const Radius.circular(4)
@@ -1484,7 +1488,7 @@ class _MessageBubbleState extends State<_MessageBubble> {
                                   child: Text(
                                     message.author.name,
                                     style: TextStyle(
-                                      fontSize: 12,
+                                      fontSize: KarsaType.caption,
                                       fontWeight: FontWeight.w700,
                                       color: colors.primary,
                                     ),
@@ -1493,11 +1497,13 @@ class _MessageBubbleState extends State<_MessageBubble> {
                               if (!message.isOwn &&
                                   message.author.isGroupManager) ...[
                                 const SizedBox(width: 6),
-                                const Icon(Icons.verified_rounded, size: 15),
+                                const Semantics(label: 'Pengelola grup',
+                                  child: Icon(Icons.verified_rounded, size: 15)),
                               ],
                               if (message.isPinned) ...[
                                 if (!message.isOwn) const SizedBox(width: 6),
-                                const Icon(Icons.push_pin_rounded, size: 14),
+                                const Semantics(label: 'Pesan disematkan',
+                                  child: Icon(Icons.push_pin_rounded, size: 14)),
                               ],
                             ],
                           ),
@@ -1551,7 +1557,8 @@ class _MessageBubbleState extends State<_MessageBubble> {
                             ],
                           ),
                         ),
-                      ],
+                        ],
+                      ),
                     ),
                   ),
                 ),
