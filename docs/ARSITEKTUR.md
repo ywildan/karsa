@@ -46,6 +46,20 @@ Web / Admin       ──HTTPS──▶ Server Actions + Route Handlers ──Pri
 - APK Android: GitHub Actions `.github/workflows/karsa-mobile-build.yml` — lihat `docs/RILIS-MOBILE.md`.
 - Backup DB: `.github/workflows/database-backup.yml` — lihat `docs/OPERASIONAL.md`.
 
+## Karsa Lib — perilaku UI artikel (mobile)
+
+- **Kartu artikel full-tap**: seluruh `Card` dibungkus `InkWell` — ketuk di
+  mana saja membuka artikel. Pengecualian: baris penulis membuka profil
+  penulis, tombol `⋯` membuka menu Laporkan artikel.
+- **Meta kartu**: nama penulis + waktu relatif, `N pembaca`, `N komentar`,
+  cuplikan isi 3 baris.
+- **Komentar ala Instagram**: list flat tanpa card putih; avatar 32px;
+  username bold sebaris dengan isi; meta kecil (waktu relatif, `Balas` hanya
+  untuk komentar induk, ikon `⋯` untuk Laporkan / Hapus komentar sendiri).
+- **Balasan dilipat**: balasan disembunyikan secara default, dibuka via
+  `— Lihat N balasan`.
+- Komentar yang dihapus tampil miring: *Komentar dihapus*.
+
 ## Dokumen terkait
 
 - `docs/TEMAN-BACA.md` — fitur AI "Teman baca"
