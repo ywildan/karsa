@@ -467,7 +467,7 @@ class _LibAiSheetState extends State<_LibAiSheet> {
           child: const Column(mainAxisSize: MainAxisSize.min, children: [
             SizedBox(height: 7),
             Text('Artikel dan pertanyaan dikirim ke penyedia AI. Periksa kembali jawaban.',
-              style: const TextStyle(fontSize: KarsaType.caption, color: KarsaColors.muted), textAlign: TextAlign.center),
+              style: TextStyle(fontSize: KarsaType.caption, color: KarsaColors.muted), textAlign: TextAlign.center),
           ]),
         ),
       ]),

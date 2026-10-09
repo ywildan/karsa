@@ -137,7 +137,6 @@ class KarsaApp extends StatelessWidget {
           chipTheme: ChipThemeData(
             shape: const StadiumBorder(),
             side: const BorderSide(color: KarsaColors.border),
-            materialTapTargetSize: MaterialTapTargetSize.padded,
             selectedColor: scheme.primaryContainer,
             checkmarkColor: scheme.onPrimaryContainer,
             labelStyle: const TextStyle(

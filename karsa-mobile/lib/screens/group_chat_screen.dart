@@ -1497,13 +1497,13 @@ class _MessageBubbleState extends State<_MessageBubble> {
                               if (!message.isOwn &&
                                   message.author.isGroupManager) ...[
                                 const SizedBox(width: 6),
-                                const Semantics(label: 'Pengelola grup',
-                                  child: Icon(Icons.verified_rounded, size: 15)),
+                                Semantics(label: 'Pengelola grup',
+                                  child: const Icon(Icons.verified_rounded, size: 15)),
                               ],
                               if (message.isPinned) ...[
                                 if (!message.isOwn) const SizedBox(width: 6),
-                                const Semantics(label: 'Pesan disematkan',
-                                  child: Icon(Icons.push_pin_rounded, size: 14)),
+                                Semantics(label: 'Pesan disematkan',
+                                  child: const Icon(Icons.push_pin_rounded, size: 14)),
                               ],
                             ],
                           ),
