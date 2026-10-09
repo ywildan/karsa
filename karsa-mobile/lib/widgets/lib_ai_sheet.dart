@@ -55,6 +55,8 @@ class _LibAiSheetState extends State<_LibAiSheet> {
   String _revision = '';
   String? _pendingQuestion;
   bool _pendingWebSearch = false;
+  String? _failedQuestion;
+  bool _failedWebSearch = false;
   String? _error;
   bool _loading = true;
   bool _enabled = false;
@@ -201,7 +203,7 @@ class _LibAiSheetState extends State<_LibAiSheet> {
     if (_sending || !_enabled || text.isEmpty || (_quota?.remaining ?? 0) == 0) return;
     final useWebSearch = _webSearchArmed;
     _focus.requestFocus();
-    setState(() { _sending = true; _pendingQuestion = text; _pendingWebSearch = useWebSearch; _webSearchArmed = false; _error = null; });
+    setState(() { _sending = true; _pendingQuestion = text; _pendingWebSearch = useWebSearch; _webSearchArmed = false; _error = null; _failedQuestion = null; });
     _scrollToEnd();
     try {
       final response = await widget.api.askLibAi(widget.article.id,
@@ -222,15 +224,32 @@ class _LibAiSheetState extends State<_LibAiSheet> {
       });
     } catch (error) {
       if (error is ApiException && error.code == 'AI_REQUEST_FAILED') _submission.complete();
-      if (error is ApiException && error.code == 'AI_QUOTA_EXCEEDED' && useWebSearch) {
+      final quotaError = error is ApiException && error.code == 'AI_QUOTA_EXCEEDED';
+      if (quotaError && useWebSearch) {
         _showWebSearchQuotaDialog();
       } else {
         _handleError(error);
+        // Pertanyaan yang gagal dipertahankan sebagai bubble "gagal terkirim"
+        // dengan aksi coba lagi — tidak langsung lenyap dari chat.
+        // (Kuota habis tidak dipertahankan: retry langsung tidak akan berhasil.)
+        if (!quotaError && mounted) {
+          setState(() { _failedQuestion = text; _failedWebSearch = useWebSearch; });
+        }
       }
       await _syncQuota();
     } finally {
       if (mounted) { setState(() { _sending = false; _pendingQuestion = null; _pendingWebSearch = false; }); _scrollToEnd(); }
     }
+  }
+
+  /// Kirim ulang pertanyaan yang gagal: kembalikan teks ke composer,
+  /// pulihkan status ikon web search, lalu kirim seperti biasa.
+  Future<void> _retryFailed() async {
+    final text = _failedQuestion;
+    if (text == null || _sending || !_enabled) return;
+    _question.text = text;
+    setState(() { _webSearchArmed = _failedWebSearch; });
+    await _send();
   }
 
   Widget _sources(List<int> sources) => Wrap(spacing: 4, children: [
@@ -345,7 +364,7 @@ class _LibAiSheetState extends State<_LibAiSheet> {
   ]);
 
   Widget _chatView() => ListView(controller: _scroll, padding: const EdgeInsets.fromLTRB(18, 10, 18, 18), children: [
-    if (_turns.isEmpty && _pendingQuestion == null) ...[
+    if (_turns.isEmpty && _pendingQuestion == null && _failedQuestion == null) ...[
       const Text('Ada bagian yang belum jelas?', style: TextStyle(fontSize: 20, fontWeight: FontWeight.w700)),
       const SizedBox(height: 8),
       const Text('Tanyakan materi dari artikel ini. Jawaban menyertakan rujukan paragraf jika tersedia.'),
@@ -365,6 +384,33 @@ class _LibAiSheetState extends State<_LibAiSheet> {
       Padding(padding: const EdgeInsets.only(top: 16, bottom: 8), child: Text(_pendingQuestion!, textAlign: TextAlign.right)),
       Text(_pendingWebSearch ? 'Mencari info terbaru…' : 'Teman baca sedang menyiapkan jawaban…',
         style: const TextStyle(color: KarsaColors.muted, fontSize: 12)),
+    ],
+    if (_failedQuestion != null && _pendingQuestion == null) ...[
+      Padding(padding: const EdgeInsets.only(top: 16, bottom: 4),
+        child: Text(_failedQuestion!, textAlign: TextAlign.right,
+          style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w600))),
+      Align(
+        alignment: Alignment.centerRight,
+        child: GestureDetector(
+          onTap: _retryFailed,
+          child: Padding(
+            padding: const EdgeInsets.only(bottom: 8),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                if (_failedWebSearch) const Padding(
+                  padding: EdgeInsets.only(right: 4),
+                  child: Icon(Icons.public_outlined, size: 14, color: KarsaColors.orange),
+                ),
+                const Icon(Icons.refresh_rounded, size: 14, color: KarsaColors.orange),
+                const SizedBox(width: 4),
+                const Text('Gagal terkirim — ketuk untuk coba lagi',
+                  style: TextStyle(fontSize: 12, color: KarsaColors.orange, fontWeight: FontWeight.w600)),
+              ],
+            ),
+          ),
+        ),
+      ),
     ],
     if (_error != null) Padding(padding: const EdgeInsets.only(top: 12),
       child: Text(_error!, style: const TextStyle(fontSize: 12, color: KarsaColors.muted))),
