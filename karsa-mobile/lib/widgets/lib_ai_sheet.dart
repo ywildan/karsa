@@ -252,8 +252,22 @@ class _LibAiSheetState extends State<_LibAiSheet> {
     await _send();
   }
 
-  Widget _sources(List<int> sources) => Wrap(spacing: 4, children: [
-    for (final source in sources) TextButton(
+  /// Bubble pertanyaan pengirim: rata kanan, oranye muda, lebar mengikuti teks.
+  Widget _questionBubble(String text) => Align(
+    alignment: Alignment.centerRight,
+    child: Container(
+      margin: const EdgeInsets.only(top: 12, bottom: 8),
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+      constraints: BoxConstraints(maxWidth: MediaQuery.of(context).size.width * 0.8),
+      decoration: BoxDecoration(
+        color: KarsaColors.orange.withValues(alpha: 0.12),
+        borderRadius: BorderRadius.circular(16),
+      ),
+      child: Text(text, style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w600)),
+    ),
+  );
+
+  Widget _sources(List<int> sources) => Wrap(spacing: 4, children: [    for (final source in sources) TextButton(
       onPressed: () => Navigator.pop(context, LibAiSheetResult(source: source)),
       child: Text('Paragraf $source ↗', style: const TextStyle(fontSize: 12)),
     ),
@@ -376,19 +390,16 @@ class _LibAiSheetState extends State<_LibAiSheet> {
         )),
     ],
     for (final turn in _turns) ...[
-      Padding(padding: const EdgeInsets.fromLTRB(24, 12, 0, 8), child: Text(turn.question, textAlign: TextAlign.right,
-        style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w600))),
+      _questionBubble(turn.question),
       _answer(turn.answer, turn.sources, webSearch: turn.webSearch, webSources: turn.webSources),
     ],
     if (_pendingQuestion != null) ...[
-      Padding(padding: const EdgeInsets.only(top: 16, bottom: 8), child: Text(_pendingQuestion!, textAlign: TextAlign.right)),
+      _questionBubble(_pendingQuestion!),
       Text(_pendingWebSearch ? 'Mencari info terbaru…' : 'Teman baca sedang menyiapkan jawaban…',
         style: const TextStyle(color: KarsaColors.muted, fontSize: 12)),
     ],
     if (_failedQuestion != null && _pendingQuestion == null) ...[
-      Padding(padding: const EdgeInsets.only(top: 16, bottom: 4),
-        child: Text(_failedQuestion!, textAlign: TextAlign.right,
-          style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w600))),
+      _questionBubble(_failedQuestion!),
       Align(
         alignment: Alignment.centerRight,
         child: GestureDetector(
