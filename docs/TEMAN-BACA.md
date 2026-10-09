@@ -127,6 +127,37 @@ Kode error: `AI_DISABLED`, `AI_ARTICLE_CHANGED` (artikel berubah saat panel
 terbuka → panel menutup & artikel dimuat ulang), `429 AI_QUOTA_EXCEEDED`,
 `502 AI_SEARCH_UNAVAILABLE` (Tavily gagal; kuota tidak terpakai).
 
+## Troubleshooting
+
+Pesan generik "Layanan AI belum dapat menjawab" menyembunyikan penyebab
+asli. Saat itu terjadi, cek konfigurasi provider **dulu** sebelum mencurigai
+bug kode:
+
+1. `AI_BASE_URL` menunjuk ke provider yang benar.
+2. `AI_API_KEY` valid dan masih ada saldo/kuota.
+3. `AI_MODEL` sesuai dengan nama model di provider tersebut.
+
+Pelajaran 2026-10-09: diagnosis awal menunjuk parsing `web_sources`
+berdasarkan data `LibAiTurn` (latensi 16–19 detik, `search_error` kosong),
+padahal akarnya adalah base URL + API key provider yang salah. Base URL/key
+yang salah bisa menghasilkan latensi panjang (retry/timeout) sehingga
+mengecoh ke arah bug parsing.
+
+Cara membedakan dari data `LibAiTurn`:
+
+- Kredit Tavily berkurang + `search_error` kosong + latensi belasan detik →
+  search jalan, masalah di tahap LLM (cek poin 1–3 di atas).
+- `search_error` = `SEARCH_UNAVAILABLE` → Tavily-nya yang gagal, bukan LLM.
+
+Tes cepat koneksi provider:
+
+```sh
+curl "$AI_BASE_URL/models" -H "Authorization: Bearer $AI_API_KEY"
+```
+
+Catatan: `web_sources` yang malformed difilter diam-diam (parsing longgar),
+tidak menggagalkan seluruh jawaban.
+
 ## Pengujian
 
 - `npm run test:lib-ai` — konfigurasi, batas prodi, prompt, parsing, error (fetch tiruan).
