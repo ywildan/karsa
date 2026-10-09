@@ -56,6 +56,9 @@ class _LibReportDialogState extends State<_LibReportDialog> {
         children: [
           DropdownButtonFormField<String>(
             initialValue: _reason, isExpanded: true,
+            dropdownColor: KarsaColors.card,
+            borderRadius: BorderRadius.circular(KarsaRadius.md),
+            icon: const Icon(Icons.keyboard_arrow_down_rounded, color: KarsaColors.muted),
             decoration: const InputDecoration(labelText: 'Alasan laporan'),
             items: const [
               DropdownMenuItem(value: 'MISINFORMATION', child: Text('Informasi keliru')),

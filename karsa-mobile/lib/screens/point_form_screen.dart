@@ -285,6 +285,9 @@ class _PointFormScreenState extends State<PointFormScreen> {
               key: ValueKey(_assignment?.id ?? 'no-assignment'),
               initialValue: _assignment,
               isExpanded: true,
+              dropdownColor: KarsaColors.card,
+              borderRadius: BorderRadius.circular(KarsaRadius.md),
+              icon: const Icon(Icons.keyboard_arrow_down_rounded, color: KarsaColors.muted),
               decoration: const InputDecoration(labelText: 'Mata kuliah'),
               items: _assignments!
                   .map((item) => DropdownMenuItem(value: item, child: Text('${item.courseName} · ${item.className}')))
@@ -487,12 +490,18 @@ class _PointFormScreenState extends State<PointFormScreen> {
             ),
             const SizedBox(height: KarsaSpace.sm),
             SizedBox(height: 52,
-              child: FilledButton.icon(
+              child: FilledButton(
                 onPressed: _submitting || _category == null ? null : _submit,
-                icon: _submitting
-                    ? const SizedBox.square(dimension: 20, child: CircularProgressIndicator(strokeWidth: 2))
-                    : const Icon(Icons.check_rounded),
-                label: Text(_submitting ? 'Menyimpan…' : 'Input poin'),
+                child: _submitting
+                    ? const Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          SizedBox.square(dimension: 20, child: CircularProgressIndicator(strokeWidth: 2)),
+                          SizedBox(width: 8),
+                          Text('Menyimpan…'),
+                        ],
+                      )
+                    : const Text('Input poin'),
               ),
             ),
           ],
@@ -512,6 +521,9 @@ class _PointFormScreenState extends State<PointFormScreen> {
     final category = DropdownButtonFormField<PointCategory>(
       initialValue: _category,
       isExpanded: true,
+      dropdownColor: KarsaColors.card,
+      borderRadius: BorderRadius.circular(KarsaRadius.md),
+      icon: const Icon(Icons.keyboard_arrow_down_rounded, color: KarsaColors.muted),
       decoration: const InputDecoration(labelText: 'Kategori'),
       items: _categories!
           .map((item) => DropdownMenuItem(
@@ -532,6 +544,9 @@ class _PointFormScreenState extends State<PointFormScreen> {
             ChoiceChip(
               label: Text('$point', style: const TextStyle(fontSize: KarsaType.bodyLarge, fontWeight: FontWeight.w700)),
               selected: _points == point,
+              // Pilihan sudah ditandai perubahan warna (selectedColor di
+              // chipTheme), jadi centang bawaan ChoiceChip tidak ditampilkan.
+              showCheckmark: false,
               labelPadding: const EdgeInsets.symmetric(horizontal: KarsaSpace.xl),
               padding: const EdgeInsets.symmetric(vertical: KarsaSpace.md),
               onSelected: _submitting ? null : (_) => setState(() => _points = point),

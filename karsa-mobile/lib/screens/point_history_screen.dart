@@ -82,6 +82,9 @@ class _PointHistoryScreenState extends State<PointHistoryScreen> {
               DropdownButtonFormField<String>(
                 key: ValueKey(activeCourse),
                 initialValue: activeCourse, isExpanded: true,
+                dropdownColor: KarsaColors.card,
+                borderRadius: BorderRadius.circular(KarsaRadius.md),
+                icon: const Icon(Icons.keyboard_arrow_down_rounded, color: KarsaColors.muted),
                 decoration: const InputDecoration(labelText: 'Mata kuliah'),
                 items: [const DropdownMenuItem<String>(value: null, child: Text('Semua mata kuliah')),
                   for (final course in courses) DropdownMenuItem(value: course, child: Text(course, overflow: TextOverflow.ellipsis))],

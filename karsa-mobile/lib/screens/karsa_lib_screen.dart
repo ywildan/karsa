@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:ui' as ui;
 
 import 'package:flutter/material.dart';
 
@@ -189,14 +190,16 @@ class _KarsaLibScreenState extends State<KarsaLibScreen> {
     return _feedView(bootstrap);
   }
 
-  /// Tinggi tetap header kontrol: dasar terukur + pertumbuhan dari skala teks,
-  /// ditambah ruang garis progres saat feed dimuat ulang.
+  /// Tinggi tetap header yang ditempel: sekarang hanya kolom pencarian
+  /// (chip sortir ikut menggulir bersama konten). Dasar terukur +
+  /// pertumbuhan dari skala teks, ditambah ruang garis progres saat feed
+  /// dimuat ulang.
   double _controlsHeight(BuildContext context) {
     final growth =
         (MediaQuery.textScalerOf(context).scale(KarsaType.body) - KarsaType.body)
             .clamp(0, 40)
             .toDouble();
-    return 138 + growth + (_loadingFeed ? 4 : 0);
+    return 88 + growth + (_loadingFeed ? 4 : 0);
   }
 
   Widget _feedView(LibBootstrap bootstrap) {
@@ -223,10 +226,15 @@ class _KarsaLibScreenState extends State<KarsaLibScreen> {
                   },
                   onCleared: () => _applySearch(''),
                 ),
-                _feedHeader(bootstrap),
                 if (_loadingFeed)
                   const LinearProgressIndicator(minHeight: 3, backgroundColor: KarsaColors.tintSoft),
               ]),
+            )),
+            // Chip sortir tidak lagi ditempel: ikut menggulir bersama konten
+            // dan dijangkau dengan swipe horizontal.
+            SliverToBoxAdapter(child: Padding(
+              padding: const EdgeInsets.only(bottom: KarsaSpace.sm),
+              child: _feedHeader(bootstrap),
             )),
             if (showInitialLoading)
               const SliverFillRemaining(
@@ -317,17 +325,30 @@ class _KarsaLibScreenState extends State<KarsaLibScreen> {
     ),
   );
 
-  Widget _sortChip(String label, String value) => Padding(
-        padding: const EdgeInsets.only(right: KarsaSpace.sm),
-        child: ChoiceChip(
-          label: Text(label),
-          selected: _sort == value,
-          onSelected: (_) => _selectSort(value),
-          labelStyle: const TextStyle(fontSize: KarsaType.caption, fontWeight: FontWeight.w600),
-          visualDensity: VisualDensity.compact,
-          side: BorderSide.none,
+  // Penanda filter aktif dibuat tegas — chip oranye solid dengan teks
+  // putih — karena bar ini tidak lagi selalu terlihat di atas: pengguna
+  // harus bisa mengenali filter yang sedang berlaku sekilas saja.
+  Widget _sortChip(String label, String value) {
+    final selected = _sort == value;
+    return Padding(
+      padding: const EdgeInsets.only(right: KarsaSpace.sm),
+      child: ChoiceChip(
+        label: Text(label),
+        selected: selected,
+        showCheckmark: false,
+        onSelected: (_) => _selectSort(value),
+        labelStyle: TextStyle(
+          fontSize: KarsaType.caption,
+          fontWeight: FontWeight.w700,
+          color: selected ? KarsaColors.onOrange : KarsaColors.ink,
         ),
-      );
+        selectedColor: KarsaColors.orange,
+        backgroundColor: KarsaColors.tintSoft,
+        side: BorderSide(color: selected ? KarsaColors.orange : KarsaColors.border),
+        visualDensity: VisualDensity.compact,
+      ),
+    );
+  }
 
   Widget _setup(LibBootstrap bootstrap) => _ProfileSetup(
         api: widget.api,
@@ -392,18 +413,24 @@ class _FeedControls extends SliverPersistentHeaderDelegate {
   @override
   double get maxExtent => height;
 
-  // Permukaan solid dengan garis tetap, bukan blur: BackdropFilter pada header
-  // yang menempel ikut digambar ulang setiap frame scroll dan menjatuhkan
-  // framerate. Garis tetap juga membuat header tidak perlu dibangun ulang
-  // saat scroll, karena tidak bergantung pada posisi konten.
+  // Kaca buram (blur), bukan permukaan solid: konten yang menggulir di
+  // bawah kolom pencarian terlihat menyapu samar. BackdropFilter memang
+  // digambar ulang setiap frame scroll, jadi area blur sengaja dibatasi
+  // hanya setinggi kolom pencarian — chip sortir sudah tidak ikut ditempel
+  // di sini — agar biayanya tetap kecil.
   @override
-  Widget build(BuildContext context, double shrinkOffset, bool overlapsContent) => Container(
-    decoration: const BoxDecoration(
-      color: KarsaColors.background,
-      border: Border(bottom: BorderSide(color: KarsaColors.border)),
+  Widget build(BuildContext context, double shrinkOffset, bool overlapsContent) => ClipRect(
+    child: BackdropFilter(
+      filter: ui.ImageFilter.blur(sigmaX: 14, sigmaY: 14),
+      child: Container(
+        decoration: BoxDecoration(
+          color: KarsaColors.background.withValues(alpha: .72),
+          border: Border(bottom: BorderSide(color: KarsaColors.border.withValues(alpha: .6))),
+        ),
+        padding: const EdgeInsets.only(top: KarsaSpace.sm),
+        child: child,
+      ),
     ),
-    padding: const EdgeInsets.only(top: KarsaSpace.sm),
-    child: child,
   );
 
   @override
@@ -568,12 +595,12 @@ class _ProfileSetupState extends State<_ProfileSetup> {
         const SizedBox(height: 22),
         TextField(enabled: !_saving, controller: _name, textCapitalization: TextCapitalization.words, maxLength: 80, onChanged: (_) => setState(() {}), decoration: const InputDecoration(labelText: 'Nama yang ditampilkan', prefixIcon: Icon(Icons.person_outline))),
         const SizedBox(height: 12),
-        DropdownButtonFormField<String>(initialValue: _facultyId, isExpanded: true, decoration: const InputDecoration(labelText: 'Fakultas'), items: widget.bootstrap.faculties.map((faculty) => DropdownMenuItem(value: faculty.id, child: Text(faculty.name, overflow: TextOverflow.ellipsis))).toList(), onChanged: _saving ? null : (value) { // DropdownButton tetap memanggil onChanged walau item yang sama diketuk; tanpa guard, prodi dan kelas ke-reset sendiri.
+        DropdownButtonFormField<String>(initialValue: _facultyId, isExpanded: true, dropdownColor: KarsaColors.card, borderRadius: BorderRadius.circular(KarsaRadius.md), icon: const Icon(Icons.keyboard_arrow_down_rounded, color: KarsaColors.muted), decoration: const InputDecoration(labelText: 'Fakultas'), items: widget.bootstrap.faculties.map((faculty) => DropdownMenuItem(value: faculty.id, child: Text(faculty.name, overflow: TextOverflow.ellipsis))).toList(), onChanged: _saving ? null : (value) { // DropdownButton tetap memanggil onChanged walau item yang sama diketuk; tanpa guard, prodi dan kelas ke-reset sendiri.
         if (value == _facultyId) return;
         setState(() { _facultyId = value; _programId = null; _classId = null; });
       }),
         const SizedBox(height: 12),
-        DropdownButtonFormField<String>(key: ValueKey('program-$_facultyId'), initialValue: _programId, isExpanded: true, decoration: const InputDecoration(labelText: 'Program studi'), items: widget.bootstrap.programs.where((program) => program.facultyId == _facultyId).map((program) => DropdownMenuItem(value: program.id, child: Text(program.name, overflow: TextOverflow.ellipsis))).toList(), onChanged: _saving || _facultyId == null ? null : (value) {
+        DropdownButtonFormField<String>(key: ValueKey('program-$_facultyId'), initialValue: _programId, isExpanded: true, dropdownColor: KarsaColors.card, borderRadius: BorderRadius.circular(KarsaRadius.md), icon: const Icon(Icons.keyboard_arrow_down_rounded, color: KarsaColors.muted), decoration: const InputDecoration(labelText: 'Program studi'), items: widget.bootstrap.programs.where((program) => program.facultyId == _facultyId).map((program) => DropdownMenuItem(value: program.id, child: Text(program.name, overflow: TextOverflow.ellipsis))).toList(), onChanged: _saving || _facultyId == null ? null : (value) {
         // Mengetuk prodi yang sama tidak boleh menghapus kelas pilihan.
         if (value == _programId) return;
         setState(() { _programId = value; _classId = null; });
@@ -581,7 +608,7 @@ class _ProfileSetupState extends State<_ProfileSetup> {
         if (widget.bootstrap.faculties.isEmpty || (_facultyId != null && widget.bootstrap.programs.where((program) => program.facultyId == _facultyId).isEmpty))
           const Padding(padding: EdgeInsets.only(top: 7), child: Text('Pilihan fakultas/prodi belum tersedia. Admin Karsa perlu mengatur Fakultas dan menghubungkan Prodi terlebih dahulu.', style: TextStyle(fontSize: KarsaType.body, color: KarsaColors.muted, height: 1.4))),
         const SizedBox(height: 12),
-        DropdownButtonFormField<String>(key: ValueKey('class-$_programId'), initialValue: _classId, isExpanded: true, decoration: const InputDecoration(labelText: 'Kelas (opsional)'), items: [const DropdownMenuItem<String>(value: null, child: Text('Tidak memilih kelas')), ...widget.bootstrap.classes.where((item) => item.programId == _programId).map((item) => DropdownMenuItem(value: item.id, child: Text('${item.name}${item.semesterName == null ? '' : ' · ${item.semesterName}'}', overflow: TextOverflow.ellipsis)))], onChanged: _saving || _programId == null ? null : (value) => setState(() => _classId = value)),
+        DropdownButtonFormField<String>(key: ValueKey('class-$_programId'), initialValue: _classId, isExpanded: true, dropdownColor: KarsaColors.card, borderRadius: BorderRadius.circular(KarsaRadius.md), icon: const Icon(Icons.keyboard_arrow_down_rounded, color: KarsaColors.muted), decoration: const InputDecoration(labelText: 'Kelas (opsional)'), items: [const DropdownMenuItem<String>(value: null, child: Text('Tidak memilih kelas')), ...widget.bootstrap.classes.where((item) => item.programId == _programId).map((item) => DropdownMenuItem(value: item.id, child: Text('${item.name}${item.semesterName == null ? '' : ' · ${item.semesterName}'}', overflow: TextOverflow.ellipsis)))], onChanged: _saving || _programId == null ? null : (value) => setState(() => _classId = value)),
         const SizedBox(height: 15),
         const InfoNotice(
           icon: Icons.lock_outline_rounded,

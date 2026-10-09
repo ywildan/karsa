@@ -390,7 +390,12 @@ class _CourseFilter extends SliverPersistentHeaderDelegate {
                     initialValue: selected,
                     isExpanded: true,
                     menuMaxHeight: 360,
-                    icon: const Icon(Icons.keyboard_arrow_down_rounded),
+                    dropdownColor: KarsaColors.card,
+                    borderRadius: BorderRadius.circular(14),
+                    icon: const Icon(
+                      Icons.keyboard_arrow_down_rounded,
+                      color: KarsaColors.muted,
+                    ),
                     decoration: const InputDecoration(
                       prefixIcon: Icon(
                         Icons.menu_book_rounded,
