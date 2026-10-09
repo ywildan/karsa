@@ -13,6 +13,8 @@ sheet Flutter `karsa-mobile/lib/widgets/lib_ai_sheet.dart`.
 - Tombol **"Tanya tentang ringkasan"** melompat ke tab Tanya materi.
 - Kolom chat mempertahankan teks saat AI menjawab; teks baru dibersihkan
   setelah respons berhasil (draft aman kalau request gagal).
+- Pertanyaan yang gagal terkirim tidak lenyap: tampil sebagai bubble
+  "Gagal terkirim — ketuk untuk coba lagi" (status ikon web ikut dipulihkan).
 - Quota habis → tampil pesan "Kuota membuat ringkasan baru hari ini habis."
   + tombol "Periksa ringkasan tersimpan" (cache tidak memakan kuota).
 - Disclaimer di bawah sheet, rata tengah: *"AI dapat keliru. Periksa kembali
