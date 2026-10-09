@@ -29,6 +29,7 @@ class ActivityScreen extends StatelessWidget {
   Widget build(BuildContext context) => CustomScrollView(
         slivers: [
           const SliverAppBar(
+            pinned: true,
             title: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [

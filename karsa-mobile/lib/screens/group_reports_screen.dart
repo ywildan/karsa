@@ -62,7 +62,7 @@ class _GroupReportsScreenState extends State<GroupReportsScreen> {
           future: _future,
           builder: (context, snapshot) {
             if (snapshot.connectionState != ConnectionState.done) {
-              return const Center(child: CircularProgressIndicator());
+              return const LoadingState(message: 'Memuat laporan…');
             }
             if (snapshot.hasError) {
               return ErrorState(message: friendlyError(snapshot.error!), onRetry: _reload);

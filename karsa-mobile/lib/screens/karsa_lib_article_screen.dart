@@ -100,7 +100,7 @@ class _KarsaLibArticleScreenState extends State<KarsaLibArticleScreen> {
       final paragraphs = article.body.trim().split(RegExp(r'\n\s*\n')).map((part) => part.trim()).where((part) => part.isNotEmpty).toList();
       return Column(children: [
         Expanded(child: CustomScrollView(slivers: [
-          SliverPadding(padding: const EdgeInsets.fromLTRB(22, 12, 22, 24),
+          SliverPadding(padding: const EdgeInsets.fromLTRB(KarsaSpace.gutter, KarsaSpace.md, KarsaSpace.gutter, KarsaSpace.xl),
             sliver: SliverToBoxAdapter(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
               InkWell(borderRadius: BorderRadius.circular(12),
                 onTap: () => Navigator.of(context).push<void>(MaterialPageRoute(
@@ -119,8 +119,8 @@ class _KarsaLibArticleScreenState extends State<KarsaLibArticleScreen> {
               SelectableText(article.title, style: const TextStyle(fontSize: 28, fontWeight: FontWeight.w700, height: 1.3)),
               const SizedBox(height: 12),
               Wrap(spacing: 14, runSpacing: 8, crossAxisAlignment: WrapCrossAlignment.center, children: [
-                Text('${article.views} pembaca unik', style: const TextStyle(fontSize: 13, color: KarsaColors.muted)),
-                if (article.publishedAt != null) Text(formatDay(article.publishedAt!), style: const TextStyle(fontSize: 13, color: KarsaColors.muted)),
+                Text('${article.views} pembaca unik', style: const TextStyle(fontSize: KarsaType.caption, color: KarsaColors.muted)),
+                if (article.publishedAt != null) Text(formatDay(article.publishedAt!), style: const TextStyle(fontSize: KarsaType.caption, color: KarsaColors.muted)),
                 TextButton.icon(onPressed: _jumpToDiscussion, icon: const Icon(Icons.mode_comment_outlined, size: 18),
                   label: Text('${_commentCount ?? article.commentsCount} komentar')),
               ]),
@@ -141,9 +141,10 @@ class _KarsaLibArticleScreenState extends State<KarsaLibArticleScreen> {
             if (snapshot.hasError) return SliverToBoxAdapter(child: ErrorState(message: friendlyError(snapshot.error!), onRetry: _reloadComments));
             final rows = snapshot.data!;
             if (rows.isEmpty) return const SliverToBoxAdapter(child: Padding(
-              padding: EdgeInsets.fromLTRB(24, 0, 24, 32),
-              child: Text('Belum ada komentar. Mulai diskusinya, yuk.', style: TextStyle(fontSize: 14, color: KarsaColors.muted))));
-            return SliverPadding(padding: const EdgeInsets.fromLTRB(20, 0, 20, 24),
+              padding: EdgeInsets.fromLTRB(KarsaSpace.gutter, 0, KarsaSpace.gutter, KarsaSpace.xl),
+              child: EmptyState(title: 'Belum ada komentar',
+                message: 'Mulai diskusinya, yuk.', icon: Icons.chat_bubble_outline_rounded)));
+            return SliverPadding(padding: const EdgeInsets.fromLTRB(KarsaSpace.gutter, 0, KarsaSpace.gutter, KarsaSpace.xl),
               sliver: SliverList.separated(itemCount: rows.length,
                 separatorBuilder: (_, _) => const SizedBox(height: 16),
                 itemBuilder: (_, index) => _commentThread(rows[index])),
@@ -156,7 +157,7 @@ class _KarsaLibArticleScreenState extends State<KarsaLibArticleScreen> {
   );
 
   Widget _composer(LibArticle article) => Container(
-    decoration: const BoxDecoration(color: Colors.white, border: Border(top: BorderSide(color: KarsaColors.border))),
+    decoration: const BoxDecoration(color: KarsaColors.card, border: Border(top: BorderSide(color: KarsaColors.border))),
     child: SafeArea(top: false, child: Padding(padding: const EdgeInsets.fromLTRB(16, 8, 16, 10), child: Column(
       mainAxisSize: MainAxisSize.min, children: [
         if (MediaQuery.viewInsetsOf(context).bottom == 0) ...[
@@ -168,7 +169,7 @@ class _KarsaLibArticleScreenState extends State<KarsaLibArticleScreen> {
           const SizedBox(height: 12),
         ],
         if (_replyToId != null) Row(children: [
-          Expanded(child: Text('Membalas $_replyToName', style: const TextStyle(fontSize: 13, color: KarsaColors.orange))),
+          Expanded(child: Text('Membalas $_replyToName', style: const TextStyle(fontSize: KarsaType.caption, color: KarsaColors.accentInk))),
           IconButton(tooltip: 'Batal membalas', onPressed: _sending ? null : () => setState(() { _replyToId = null; _replyToName = null; }),
             icon: const Icon(Icons.close_rounded, size: 20)),
         ]),
@@ -192,15 +193,13 @@ class _KarsaLibArticleScreenState extends State<KarsaLibArticleScreen> {
       _commentLine(comment),
       if (replies.isNotEmpty) ...[
         const SizedBox(height: 8),
-        GestureDetector(
+        KarsaTapAction(
           onTap: () => setState(() {
             if (expanded) { _expandedThreads.remove(comment.id); } else { _expandedThreads.add(comment.id); }
           }),
-          child: Padding(
-            padding: const EdgeInsets.only(left: 42),
-            child: Text(expanded ? '— Sembunyikan balasan' : '— Lihat ${replies.length} balasan',
-              style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: KarsaColors.muted)),
-          ),
+          label: expanded ? 'Sembunyikan balasan' : 'Lihat ${replies.length} balasan',
+          accessibilityLabel: expanded ? 'Sembunyikan balasan' : 'Lihat balasan',
+          style: const TextStyle(fontSize: KarsaType.caption, fontWeight: FontWeight.w600, color: KarsaColors.muted),
         ),
         if (expanded) ...[
           const SizedBox(height: 12),
@@ -239,23 +238,19 @@ class _KarsaLibArticleScreenState extends State<KarsaLibArticleScreen> {
           if (!comment.isDeleted) ...[
             const SizedBox(width: 12),
             if (!isReply)
-              GestureDetector(
+              KarsaTapAction(
                 onTap: _sending ? null : () {
                   setState(() { _replyToId = comment.id; _replyToName = comment.author; });
                   _focus.requestFocus();
                 },
-                child: const Padding(
-                  padding: EdgeInsets.symmetric(vertical: 4),
-                  child: Text('Balas',
-                    style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: KarsaColors.muted)),
-                ),
+                label: 'Balas',
+                accessibilityLabel: 'Balas komentar ${comment.author}',
+                style: const TextStyle(fontSize: KarsaType.caption, fontWeight: FontWeight.w600, color: KarsaColors.muted),
               ),
             if (!isReply) const SizedBox(width: 12),
             PopupMenuButton<String>(
               tooltip: 'Opsi komentar',
               enabled: !_deleting.contains(comment.id),
-              padding: EdgeInsets.zero,
-              iconSize: 20,
               icon: const Icon(Icons.more_horiz_rounded, color: KarsaColors.muted),
               onSelected: (value) => value == 'delete' ? _deleteComment(comment) : _report(commentId: comment.id),
               itemBuilder: (_) => [
@@ -283,7 +278,7 @@ class _KarsaLibArticleScreenState extends State<KarsaLibArticleScreen> {
       setState(() { _replyToId = null; _replyToName = null; });
       _focus.unfocus();
       try { await _reloadComments(); } catch (_) { _message('Komentar tersimpan. Muat ulang diskusi untuk melihatnya.'); }
-    } catch (error) { _message(friendlyError(error)); }
+    } catch (error) { _message(friendlyError(error), kind: KarsaSnackKind.danger); }
     finally { if (mounted) setState(() => _sending = false); }
   }
   Future<void> _deleteComment(LibComment comment) async {
@@ -301,11 +296,11 @@ class _KarsaLibArticleScreenState extends State<KarsaLibArticleScreen> {
     try {
       await widget.api.deleteLibComment(comment.id);
       try { await _reloadComments(); } catch (_) { _message('Komentar dihapus. Muat ulang diskusi untuk memperbarui tampilan.'); }
-    } catch (error) { _message(friendlyError(error)); }
+    } catch (error) { _message(friendlyError(error), kind: KarsaSnackKind.danger); }
     finally { if (mounted) setState(() => _deleting.remove(comment.id)); }
   }
-  void _message(String message) {
-    if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(message)));
+  void _message(String message, {KarsaSnackKind kind = KarsaSnackKind.neutral}) {
+    if (mounted) showKarsaSnack(context, message, kind: kind);
   }
 }
 
@@ -338,7 +333,7 @@ class _ArticleAiPreview extends StatelessWidget {
       onPressed: enabled ? onAsk : null,
       style: FilledButton.styleFrom(
         disabledForegroundColor: disabledColor,
-        disabledBackgroundColor: const Color(0xFFF4E6D8),
+        disabledBackgroundColor: KarsaColors.tintStrong,
         minimumSize: const Size(0, 44),
         padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
         shape: shape,
@@ -365,15 +360,15 @@ class _ArticleAiPreview extends StatelessWidget {
               ),
             ),
             if (!enabled) Container(
-              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+              padding: const EdgeInsets.symmetric(horizontal: KarsaSpace.sm, vertical: 3),
               decoration: BoxDecoration(
-                color: const Color(0xFFFFF2E7),
-                borderRadius: BorderRadius.circular(6),
+                color: KarsaColors.tintSoft,
+                borderRadius: BorderRadius.circular(KarsaRadius.sm),
               ),
               child: const Text(
                 'Dalam pengembangan',
                 style: TextStyle(
-                  fontSize: 10,
+                  fontSize: KarsaType.caption,
                   fontWeight: FontWeight.w600,
                   color: KarsaColors.muted,
                 ),

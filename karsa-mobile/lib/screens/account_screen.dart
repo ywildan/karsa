@@ -54,28 +54,28 @@ class _AccountScreenState extends State<AccountScreen> {
     return RefreshIndicator(onRefresh: _refresh, child: CustomScrollView(
       physics: const AlwaysScrollableScrollPhysics(),
       slivers: [
-        const SliverAppBar(title: Text('Akun')),
+        const SliverAppBar(pinned: true, title: Text('Akun')),
         SliverToBoxAdapter(child: ScreenPadding(child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch, children: [
-            const SizedBox(height: 18),
+            const SizedBox(height: KarsaSpace.xl),
             Center(child: InitialAvatar(name: user.name ?? 'Mahasiswa', image: user.image, radius: 42)),
-            const SizedBox(height: 16),
+            const SizedBox(height: KarsaSpace.lg),
             Text(user.name ?? 'Mahasiswa', textAlign: TextAlign.center,
               style: Theme.of(context).textTheme.titleLarge),
-            const SizedBox(height: 4),
+            const SizedBox(height: KarsaSpace.xs),
             Text(user.email, textAlign: TextAlign.center,
-              style: const TextStyle(fontSize: 13, color: KarsaColors.muted)),
+              style: const TextStyle(fontSize: KarsaType.caption, color: KarsaColors.muted)),
             if (user.nim != null) Text(user.nim!, textAlign: TextAlign.center,
-              style: const TextStyle(fontSize: 13, color: KarsaColors.muted)),
-            const SizedBox(height: 28),
+              style: const TextStyle(fontSize: KarsaType.caption, color: KarsaColors.muted)),
+            const SizedBox(height: KarsaSpace.xl),
             const SectionHeading(title: 'Identitas dan akses'),
-            const SizedBox(height: 10),
+            const SizedBox(height: KarsaSpace.md),
             Card(child: Column(children: [
               ListTile(leading: const Icon(Icons.school_outlined),
                 title: const Text('Akses Karsa'),
                 subtitle: Text(user.capabilities.recordPoints ? 'Mahasiswa · PJ mata kuliah' : 'Mahasiswa')),
               if (user.capabilities.viewKarsaLib) ...[
-                const Divider(height: 1, indent: 16, endIndent: 16),
+                const Divider(height: 1, indent: KarsaSpace.lg, endIndent: KarsaSpace.lg),
                 ListTile(leading: const Icon(Icons.account_balance_outlined),
                   title: const Text('Fakultas Karsa Lib'),
                   subtitle: FutureBuilder<LibBootstrap>(future: _lib, builder: (context, snapshot) => Text(
@@ -94,15 +94,15 @@ class _AccountScreenState extends State<AccountScreen> {
                   final classes = bootstrap?.classes.where((c) => c.id == profile?.classId);
                   final className = classes == null || classes.isEmpty ? null : classes.first.name;
                   return Column(children: [
-                    const Divider(height: 1, indent: 16, endIndent: 16),
+                    const Divider(height: 1, indent: KarsaSpace.lg, endIndent: KarsaSpace.lg),
                     ListTile(leading: const Icon(Icons.menu_book_outlined),
                       title: const Text('Program studi'), subtitle: Text(program)),
                     if (className != null) ...[
-                      const Divider(height: 1, indent: 16, endIndent: 16),
+                      const Divider(height: 1, indent: KarsaSpace.lg, endIndent: KarsaSpace.lg),
                       ListTile(leading: const Icon(Icons.people_outline_rounded),
                         title: const Text('Kelas Karsa Lib'), subtitle: Text(className)),
                     ],
-                    const Divider(height: 1, indent: 16, endIndent: 16),
+                    const Divider(height: 1, indent: KarsaSpace.lg, endIndent: KarsaSpace.lg),
                     ListTile(leading: const Icon(Icons.edit_note_rounded),
                       title: const Text('Akses menulis'),
                       subtitle: Text(bootstrap?.canWrite == true
@@ -122,24 +122,24 @@ class _AccountScreenState extends State<AccountScreen> {
                 }),
               ],
             ])),
-            const SizedBox(height: 24),
+            const SizedBox(height: KarsaSpace.xl),
             const SectionHeading(title: 'Informasi aplikasi'),
-            const SizedBox(height: 10),
+            const SizedBox(height: KarsaSpace.md),
             Card(child: Column(children: [
               ListTile(leading: const Icon(Icons.description_outlined),
                 title: const Text('Syarat Penggunaan'),
                 trailing: const Icon(Icons.open_in_new_rounded, size: 18),
                 onTap: () => openLegalDocument(context, termsPath)),
-              const Divider(height: 1, indent: 16, endIndent: 16),
+              const Divider(height: 1, indent: KarsaSpace.lg, endIndent: KarsaSpace.lg),
               ListTile(leading: const Icon(Icons.privacy_tip_outlined),
                 title: const Text('Kebijakan Privasi'),
                 trailing: const Icon(Icons.open_in_new_rounded, size: 18),
                 onTap: () => openLegalDocument(context, privacyPath)),
             ])),
-            const SizedBox(height: 20),
+            const SizedBox(height: KarsaSpace.xl),
             OutlinedButton.icon(onPressed: () => _confirmLogout(context),
               icon: const Icon(Icons.logout_rounded), label: const Text('Keluar dari aplikasi')),
-            const SizedBox(height: 18),
+            const SizedBox(height: KarsaSpace.lg),
             FutureBuilder<String>(future: _version, builder: (context, snapshot) =>
               Text('SiKarsa Mobile ${snapshot.data ?? ''}', textAlign: TextAlign.center,
                 style: const TextStyle(fontSize: 12, color: KarsaColors.muted))),

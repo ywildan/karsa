@@ -7,8 +7,8 @@ import '../core/api_client.dart';
 import '../core/models.dart';
 import '../widgets/common.dart';
 
-const _karsaOrange = Color(0xFFCF6A12);
-const _warmBorder = Color(0xFFF0E7DE);
+const _karsaOrange = KarsaColors.orange;
+const _warmBorder = KarsaColors.border;
 const _rowExtent = 84.0;
 
 double _rowHeight(BuildContext context) {
@@ -182,10 +182,8 @@ class _LeaderboardScreenState extends State<LeaderboardScreen> {
         physics: const AlwaysScrollableScrollPhysics(),
         slivers: [
           const SliverAppBar(
-            title: Text(
-              'Peringkat',
-              style: TextStyle(fontWeight: FontWeight.w800),
-            ),
+            pinned: true,
+            title: Text('Peringkat'),
           ),
           if (_options.isNotEmpty)
             SliverPersistentHeader(
@@ -365,7 +363,7 @@ class _CourseFilter extends SliverPersistentHeaderDelegate {
         filter: ImageFilter.blur(sigmaX: 14, sigmaY: 14),
         child: Container(
           decoration: BoxDecoration(
-            color: const Color(0xFFFFFBF7).withValues(alpha: 0.88),
+            color: KarsaColors.background.withValues(alpha: 0.88),
             border: const Border(
               bottom: BorderSide(color: _warmBorder),
             ),
@@ -377,8 +375,8 @@ class _CourseFilter extends SliverPersistentHeaderDelegate {
               const Text(
                 'MATA KULIAH',
                 style: TextStyle(
-                  color: _karsaOrange,
-                  fontSize: 10,
+                  color: KarsaColors.accentInk,
+                  fontSize: KarsaType.caption,
                   fontWeight: FontWeight.w800,
                   letterSpacing: 1.3,
                 ),
@@ -417,7 +415,7 @@ class _CourseFilter extends SliverPersistentHeaderDelegate {
                               maxLines: 1,
                               overflow: TextOverflow.ellipsis,
                               style: const TextStyle(
-                                fontSize: 13,
+                                fontSize: KarsaType.caption,
                                 fontWeight: FontWeight.w700,
                               ),
                             ),
@@ -475,10 +473,10 @@ class _PositionCard extends StatelessWidget {
         gradient: const LinearGradient(
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
-          colors: [Color(0xFFFFF2E7), Color(0xFFFFFBF7)],
+          colors: [KarsaColors.tintSoft, KarsaColors.background],
         ),
         borderRadius: BorderRadius.circular(24),
-        border: Border.all(color: const Color(0xFFF0D7C2)),
+        border: Border.all(color: KarsaColors.tintStrong),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -494,10 +492,10 @@ class _PositionCard extends StatelessWidget {
               Text(
                 'POSISIMU DI KELAS',
                 style: TextStyle(
-                  fontSize: 10,
+                  fontSize: KarsaType.caption,
                   fontWeight: FontWeight.w800,
                   letterSpacing: 1.2,
-                  color: _karsaOrange,
+                  color: KarsaColors.accentInk,
                 ),
               ),
             ],
@@ -532,7 +530,7 @@ class _PositionCard extends StatelessWidget {
             ),
           if (user != null) ...[
             const SizedBox(height: 16),
-            const Divider(color: Color(0xFFF0D7C2), height: 1),
+            const Divider(color: KarsaColors.tintStrong, height: 1),
             const SizedBox(height: 6),
             Align(
               alignment: Alignment.centerLeft,
@@ -575,7 +573,7 @@ class _PositionMetric extends StatelessWidget {
               height: 1.1,
               fontWeight: FontWeight.w800,
               letterSpacing: -1.4,
-              color: Color(0xFF37271C),
+              color: KarsaColors.ink,
             ),
           ),
         ),
@@ -676,7 +674,7 @@ class _PodiumPerson extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final foreground = primary ? _karsaOrange : const Color(0xFF80644F);
+    final foreground = primary ? _karsaOrange : KarsaColors.muted;
     return Semantics(
       label:
           'Peringkat ${entry.rank}, ${entry.name}, ${entry.points} poin',
@@ -698,16 +696,16 @@ class _PodiumPerson extends StatelessWidget {
               shape: BoxShape.circle,
               border: Border.all(
                 color: primary
-                    ? const Color(0xFFE1AA78)
-                    : const Color(0xFFEBDCCF),
+                    ? KarsaColors.tintStrong
+                    : KarsaColors.tintStrong,
                 width: 2,
               ),
             ),
             child: CircleAvatar(
               radius: primary ? 28 : 23,
               backgroundColor: primary
-                  ? const Color(0xFFFFE5CE)
-                  : const Color(0xFFF4EBE3),
+                  ? KarsaColors.tintStrong
+                  : KarsaColors.tintSoft,
               child: Text(
                 _initials(entry.name),
                 style: TextStyle(
@@ -737,9 +735,9 @@ class _PodiumPerson extends StatelessWidget {
             const Text(
               'Kamu',
               style: TextStyle(
-                fontSize: 10,
+                fontSize: KarsaType.caption,
                 fontWeight: FontWeight.w700,
-                color: _karsaOrange,
+                color: KarsaColors.accentInk,
               ),
             )
           else
@@ -754,10 +752,10 @@ class _PodiumPerson extends StatelessWidget {
                   ? const LinearGradient(
                       begin: Alignment.topLeft,
                       end: Alignment.bottomRight,
-                      colors: [_karsaOrange, Color(0xFFB85B0D)],
+                      colors: [_karsaOrange, KarsaColors.orangeDeep],
                     )
                   : null,
-              color: primary ? null : const Color(0xFFF8EDE3),
+              color: primary ? null : KarsaColors.tintSoft,
               borderRadius: BorderRadius.circular(16),
             ),
             child: Column(
@@ -768,7 +766,7 @@ class _PodiumPerson extends StatelessWidget {
                   style: TextStyle(
                     fontSize: primary ? 24 : 19,
                     fontWeight: FontWeight.w800,
-                    color: primary ? Colors.white : foreground,
+                    color: primary ? KarsaColors.onOrange : foreground,
                   ),
                 ),
                 const SizedBox(height: 2),
@@ -776,9 +774,9 @@ class _PodiumPerson extends StatelessWidget {
                   '${entry.points} poin',
                   textAlign: TextAlign.center,
                   style: TextStyle(
-                    fontSize: 11,
+                    fontSize: KarsaType.caption,
                     fontWeight: FontWeight.w600,
-                    color: primary ? Colors.white : foreground,
+                    color: primary ? KarsaColors.onOrange : foreground,
                   ),
                 ),
               ],
@@ -817,8 +815,8 @@ class _RankRow extends StatelessWidget {
     return Container(
       decoration: BoxDecoration(
         color: entry.isCurrentUser
-            ? const Color(0xFFFFF0E3)
-            : Colors.white,
+            ? KarsaColors.tintSoft
+            : KarsaColors.card,
         borderRadius: BorderRadius.vertical(
           top: first ? const Radius.circular(20) : Radius.zero,
           bottom: last ? const Radius.circular(20) : Radius.zero,
@@ -837,7 +835,7 @@ class _RankRow extends StatelessWidget {
                 fontSize: 14,
                 fontWeight: FontWeight.w800,
                 color: entry.isCurrentUser
-                    ? _karsaOrange
+                    ? KarsaColors.orange
                     : colors.onSurfaceVariant,
               ),
             ),
@@ -846,13 +844,13 @@ class _RankRow extends StatelessWidget {
           CircleAvatar(
             radius: 18,
             backgroundColor: entry.isCurrentUser
-                ? const Color(0xFFFFDBBD)
-                : const Color(0xFFF6F1EC),
+                ? KarsaColors.tintStrong
+                : KarsaColors.tintSoft,
             child: Text(
               _initials(entry.name),
               style: const TextStyle(
-                color: Color(0xFF805432),
-                fontSize: 11,
+                color: KarsaColors.muted,
+                fontSize: KarsaType.caption,
                 fontWeight: FontWeight.w700,
               ),
             ),
@@ -868,7 +866,7 @@ class _RankRow extends StatelessWidget {
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
                   style: const TextStyle(
-                    fontSize: 13,
+                    fontSize: KarsaType.body,
                     fontWeight: FontWeight.w700,
                   ),
                 ),
@@ -881,9 +879,9 @@ class _RankRow extends StatelessWidget {
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
                   style: TextStyle(
-                    fontSize: 10,
+                    fontSize: KarsaType.caption,
                     color: entry.isCurrentUser
-                        ? _karsaOrange
+                        ? KarsaColors.accentInk
                         : colors.onSurfaceVariant,
                     fontWeight: entry.isCurrentUser
                         ? FontWeight.w700
@@ -906,13 +904,13 @@ class _RankRow extends StatelessWidget {
                     style: const TextStyle(
                       fontSize: 18,
                       fontWeight: FontWeight.w800,
-                      color: Color(0xFF37271C),
+                      color: KarsaColors.ink,
                     ),
                   ),
                 ),
                 const Text(
                   'poin',
-                  style: TextStyle(fontSize: 10, color: Color(0xFF8A796C)),
+                  style: TextStyle(fontSize: KarsaType.caption, color: KarsaColors.muted),
                 ),
               ],
             ),

@@ -95,7 +95,7 @@ class _PointFormScreenState extends State<PointFormScreen> {
       }
     } catch (error) {
       if (mounted && requestVersion == _studentRequestVersion) {
-        _show(friendlyError(error));
+        _show(friendlyError(error), kind: KarsaSnackKind.danger);
       }
     } finally {
       if (mounted && requestVersion == _studentRequestVersion) {
@@ -142,10 +142,10 @@ class _PointFormScreenState extends State<PointFormScreen> {
         _points = 1;
         _showNote = false;
       });
-      _show('$savedPoints poin berhasil dicatat untuk $studentName.', success: true);
+      _show('$savedPoints poin berhasil dicatat untuk $studentName.', kind: KarsaSnackKind.success);
     } catch (error) {
       if (mounted) {
-        _show(friendlyError(error));
+        _show(friendlyError(error), kind: KarsaSnackKind.danger);
       }
     } finally {
       if (mounted) {
@@ -154,13 +154,8 @@ class _PointFormScreenState extends State<PointFormScreen> {
     }
   }
 
-  void _show(String message, {bool success = false}) {
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text(message),
-        backgroundColor: success ? Colors.green.shade700 : null,
-      ),
-    );
+  void _show(String message, {KarsaSnackKind kind = KarsaSnackKind.neutral}) {
+    showKarsaSnack(context, message, kind: kind);
   }
 
   String _studentLabel(Student student) => student.nim == null
@@ -190,7 +185,9 @@ class _PointFormScreenState extends State<PointFormScreen> {
         children: [
           Container(
             width: double.infinity,
-            padding: const EdgeInsets.fromLTRB(20, 15, 20, 14),
+            padding: const EdgeInsets.fromLTRB(
+              KarsaSpace.gutter, KarsaSpace.md, KarsaSpace.gutter, KarsaSpace.md,
+            ),
             decoration: const BoxDecoration(
               color: KarsaColors.background,
               border: Border(bottom: BorderSide(color: KarsaColors.border)),
@@ -201,20 +198,20 @@ class _PointFormScreenState extends State<PointFormScreen> {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Text('Input poin', style: TextStyle(fontSize: 20, fontWeight: FontWeight.w800)),
+                      Text('Input poin', style: TextStyle(fontSize: KarsaType.headline, fontWeight: FontWeight.w800)),
                       SizedBox(height: 2),
-                      Text('Catat kontribusi mahasiswa', style: TextStyle(fontSize: 12, color: KarsaColors.muted)),
+                      Text('Catat kontribusi mahasiswa', style: TextStyle(fontSize: KarsaType.caption, color: KarsaColors.muted)),
                     ],
                   ),
                 ),
                 Container(
                   padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
                   decoration: BoxDecoration(
-                    color: const Color(0xFFFFF0E2),
-                    borderRadius: BorderRadius.circular(9),
+                    color: KarsaColors.tintSoft,
+                    borderRadius: BorderRadius.circular(KarsaRadius.sm),
                   ),
                   child: const Text('PJ KELAS', style: TextStyle(
-                    color: KarsaColors.orange, fontSize: 11, fontWeight: FontWeight.w800,
+                    color: KarsaColors.accentInk, fontSize: KarsaType.caption, fontWeight: FontWeight.w800,
                   )),
                 ),
               ],
@@ -226,7 +223,7 @@ class _PointFormScreenState extends State<PointFormScreen> {
 
   Widget _body(BuildContext context) {
     if (_loading) {
-      return const Center(child: CircularProgressIndicator());
+      return const LoadingState(message: 'Memuat penugasan dan kategori…');
     }
     if (_error != null) {
       return ErrorState(message: friendlyError(_error!), onRetry: _load);
@@ -240,10 +237,14 @@ class _PointFormScreenState extends State<PointFormScreen> {
     }
     return Column(children: [
       Expanded(child: LayoutBuilder(builder: (context, constraints) {
-        final minHeight = constraints.maxHeight > 24 ? constraints.maxHeight - 24 : 0.0;
+        final minHeight = constraints.maxHeight > KarsaSpace.xxl
+            ? constraints.maxHeight - KarsaSpace.xxl
+            : 0.0;
         return SingleChildScrollView(
           keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
-          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+          padding: const EdgeInsets.fromLTRB(
+            KarsaSpace.lg, KarsaSpace.md, KarsaSpace.lg, KarsaSpace.md,
+          ),
           child: ConstrainedBox(
             constraints: BoxConstraints(minHeight: minHeight),
             child: Center(
@@ -255,15 +256,8 @@ class _PointFormScreenState extends State<PointFormScreen> {
                   curve: Curves.easeOutCubic,
                   alignment: Alignment.center,
                   child: Card(
-                    margin: EdgeInsets.zero,
-                    color: Colors.white,
-                    elevation: 0,
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(24),
-                      side: const BorderSide(color: KarsaColors.border),
-                    ),
                     child: Padding(
-                      padding: const EdgeInsets.all(20),
+                      padding: const EdgeInsets.all(KarsaSpace.gutter),
                       child: Form(
                         key: _formKey,
                         child: Column(
@@ -276,9 +270,9 @@ class _PointFormScreenState extends State<PointFormScreen> {
               const Expanded(child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text('Pilih mata kuliah', style: TextStyle(fontSize: 18, fontWeight: FontWeight.w800)),
+                  Text('Pilih mata kuliah', style: TextStyle(fontSize: KarsaType.title, fontWeight: FontWeight.w800)),
                   SizedBox(height: 3),
-                  Text('Mulai dari kelas yang kamu ampu.', style: TextStyle(fontSize: 12, color: KarsaColors.muted)),
+                  Text('Mulai dari kelas yang kamu ampu.', style: TextStyle(fontSize: KarsaType.caption, color: KarsaColors.muted)),
                 ],
               )),
               if (_assignment != null) TextButton(
@@ -415,8 +409,8 @@ class _PointFormScreenState extends State<PointFormScreen> {
                 width: double.infinity,
                 padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
                 decoration: BoxDecoration(
-                  color: const Color(0xFFFFF0E2),
-                  borderRadius: BorderRadius.circular(12),
+                  color: KarsaColors.tintSoft,
+                  borderRadius: BorderRadius.circular(KarsaRadius.md),
                 ),
                 child: Row(children: [
                   InitialAvatar(name: _student!.name, radius: 17),
@@ -425,9 +419,9 @@ class _PointFormScreenState extends State<PointFormScreen> {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Text(_student!.name, maxLines: 1, overflow: TextOverflow.ellipsis,
-                        style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w700)),
+                        style: const TextStyle(fontSize: KarsaType.body, fontWeight: FontWeight.w700)),
                       Text(studentNimLabel(_student!.nim),
-                        style: const TextStyle(fontSize: 11, color: KarsaColors.muted)),
+                        style: const TextStyle(fontSize: KarsaType.caption, color: KarsaColors.muted)),
                     ],
                   )),
                 ]),
@@ -472,23 +466,46 @@ class _PointFormScreenState extends State<PointFormScreen> {
           ),
         );
       })),
-      if (_student != null) Container(
-        padding: const EdgeInsets.fromLTRB(20, 12, 20, 14),
+      Container(
+        padding: const EdgeInsets.fromLTRB(
+          KarsaSpace.gutter, KarsaSpace.md, KarsaSpace.gutter, KarsaSpace.md,
+        ),
         decoration: const BoxDecoration(
-          color: Colors.white,
+          color: KarsaColors.card,
           border: Border(top: BorderSide(color: KarsaColors.border)),
         ),
-        child: SizedBox(width: double.infinity, height: 52,
-          child: FilledButton.icon(
-            onPressed: _submitting || _category == null ? null : _submit,
-            icon: _submitting
-                ? const SizedBox.square(dimension: 20, child: CircularProgressIndicator(strokeWidth: 2))
-                : const Icon(Icons.check_rounded),
-            label: Text(_submitting ? 'Menyimpan…' : 'Input poin'),
-          ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            // Bar selalu tampil dengan satu baris petunjuk, jadi tinggi area
+            // konten tidak berubah saat CTA aktif dan kartu tidak melompat.
+            Text(
+              _nextStepHint(),
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: const TextStyle(fontSize: KarsaType.caption, color: KarsaColors.muted),
+            ),
+            const SizedBox(height: KarsaSpace.sm),
+            SizedBox(height: 52,
+              child: FilledButton.icon(
+                onPressed: _submitting || _category == null ? null : _submit,
+                icon: _submitting
+                    ? const SizedBox.square(dimension: 20, child: CircularProgressIndicator(strokeWidth: 2))
+                    : const Icon(Icons.check_rounded),
+                label: Text(_submitting ? 'Menyimpan…' : 'Input poin'),
+              ),
+            ),
+          ],
         ),
       ),
     ]);
+  }
+
+  String _nextStepHint() {
+    if (_assignment == null) return 'Pilih mata kuliah untuk mulai mencatat.';
+    if (_student == null) return 'Cari lalu pilih mahasiswa.';
+    if (_category == null) return 'Pilih kategori dan jumlah poin.';
+    return 'Siap disimpan.';
   }
 
   Widget _pointInputs(BuildContext context) {
@@ -510,13 +527,13 @@ class _PointFormScreenState extends State<PointFormScreen> {
       children: [
         Text('Jumlah poin', style: Theme.of(context).textTheme.labelLarge),
         const SizedBox(height: 5),
-        Wrap(spacing: 5, children: [
+        Wrap(spacing: KarsaSpace.sm, runSpacing: KarsaSpace.sm, children: [
           for (var point = 1; point <= 4; point++)
             ChoiceChip(
-              label: Text('$point'),
+              label: Text('$point', style: const TextStyle(fontSize: KarsaType.bodyLarge, fontWeight: FontWeight.w700)),
               selected: _points == point,
-              visualDensity: VisualDensity.compact,
-              materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
+              labelPadding: const EdgeInsets.symmetric(horizontal: KarsaSpace.xl),
+              padding: const EdgeInsets.symmetric(vertical: KarsaSpace.md),
               onSelected: _submitting ? null : (_) => setState(() => _points = point),
             ),
         ]),
