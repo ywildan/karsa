@@ -27,8 +27,9 @@ import { z } from "zod";
 
 import type { ActionResult } from "@/lib/action-utils";
 import { mapPrismaKnownError, revalidateKelasRoutes, zodFirstError } from "@/lib/action-utils";
-import { auditActor, logAudit } from "@/lib/audit";
-import { requireAdmin } from "@/lib/auth-helpers";
+import { auditActorFromSession, logAudit } from "@/lib/audit";
+import { requirePengelola } from "@/lib/auth-helpers";
+import { canManageKelas } from "@/lib/pengelola";
 import {
   isStudentEmail,
   NIM_MESSAGE,
@@ -126,7 +127,7 @@ export async function findUserForKelas(
   kelasId: string,
   input: { email: string },
 ): Promise<UserPreviewResult> {
-  await requireAdmin();
+  const actor = await requirePengelola();
 
   const parsedId = idSchema.safeParse(kelasId);
   if (!parsedId.success) return { ok: false, error: zodFirstError(parsedId.error) };
@@ -138,9 +139,10 @@ export async function findUserForKelas(
 
   const kelas = await prisma.kelas.findUnique({
     where: { id: parsedId.data },
-    select: { id: true, name: true },
+    select: { id: true, name: true, prodi_id: true },
   });
-  if (!kelas) {
+  // Kelas di luar lingkup pengelola disamarkan sebagai tidak ditemukan.
+  if (!kelas || (!actor.is_admin && !canManageKelas(actor.pengelola_scopes, kelas))) {
     return { ok: false, error: "Kelas tidak ditemukan. Mungkin sudah dihapus." };
   }
 
@@ -206,7 +208,7 @@ export async function addMahasiswaToKelas(
   kelasId: string,
   input: { email: string },
 ): Promise<ActionResult> {
-  const admin = await requireAdmin();
+  const admin = await requirePengelola();
 
   const parsedId = idSchema.safeParse(kelasId);
   if (!parsedId.success) return { ok: false, error: zodFirstError(parsedId.error) };
@@ -218,9 +220,9 @@ export async function addMahasiswaToKelas(
 
   const kelas = await prisma.kelas.findUnique({
     where: { id: parsedId.data },
-    select: { id: true, name: true },
+    select: { id: true, name: true, prodi_id: true },
   });
-  if (!kelas) {
+  if (!kelas || (!admin.is_admin && !canManageKelas(admin.pengelola_scopes, kelas))) {
     return { ok: false, error: "Kelas tidak ditemukan. Mungkin sudah dihapus." };
   }
 
@@ -234,6 +236,10 @@ export async function addMahasiswaToKelas(
       ok: false,
       error: "User tidak ditemukan. Minta user login dulu dengan Google.",
     };
+  }
+
+  if (!admin.is_admin && user.id === admin.id) {
+    return { ok: false, error: "Pengelola tidak dapat menempatkan dirinya sendiri ke kelas." };
   }
 
   if (user.kelas_id === kelas.id) {
@@ -259,7 +265,7 @@ export async function addMahasiswaToKelas(
 
       await logAudit(
         {
-          actor: auditActor(admin),
+          actor: auditActorFromSession(admin),
           action: "MAHASISWA_ADD",
           entity: {
             type: "User",
@@ -317,7 +323,7 @@ export async function createAndAddMahasiswa(
   kelasId: string,
   input: { name: string; nim: string; email: string },
 ): Promise<ActionResult> {
-  const admin = await requireAdmin();
+  const admin = await requirePengelola();
 
   const parsedId = idSchema.safeParse(kelasId);
   if (!parsedId.success) return { ok: false, error: zodFirstError(parsedId.error) };
@@ -329,9 +335,9 @@ export async function createAndAddMahasiswa(
 
   const kelas = await prisma.kelas.findUnique({
     where: { id: parsedId.data },
-    select: { id: true, name: true },
+    select: { id: true, name: true, prodi_id: true },
   });
-  if (!kelas) {
+  if (!kelas || (!admin.is_admin && !canManageKelas(admin.pengelola_scopes, kelas))) {
     return { ok: false, error: "Kelas tidak ditemukan. Mungkin sudah dihapus." };
   }
 
@@ -380,7 +386,7 @@ export async function createAndAddMahasiswa(
 
       await logAudit(
         {
-          actor: auditActor(admin),
+          actor: auditActorFromSession(admin),
           action: "MAHASISWA_ADD",
           entity: {
             type: "User",
@@ -445,7 +451,7 @@ interface PjMatkulRow {
 export async function removeMahasiswaFromKelas(
   userId: string,
 ): Promise<ActionResult> {
-  const admin = await requireAdmin();
+  const admin = await requirePengelola();
 
   const parsedId = idSchema.safeParse(userId);
   if (!parsedId.success) return { ok: false, error: zodFirstError(parsedId.error) };
@@ -457,7 +463,7 @@ export async function removeMahasiswaFromKelas(
       name: true,
       email: true,
       kelas_id: true,
-      kelas: { select: { id: true, name: true } },
+      kelas: { select: { id: true, name: true, prodi_id: true } },
     },
   });
 
@@ -466,6 +472,14 @@ export async function removeMahasiswaFromKelas(
   }
   if (!user.kelas_id || !user.kelas) {
     return { ok: false, error: "User ini belum terdaftar di kelas manapun." };
+  }
+  // Pengelola hanya boleh mengeluarkan anggota kelas dalam lingkupnya, dan
+  // tidak boleh mengeluarkan dirinya sendiri.
+  if (!admin.is_admin && !canManageKelas(admin.pengelola_scopes, user.kelas)) {
+    return { ok: false, error: "User tidak ditemukan. Mungkin sudah dihapus." };
+  }
+  if (!admin.is_admin && user.id === admin.id) {
+    return { ok: false, error: "Pengelola tidak dapat mengeluarkan dirinya sendiri dari kelas." };
   }
 
   const kelasMatkulAsPj: PjMatkulRow[] = await prisma.kelasMatkul.findMany({
@@ -501,7 +515,7 @@ export async function removeMahasiswaFromKelas(
 
       await logAudit(
         {
-          actor: auditActor(admin),
+          actor: auditActorFromSession(admin),
           action: "MAHASISWA_REMOVE",
           entity: {
             type: "User",
