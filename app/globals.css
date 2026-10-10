@@ -146,3 +146,43 @@
     font-variant-numeric: tabular-nums;
   }
 }
+
+/*
+ * Animasi lingkaran toggle tema (View Transitions API) — dipakai
+ * `components/theme-toggle.tsx`: snapshot tema baru di-reveal sebagai
+ * lingkaran yang membesar dari titik tengah tombol (variabel --theme-x/y/r
+ * diisi JS dari posisi tombol yang diklik). Tanpa dukungan API ini,
+ * aturan-aturan di bawah tidak berpengaruh apa pun.
+ */
+::view-transition-old(root),
+::view-transition-new(root) {
+  animation: none;
+  mix-blend-mode: normal;
+}
+
+::view-transition-new(root) {
+  animation: theme-circle-reveal 0.6s ease-in-out;
+}
+
+@keyframes theme-circle-reveal {
+  from {
+    clip-path: circle(0px at var(--theme-x, 50%) var(--theme-y, 50%));
+  }
+  to {
+    clip-path: circle(var(--theme-r, 150vmax) at var(--theme-x, 50%) var(--theme-y, 50%));
+  }
+}
+
+/* Selama reveal berjalan, transisi warna global dimatikan agar tidak ada
+ * dua animasi bertabrakan. Atribut ini dipasang & dicabut oleh toggle. */
+html[data-theme-anim="circle"] *,
+html[data-theme-anim="circle"] *::before,
+html[data-theme-anim="circle"] *::after {
+  transition: none !important;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  ::view-transition-new(root) {
+    animation: none;
+  }
+}
