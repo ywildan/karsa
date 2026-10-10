@@ -79,6 +79,8 @@ model User {
   libCommentsDeleted   LibComment[]        @relation("LibCommentDeletedBy")
   libReports           LibReport[]         @relation("LibReportReporter")
   libReportsResolved   LibReport[]         @relation("LibReportResolver")
+  pengelolaAssignments PengelolaAssignment[] @relation("PengelolaAssignmentUser")
+  pengelolaGrants      PengelolaAssignment[] @relation("PengelolaAssignmentGrantor")
 
   @@index([kelas_id])
   @@index([first_login_at])
@@ -141,6 +143,8 @@ model Semester {
   updated_at DateTime @default(now()) @updatedAt
 
   kelas Kelas[]
+
+  pengelolaAssignments PengelolaAssignment[]
 }
 
 /// Prodi — program studi.
@@ -155,6 +159,8 @@ model Prodi {
   kelas       Kelas[]
   libProfiles LibProfile[]
   libArticles LibArticle[]
+
+  pengelolaAssignments PengelolaAssignment[]
 
   @@index([faculty_id])
 }
@@ -196,6 +202,8 @@ model Kelas {
   users       User[]
   kelasMatkul KelasMatkul[]
   libProfiles LibProfile[]
+
+  pengelolaAssignments PengelolaAssignment[]
 
   @@unique([name, prodi_id, semester_id])
   @@index([prodi_id])
@@ -420,6 +428,57 @@ model AuditLog {
   @@index([action, created_at(sort: Desc)])
   @@index([actor_id, created_at(sort: Desc)])
   @@index([created_at(sort: Desc)])
+}
+
+// ---------------------------------------------------------------------------
+// Pengelola (delegasi wewenang admin yang dibatasi lingkup)
+// ---------------------------------------------------------------------------
+
+/// PengelolaAssignment — penunjukan pengelola dengan lingkup terbatas.
+///
+/// Peran pengelola DITURUNKAN dari baris penunjukan ini (meniru pola PJ dari
+/// `KelasMatkul.pj_id`), bukan dari flag di `User`. Hanya admin penuh yang
+/// boleh membuat/mencabut penunjukan (lihat `actions/pengelola.ts`).
+///
+/// Status diturunkan dari kolom, bukan disimpan:
+/// - PENDING  = `user_id` null & `revoked_at` null (penunjukan berbasis
+///   email dibuat sebelum orangnya pernah login; diklaim otomatis saat
+///   login Google pertama — lihat `auth.ts` & `lib/user-snapshot.ts`).
+/// - AKTIF    = `user_id` terisi & `revoked_at` null.
+/// - DICABUT  = `revoked_at` terisi.
+///
+/// `scope_type` String ("PRODI" | "KELAS") tanpa enum native, mengikuti
+/// konvensi schema ini; tepat satu target wajib terisi sesuai scope —
+/// ditegakkan CHECK di SQL (`init.sql` / `pengelola-scope.sql`):
+/// PRODI → `prodi_id` terisi & `kelas_id` null; KELAS → sebaliknya.
+///
+/// Masa berlaku dibatasi `semester_id` (semester saat ditunjuk): penunjukan
+/// berhenti memberi hak begitu semester berganti, kecuali diperpanjang
+/// pemilik dengan penunjukan baru.
+model PengelolaAssignment {
+  id            String    @id @default(cuid())
+  user_id       String?
+  email         String
+  scope_type    String    @default("PRODI")
+  prodi_id      String?
+  kelas_id      String?
+  granted_by_id String
+  semester_id   String?
+  granted_at    DateTime  @default(now())
+  revoked_at    DateTime?
+  created_at    DateTime  @default(now())
+  updated_at    DateTime  @default(now()) @updatedAt
+
+  user      User?     @relation("PengelolaAssignmentUser", fields: [user_id], references: [id], onDelete: SetNull, onUpdate: Cascade)
+  grantedBy User      @relation("PengelolaAssignmentGrantor", fields: [granted_by_id], references: [id], onDelete: Restrict, onUpdate: Cascade)
+  prodi     Prodi?    @relation(fields: [prodi_id], references: [id], onDelete: Restrict, onUpdate: Cascade)
+  kelas     Kelas?    @relation(fields: [kelas_id], references: [id], onDelete: Restrict, onUpdate: Cascade)
+  semester  Semester? @relation(fields: [semester_id], references: [id], onDelete: SetNull, onUpdate: Cascade)
+
+  @@index([user_id])
+  @@index([email])
+  @@index([prodi_id])
+  @@index([kelas_id])
 }
 
 // ---------------------------------------------------------------------------

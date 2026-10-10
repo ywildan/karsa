@@ -9,7 +9,8 @@
  */
 import ExcelJS from "exceljs";
 
-import { requireAdmin } from "@/lib/auth-helpers";
+import { requirePengelola } from "@/lib/auth-helpers";
+import { canManageKelas } from "@/lib/pengelola";
 import { prisma } from "@/lib/prisma";
 
 export type RekapMatkul = {
@@ -131,24 +132,40 @@ async function loadRekapByKelas(kelasId: string): Promise<RekapResult> {
 }
 
 export async function getRekapByKelas(kelasId: string): Promise<RekapResult> {
-  await requireAdmin();
+  const actor = await requirePengelola();
+  if (!actor.is_admin) {
+    // Pengelola hanya boleh merekap kelas dalam lingkupnya; kelas lain
+    // disamarkan sebagai tidak ditemukan.
+    const kelas = await prisma.kelas.findUnique({
+      where: { id: kelasId },
+      select: { id: true, prodi_id: true },
+    });
+    if (!kelas || !canManageKelas(actor.pengelola_scopes, kelas)) {
+      return { ok: false, error: "Kelas tidak ditemukan." };
+    }
+  }
   return loadRekapByKelas(kelasId);
 }
 
 export async function getKelasOptionsForRekap(): Promise<RekapKelasOption[]> {
-  await requireAdmin();
+  const actor = await requirePengelola();
 
   const kelas = await prisma.kelas.findMany({
     where: { semester: { is_active: true } },
     select: {
       id: true,
       name: true,
+      prodi_id: true,
       prodi: { select: { name: true } },
     },
     orderBy: [{ prodi: { name: "asc" } }, { name: "asc" }],
   });
 
-  return kelas.map((item) => ({
+  const visible = actor.is_admin
+    ? kelas
+    : kelas.filter((item) => canManageKelas(actor.pengelola_scopes, item));
+
+  return visible.map((item) => ({
     id: item.id,
     label: `${item.name} · ${item.prodi.name}`,
   }));

@@ -87,6 +87,11 @@ export const authConfig = {
         session.user.is_admin = token.is_admin ?? false;
         session.user.kelas_id = token.kelas_id ?? null;
         session.user.is_pj = token.is_pj ?? false;
+        session.user.is_pengelola = token.is_pengelola ?? false;
+        session.user.pengelola_scopes = token.pengelola_scopes ?? {
+          prodi_ids: [],
+          kelas_ids: [],
+        };
         session.user.authorization_verified =
           token.authorization_verified === true;
       }

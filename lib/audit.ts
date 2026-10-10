@@ -15,7 +15,7 @@ export type AuditActor = {
   id: string;
   name: string;
   is_admin: boolean;
-  role?: "ADMIN" | "PJ" | "MAHASISWA";
+  role?: "ADMIN" | "PJ" | "MAHASISWA" | "PENGELOLA";
 };
 
 /**
@@ -82,6 +82,22 @@ export function auditActor(
   // `role` tidak selalu diisi: `logAudit` menurunkannya dari `is_admin`.
   if (options.role !== undefined) actor.role = options.role;
   return actor;
+}
+
+/**
+ * Susun `actor` dari user session yang mungkin admin penuh ATAU pengelola.
+ * Role dicatat eksplisit ("ADMIN" / "PENGELOLA") supaya jejak audit tidak
+ * menyamarkan delegasi sebagai tindakan admin — penurunan default di
+ * `logAudit` akan menulis "PJ" untuk aktor non-admin tanpa role eksplisit.
+ */
+export function auditActorFromSession(
+  user: AuditActorSource & { is_pengelola?: boolean },
+): AuditActor {
+  if (user.is_admin) return auditActor(user, { role: "ADMIN" });
+  if (user.is_pengelola) {
+    return auditActor(user, { role: "PENGELOLA", fallbackName: "Pengelola" });
+  }
+  return auditActor(user);
 }
 
 /**

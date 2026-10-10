@@ -31,6 +31,13 @@ interface KarsaUserFields {
   kelas_id: string | null;
   /** Punya ≥1 `KelasMatkul` dengan `pj_id = dirinya`. */
   is_pj: boolean;
+  /** Punya ≥1 penunjukan aktif di `PengelolaAssignment`. */
+  is_pengelola: boolean;
+  /** Lingkup penunjukan aktif: id prodi & id kelas yang boleh dikelola. */
+  pengelola_scopes: {
+    prodi_ids: string[];
+    kelas_ids: string[];
+  };
   /** True hanya setelah klaim akses berhasil di-refresh dari database. */
   authorization_verified: boolean;
 }
@@ -56,6 +63,11 @@ declare module "next-auth/jwt" {
     is_admin: boolean;
     kelas_id: string | null;
     is_pj: boolean;
+    is_pengelola: boolean;
+    pengelola_scopes: {
+      prodi_ids: string[];
+      kelas_ids: string[];
+    };
     authorization_verified?: boolean;
   }
 }

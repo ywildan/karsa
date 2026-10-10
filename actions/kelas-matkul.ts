@@ -30,8 +30,9 @@ import { z } from "zod";
 
 import type { ActionResult } from "@/lib/action-utils";
 import { mapPrismaKnownError, revalidateKelasRoutes, zodFirstError } from "@/lib/action-utils";
-import { auditActor, logAudit } from "@/lib/audit";
-import { requireAdmin } from "@/lib/auth-helpers";
+import { auditActorFromSession, logAudit } from "@/lib/audit";
+import { requirePengelola } from "@/lib/auth-helpers";
+import { canAssignPj, canManageKelas } from "@/lib/pengelola";
 import { prisma } from "@/lib/prisma";
 
 // ---------------------------------------------------------------------------
@@ -61,6 +62,7 @@ function pesanPoinTercatat(namaMatkul: string, jumlah: number): string {
 interface KelasRef {
   id: string;
   name: string;
+  prodi_id: string;
 }
 
 interface PjCandidateRow {
@@ -135,7 +137,7 @@ export async function assignMatkulToKelas(
   kelasId: string,
   input: { matkul_id: string; pj_id: string },
 ): Promise<ActionResult> {
-  const admin = await requireAdmin();
+  const admin = await requirePengelola();
 
   const parsedId = idSchema.safeParse(kelasId);
   if (!parsedId.success) return { ok: false, error: zodFirstError(parsedId.error) };
@@ -148,7 +150,7 @@ export async function assignMatkulToKelas(
   const [kelas, matkul] = await Promise.all([
     prisma.kelas.findUnique({
       where: { id: parsedId.data },
-      select: { id: true, name: true },
+      select: { id: true, name: true, prodi_id: true },
     }),
     prisma.matkul.findUnique({
       where: { id: matkul_id },
@@ -157,6 +159,11 @@ export async function assignMatkulToKelas(
   ]);
 
   if (!kelas) {
+    return { ok: false, error: "Kelas tidak ditemukan. Mungkin sudah dihapus." };
+  }
+  // Pengelola: wajib dalam lingkup + lolos aturan konflik kepentingan
+  // (tidak boleh mengatur PJ di kelas tempat ia sendiri terdaftar).
+  if (!admin.is_admin && !canAssignPj(admin.pengelola_scopes, admin.kelas_id, kelas)) {
     return { ok: false, error: "Kelas tidak ditemukan. Mungkin sudah dihapus." };
   }
   if (!matkul) {
@@ -184,7 +191,7 @@ export async function assignMatkulToKelas(
 
       await logAudit(
         {
-          actor: auditActor(admin),
+          actor: auditActorFromSession(admin),
           action: "PJ_ASSIGN",
           entity: {
             type: "KelasMatkul",
@@ -239,7 +246,7 @@ export async function updatePjKelasMatkul(
   kelasMatkulId: string,
   input: { pj_id: string },
 ): Promise<ActionResult> {
-  const admin = await requireAdmin();
+  const admin = await requirePengelola();
 
   const parsedId = idSchema.safeParse(kelasMatkulId);
   if (!parsedId.success) return { ok: false, error: zodFirstError(parsedId.error) };
@@ -256,11 +263,14 @@ export async function updatePjKelasMatkul(
       pj_id: true,
       pj: { select: { id: true, name: true, email: true } },
       matkul: { select: { id: true, name: true } },
-      kelas: { select: { id: true, name: true } },
+      kelas: { select: { id: true, name: true, prodi_id: true } },
     },
   });
 
   if (!row) {
+    return { ok: false, error: "Penugasan tidak ditemukan. Mungkin sudah dihapus." };
+  }
+  if (!admin.is_admin && !canAssignPj(admin.pengelola_scopes, admin.kelas_id, row.kelas)) {
     return { ok: false, error: "Penugasan tidak ditemukan. Mungkin sudah dihapus." };
   }
 
@@ -284,7 +294,7 @@ export async function updatePjKelasMatkul(
 
       await logAudit(
         {
-          actor: auditActor(admin),
+          actor: auditActorFromSession(admin),
           action: "PJ_REPLACE",
           entity: {
             type: "KelasMatkul",
@@ -350,7 +360,7 @@ export async function updatePjKelasMatkul(
 export async function removeKelasMatkul(
   kelasMatkulId: string,
 ): Promise<ActionResult> {
-  const admin = await requireAdmin();
+  const admin = await requirePengelola();
 
   const parsedId = idSchema.safeParse(kelasMatkulId);
   if (!parsedId.success) return { ok: false, error: zodFirstError(parsedId.error) };
@@ -361,11 +371,14 @@ export async function removeKelasMatkul(
       id: true,
       pj: { select: { id: true, name: true, email: true } },
       matkul: { select: { id: true, name: true } },
-      kelas: { select: { id: true, name: true } },
+      kelas: { select: { id: true, name: true, prodi_id: true } },
     },
   });
 
   if (!row) {
+    return { ok: false, error: "Penugasan tidak ditemukan. Mungkin sudah dihapus." };
+  }
+  if (!admin.is_admin && !canManageKelas(admin.pengelola_scopes, row.kelas)) {
     return { ok: false, error: "Penugasan tidak ditemukan. Mungkin sudah dihapus." };
   }
 
@@ -402,7 +415,7 @@ export async function removeKelasMatkul(
 
         await logAudit(
           {
-            actor: auditActor(admin),
+            actor: auditActorFromSession(admin),
             action: "PJ_REMOVE",
             entity: {
               type: "KelasMatkul",

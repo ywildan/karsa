@@ -14,6 +14,7 @@ import {
   LayoutDashboard,
   ScrollText,
   TableProperties,
+  UserCog,
   type LucideIcon,
 } from "lucide-react";
 
@@ -31,6 +32,7 @@ const NAV_GROUPS: { label: string; items: NavItem[] }[] = [
     items: [
       { href: "/admin/karsalib", label: "Karsa Lib", icon: BookOpenText },
       { href: "/admin/rekap", label: "Rekap poin", icon: TableProperties },
+      { href: "/admin/pengelola", label: "Pengelola", icon: UserCog },
     ],
   },
   {

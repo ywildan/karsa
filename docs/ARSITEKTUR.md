@@ -29,6 +29,7 @@ Web / Admin       ──HTTPS──▶ Server Actions + Route Handlers ──Pri
 
 - Login Google via Auth.js (NextAuth v5 beta); domain diizinkan `@students.untidar.ac.id` / `@untidar.ac.id`.
 - Role: **admin** (akses penuh), **PJ** (catat/hapus poin sendiri), **mahasiswa** (rapor, leaderboard).
+- Role delegasi: **pengelola** — wewenang admin yang dibatasi lingkup prodi/kelas, diturunkan dari tabel penunjukan `PengelolaAssignment` (meniru pola PJ; BUKAN flag di `User`). Hanya admin penuh yang menunjuk/mencabut (berbasis email, boleh sebelum orangnya login pertama; masa berlaku terikat semester penunjukan). Klaim `is_pengelola` + `pengelola_scopes` dibangun di `lib/user-snapshot.ts`; kebijakan lingkup murni ada di `lib/pengelola.ts`; area web-nya di route `/pengelola` (mobile API tidak berubah). Pengelola tidak bisa mengangkat pengelola lain, menghapus kelas, atau menyentuh master global (semester/fakultas/prodi/matkul/Karsa Lib).
 - Guard: `middleware.ts` (Edge) + `requireAdmin` / `requirePj` / `requireUser` di server actions.
 - Mobile memakai `MobileAuthRequest` → `MobileSession` (kode otorisasi, bukan cookie).
 - Jika refresh snapshot user gagal, klaim akses di-fail-closed-kan (`is_admin`/`is_pj` = false) — lihat `docs/KEAMANAN.md`.

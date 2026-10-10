@@ -11,12 +11,14 @@
  * (KelasMatkul.kelas_id). Maka `deleteKelas` CEK EKSPLISIT jumlah mahasiswa &
  * matkul sebelum hapus supaya pesan ramah & prediktif.
  */
+import { revalidatePath } from "next/cache";
 import { z } from "zod";
 
 import type { ActionResult } from "@/lib/action-utils";
 import { mapPrismaKnownError, revalidatePaths, zodFirstError } from "@/lib/action-utils";
-import { auditActor, logAudit } from "@/lib/audit";
-import { requireAdmin } from "@/lib/auth-helpers";
+import { auditActor, auditActorFromSession, logAudit } from "@/lib/audit";
+import { requireAdmin, requirePengelola } from "@/lib/auth-helpers";
+import { canManageKelas, canManageProdi } from "@/lib/pengelola";
 import { prisma } from "@/lib/prisma";
 
 const kelasInputSchema = z.object({
@@ -49,14 +51,21 @@ const REVALIDATE_WITH_DETAIL = [
   "/admin/kelas/[id]",
 ] as const;
 
-/** Tambah kelas baru. Unique (name, prodi_id, semester_id). */
+/**
+ * Tambah kelas baru. Unique (name, prodi_id, semester_id).
+ * Admin penuh bebas; pengelola hanya boleh membuat kelas di prodi yang
+ * berada dalam lingkup penunjukannya.
+ */
 export async function createKelas(input: KelasInput): Promise<ActionResult> {
-  const admin = await requireAdmin();
+  const admin = await requirePengelola();
 
   const parsed = kelasInputSchema.safeParse(input);
   if (!parsed.success) return { ok: false, error: zodFirstError(parsed.error) };
 
   const { name, prodi_id, semester_id } = parsed.data;
+  if (!admin.is_admin && !canManageProdi(admin.pengelola_scopes, prodi_id)) {
+    return { ok: false, error: "Prodi ini berada di luar lingkup penunjukan Anda." };
+  }
   try {
     await prisma.$transaction(async (tx) => {
       const created = await tx.kelas.create({
@@ -65,7 +74,7 @@ export async function createKelas(input: KelasInput): Promise<ActionResult> {
 
       await logAudit(
         {
-          actor: auditActor(admin),
+          actor: auditActorFromSession(admin),
           action: "KELAS_CREATE",
           entity: { type: "Kelas", id: created.id, label: name },
           context: { kelas_id: created.id, kelas_label: name },
@@ -89,6 +98,7 @@ export async function createKelas(input: KelasInput): Promise<ActionResult> {
   }
 
   revalidatePaths(REVALIDATE);
+  revalidatePath("/pengelola");
   return { ok: true, message: `Kelas "${name}" berhasil ditambahkan.` };
 }
 
@@ -100,7 +110,7 @@ export async function updateKelas(
   id: string,
   input: KelasInput,
 ): Promise<ActionResult> {
-  const admin = await requireAdmin();
+  const admin = await requirePengelola();
 
   const parsed = kelasUpdateSchema.safeParse(input);
   if (!parsed.success) return { ok: false, error: zodFirstError(parsed.error) };
@@ -113,6 +123,17 @@ export async function updateKelas(
   });
   if (!before) {
     return { ok: false, error: "Kelas tidak ditemukan. Mungkin sudah dihapus." };
+  }
+
+  if (!admin.is_admin) {
+    // Kelas di luar lingkup disamarkan sebagai tidak ditemukan, dan
+    // pengelola tidak boleh memindahkan kelas keluar/masuk prodi lain.
+    if (!canManageKelas(admin.pengelola_scopes, { id, prodi_id: before.prodi_id })) {
+      return { ok: false, error: "Kelas tidak ditemukan. Mungkin sudah dihapus." };
+    }
+    if (prodi_id !== before.prodi_id) {
+      return { ok: false, error: "Pengelola tidak dapat memindahkan kelas ke prodi lain." };
+    }
   }
 
   const changedFields = (
@@ -128,7 +149,7 @@ export async function updateKelas(
 
       await logAudit(
         {
-          actor: auditActor(admin),
+          actor: auditActorFromSession(admin),
           action: "KELAS_UPDATE",
           entity: { type: "Kelas", id, label: name },
           context: { kelas_id: id, kelas_label: name },
@@ -155,6 +176,8 @@ export async function updateKelas(
   }
 
   revalidatePaths(REVALIDATE_WITH_DETAIL);
+  revalidatePath("/pengelola");
+  revalidatePath("/pengelola/kelas/[id]", "page");
   return { ok: true, message: `Kelas "${name}" berhasil diperbarui.` };
 }
 

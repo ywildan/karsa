@@ -8,7 +8,8 @@
  */
 import type { Prisma } from "@prisma/client";
 
-import { requireAdmin } from "@/lib/auth-helpers";
+import { requireAdmin, requirePengelola } from "@/lib/auth-helpers";
+import { canManageKelas } from "@/lib/pengelola";
 import { prisma } from "@/lib/prisma";
 
 const AUDIT_ACTION_CATEGORIES = [
@@ -90,13 +91,31 @@ function normalizeOffset(value: number | undefined): number {
 export async function getAuditLog(
   filters: AuditLogFilters = {},
 ): Promise<AuditLogRow[]> {
-  await requireAdmin();
+  const actor = await requirePengelola();
 
   const conditions: Prisma.AuditLogWhereInput[] = [];
   const kelasId = filters.kelas_id?.trim();
   const action = filters.action?.trim();
   const actorId = filters.actor_id?.trim();
   const search = filters.search?.trim();
+
+  if (!actor.is_admin) {
+    // Pengelola hanya menerima baris audit yang terikat kelas dalam
+    // lingkupnya (AuditLog menyimpan kelas_id snapshot). Baris tanpa kelas
+    // (aksi global: semester, master data, penunjukan) tidak terlihat.
+    const scopedKelas = await prisma.kelas.findMany({
+      where: {
+        OR: [
+          { id: { in: actor.pengelola_scopes.kelas_ids } },
+          { prodi_id: { in: actor.pengelola_scopes.prodi_ids } },
+        ],
+      },
+      select: { id: true },
+    });
+    const scopedIds = scopedKelas.map((kelas) => kelas.id);
+    if (kelasId && !scopedIds.includes(kelasId)) return [];
+    conditions.push({ kelas_id: { in: scopedIds } });
+  }
 
   if (kelasId) {
     conditions.push({ kelas_id: kelasId });
@@ -158,23 +177,28 @@ export async function getAuditLog(
   }));
 }
 
-/** Opsi dropdown kelas dari kelas pada semester aktif. */
+/** Opsi dropdown kelas dari kelas pada semester aktif (pengelola: hanya lingkupnya). */
 export async function getAuditKelasOptions(): Promise<AuditKelasOption[]> {
-  await requireAdmin();
+  const actor = await requirePengelola();
 
-  return prisma.kelas.findMany({
+  const rows = await prisma.kelas.findMany({
     where: { semester: { is_active: true } },
     orderBy: { name: "asc" },
     select: {
       id: true,
       name: true,
+      prodi_id: true,
     },
-  }).then((rows) =>
-    rows.map((row) => ({
-      id: row.id,
-      label: row.name,
-    })),
-  );
+  });
+
+  const visible = actor.is_admin
+    ? rows
+    : rows.filter((row) => canManageKelas(actor.pengelola_scopes, row));
+
+  return visible.map((row) => ({
+    id: row.id,
+    label: row.name,
+  }));
 }
 
 /**
