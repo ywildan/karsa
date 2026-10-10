@@ -108,6 +108,16 @@ export default auth((req) => {
     return nextWithChannel(channel, existing);
   }
 
+  // Area pengelola: admin penuh ATAU pemegang penunjukan pengelola aktif.
+  // Batasan lingkup per kelas/prodi ditegakkan di server (guard per-resource
+  // di actions + `requirePengelolaKelas`), bukan di middleware.
+  if (pathname === "/pengelola" || pathname.startsWith("/pengelola/")) {
+    if (!(user?.is_admin || user?.is_pengelola)) {
+      return redirectTo(req, HOME_DEFAULT, channel, existing);
+    }
+    return nextWithChannel(channel, existing);
+  }
+
   // Path (mobile): wajib PJ. Admin / mahasiswa / tanpa kelas → /dashboard.
   if (isMobilePath(pathname)) {
     if (!user?.is_pj) {

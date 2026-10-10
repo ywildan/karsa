@@ -65,6 +65,8 @@ const devCredentialsProvider = Credentials({
       is_admin: snapshot.is_admin,
       kelas_id: snapshot.kelas_id,
       is_pj: snapshot.is_pj,
+      is_pengelola: snapshot.is_pengelola,
+      pengelola_scopes: snapshot.pengelola_scopes,
     };
     return authUser;
   },
@@ -80,7 +82,28 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
   providers: [...authConfig.providers, ...devProviders],
   events: {
     async signIn({ user, account }) {
-      if (account?.provider !== "google" || !user.id || !isStudentEmail(user.email)) return;
+      if (account?.provider !== "google" || !user.id) return;
+
+      // Klaim penunjukan pengelola yang masih PENDING berbasis email.
+      // Berlaku untuk SEMUA email kampus (pengelola bisa staf/dosen, bukan
+      // hanya mahasiswa) — penunjukan dibuat admin sebelum orangnya login.
+      // Jalur cadangan idempoten ada di `lib/user-snapshot.ts`.
+      if (user.email) {
+        try {
+          await prisma.pengelolaAssignment.updateMany({
+            where: {
+              user_id: null,
+              revoked_at: null,
+              email: user.email.toLowerCase(),
+            },
+            data: { user_id: user.id },
+          });
+        } catch (error) {
+          console.error("[auth] gagal mengklaim penunjukan pengelola", error);
+        }
+      }
+
+      if (!isStudentEmail(user.email)) return;
       try {
         await prisma.user.updateMany({
           where: { id: user.id, first_login_at: null },
@@ -123,6 +146,8 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
         token.is_admin = snapshot.is_admin;
         token.kelas_id = snapshot.kelas_id;
         token.is_pj = snapshot.is_pj;
+        token.is_pengelola = snapshot.is_pengelola;
+        token.pengelola_scopes = snapshot.pengelola_scopes;
         token.authorization_verified = true;
         // Profil dasar mengikuti DB (admin boleh memperbaiki nama di fase
         // berikutnya); kalau NULL, pertahankan nilai dari OAuth.
@@ -136,6 +161,8 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
         token.is_admin = false;
         token.kelas_id = null;
         token.is_pj = false;
+        token.is_pengelola = false;
+        token.pengelola_scopes = { prodi_ids: [], kelas_ids: [] };
         token.authorization_verified = false;
         console.error(
           "[auth] refresh klaim dari DB gagal — klaim otorisasi dicabut sementara.",

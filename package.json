@@ -16,6 +16,7 @@
     "lint": "next lint",
     "typecheck": "tsc --noEmit",
     "test:groups": "tsx --test tests/group-policy.test.ts",
+    "test:pengelola": "tsx --test tests/pengelola-policy.test.ts",
     "test:lib-ai": "node --import tsx --test tests/lib-ai.test.ts",
     "test:lib-ai:integration": "node --conditions=react-server --import tsx --test tests/lib-ai.integration.ts",
     "test:groups:integration": "tsx --test tests/group-api.integration.ts",

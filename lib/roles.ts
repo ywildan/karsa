@@ -21,11 +21,25 @@ export interface RoleClaims {
    * `is_admin` — admin boleh merangkap PJ (PRD §6).
    */
   is_pj?: boolean;
+  /**
+   * Pengelola bila punya ≥1 penunjukan aktif di `PengelolaAssignment`
+   * (dihitung di `lib/user-snapshot.ts`). Peran ini DITURUNKAN dari relasi
+   * penugasan — sama seperti PJ — bukan flag di `User`.
+   */
+  is_pengelola?: boolean;
+  /** Lingkup penunjukan aktif: id prodi & id kelas yang boleh dikelola. */
+  pengelola_scopes?: {
+    prodi_ids: string[];
+    kelas_ids: string[];
+  };
   kelas_id?: string | null;
 }
 
 /** Home channel admin desktop (PRD §7.1). */
 export const HOME_ADMIN = "/admin/dashboard";
+
+/** Home channel pengelola (delegasi wewenang terbatas lingkup). */
+export const HOME_PENGELOLA = "/pengelola";
 
 /**
  * Home channel default untuk mahasiswa, user tanpa kelas, dan admin di
@@ -69,6 +83,10 @@ export function homePathForUser(
   // PJ murni yang membuka dari desktop tetap dikunci ke shell mobile.
   if (claims?.is_pj) {
     return MOBILE_HOME;
+  }
+  // Pengelola (bukan admin, bukan PJ) → panel pengelola.
+  if (claims?.is_pengelola) {
+    return HOME_PENGELOLA;
   }
   return HOME_DEFAULT;
 }

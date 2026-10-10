@@ -14,6 +14,11 @@
  * `User` — sesuai definisi Fase 1: "true jika user punya ≥1 KelasMatkul
  * dengan pj_id = user.id" (PRD §6).
  */
+import {
+  derivePengelolaScopes,
+  isPengelola as hasPengelolaScope,
+  type PengelolaScopes,
+} from "@/lib/pengelola";
 import { prisma } from "@/lib/prisma";
 
 /** Profil ringkas user — dipakai untuk klaim JWT & otorisasi server. */
@@ -28,6 +33,13 @@ export interface UserSnapshot {
   premium_tier: string;
   kelas_id: string | null;
   is_pj: boolean;
+  /**
+   * Pengelola bila punya ≥1 penunjukan aktif di `PengelolaAssignment`.
+   * Diturunkan dari relasi penugasan (seperti `is_pj`), bukan kolom `User`.
+   */
+  is_pengelola: boolean;
+  /** Lingkup penunjukan aktif milik user (prodi & kelas yang boleh dikelola). */
+  pengelola_scopes: PengelolaScopes;
   libProfile: {
     display_name: string;
     faculty: string;
@@ -88,7 +100,54 @@ interface SnapshotRow {
   libAuthorAccess: { revoked_at: Date | null } | null;
 }
 
-function toSnapshot(row: SnapshotRow): UserSnapshot {
+/**
+ * Klaim penunjukan pengelola yang masih PENDING (berbasis email, `user_id`
+ * masih null) ke user ini, lalu turunkan lingkup efektifnya.
+ *
+ * Klaim di sini adalah jalur cadangan yang idempoten: jalur utama ada di
+ * `events.signIn` (`auth.ts`), tapi user yang barisnya dibuat manual oleh
+ * admin sebelum login pertama (pola `createAndAddMahasiswa`) tetap tertaut
+ * lewat jalur ini pada snapshot pertamanya.
+ *
+ * Kegagalan klaim tidak meledakkan snapshot — lingkup dari baris yang sudah
+ * tertaut tetap dibaca; klaim dicoba lagi di request berikutnya.
+ */
+async function loadPengelolaScopes(row: SnapshotRow): Promise<PengelolaScopes> {
+  try {
+    await prisma.pengelolaAssignment.updateMany({
+      where: {
+        user_id: null,
+        revoked_at: null,
+        OR: [{ email: row.email }, { email: row.email.toLowerCase() }],
+      },
+      data: { user_id: row.id },
+    });
+  } catch {
+    // Abaikan: penurunan lingkup di bawah tetap berjalan (fail-closed).
+  }
+
+  const [assignments, activeSemester] = await Promise.all([
+    prisma.pengelolaAssignment.findMany({
+      where: { user_id: row.id, revoked_at: null },
+      select: {
+        scope_type: true,
+        prodi_id: true,
+        kelas_id: true,
+        revoked_at: true,
+        semester_id: true,
+      },
+    }),
+    prisma.semester.findFirst({
+      where: { is_active: true },
+      select: { id: true },
+    }),
+  ]);
+
+  return derivePengelolaScopes(assignments, activeSemester?.id ?? null);
+}
+
+async function toSnapshot(row: SnapshotRow): Promise<UserSnapshot> {
+  const pengelolaScopes = await loadPengelolaScopes(row);
   return {
     id: row.id,
     name: row.name,
@@ -99,6 +158,8 @@ function toSnapshot(row: SnapshotRow): UserSnapshot {
     premium_tier: row.premium_tier,
     kelas_id: row.kelas_id,
     is_pj: row.kelasMatkulAsPj.length > 0,
+    is_pengelola: hasPengelolaScope(pengelolaScopes),
+    pengelola_scopes: pengelolaScopes,
     libProfile: row.libProfile,
     is_lib_writer: row.libAuthorAccess?.revoked_at === null,
   };
@@ -117,7 +178,7 @@ export async function loadUserSnapshot(
     select: snapshotSelect,
   });
 
-  return row ? toSnapshot(row) : null;
+  return row ? await toSnapshot(row) : null;
 }
 
 /**
@@ -134,5 +195,5 @@ export async function loadUserSnapshotByEmail(
     select: snapshotSelect,
   });
 
-  return row ? toSnapshot(row) : null;
+  return row ? await toSnapshot(row) : null;
 }
