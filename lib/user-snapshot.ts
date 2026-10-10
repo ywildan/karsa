@@ -16,6 +16,7 @@
  */
 import {
   derivePengelolaScopes,
+  EMPTY_PENGELOLA_SCOPES,
   isPengelola as hasPengelolaScope,
   type PengelolaScopes,
 } from "@/lib/pengelola";
@@ -113,6 +114,11 @@ interface SnapshotRow {
  * tertaut tetap dibaca; klaim dicoba lagi di request berikutnya.
  */
 async function loadPengelolaScopes(row: SnapshotRow): Promise<PengelolaScopes> {
+  // SELURUH bacaan penunjukan dibungkus try/catch: bila tabel
+  // `PengelolaAssignment` belum dimigrasikan ke database (mis. kode baru
+  // ter-deploy sebelum `pengelola-scope.sql` dijalankan), snapshot TIDAK
+  // boleh ikut gagal — cukup kembalikan lingkup kosong (fail-closed untuk
+  // peran pengelola) supaya login & klaim lain tidak terganggu.
   try {
     await prisma.pengelolaAssignment.updateMany({
       where: {
@@ -122,28 +128,32 @@ async function loadPengelolaScopes(row: SnapshotRow): Promise<PengelolaScopes> {
       },
       data: { user_id: row.id },
     });
-  } catch {
-    // Abaikan: penurunan lingkup di bawah tetap berjalan (fail-closed).
+
+    const [assignments, activeSemester] = await Promise.all([
+      prisma.pengelolaAssignment.findMany({
+        where: { user_id: row.id, revoked_at: null },
+        select: {
+          scope_type: true,
+          prodi_id: true,
+          kelas_id: true,
+          revoked_at: true,
+          semester_id: true,
+        },
+      }),
+      prisma.semester.findFirst({
+        where: { is_active: true },
+        select: { id: true },
+      }),
+    ]);
+
+    return derivePengelolaScopes(assignments, activeSemester?.id ?? null);
+  } catch (error) {
+    console.error(
+      "[snapshot] gagal membaca penunjukan pengelola — lingkup dikosongkan.",
+      error,
+    );
+    return EMPTY_PENGELOLA_SCOPES;
   }
-
-  const [assignments, activeSemester] = await Promise.all([
-    prisma.pengelolaAssignment.findMany({
-      where: { user_id: row.id, revoked_at: null },
-      select: {
-        scope_type: true,
-        prodi_id: true,
-        kelas_id: true,
-        revoked_at: true,
-        semester_id: true,
-      },
-    }),
-    prisma.semester.findFirst({
-      where: { is_active: true },
-      select: { id: true },
-    }),
-  ]);
-
-  return derivePengelolaScopes(assignments, activeSemester?.id ?? null);
 }
 
 async function toSnapshot(row: SnapshotRow): Promise<UserSnapshot> {
