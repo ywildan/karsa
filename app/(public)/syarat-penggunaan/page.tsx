@@ -40,7 +40,7 @@ export default function TermsPage() {
 
       <LegalSection title="5. Ketersediaan dan perubahan layanan">
         <p>Karsa dapat mengalami gangguan jaringan, pemeliharaan, atau perubahan fitur. Data dan tampilan dapat berubah ketika ada pembetulan atau pengembangan layanan. Kami akan memperbarui dokumen ini bila aturan penggunaan berubah secara penting dan menampilkan tanggal berlakunya.</p>
-        <p>Informasi mengenai data yang diproses, pembagian akses, dan permintaan terkait data pribadi tersedia dalam <Link href="/kebijakan-privasi" className="font-semibold text-[#ad560e] underline underline-offset-4">Kebijakan Privasi</Link>.</p>
+        <p>Informasi mengenai data yang diproses, pembagian akses, dan permintaan terkait data pribadi tersedia dalam <Link href="/kebijakan-privasi" className="font-semibold text-primary underline underline-offset-4">Kebijakan Privasi</Link>.</p>
       </LegalSection>
     </LegalShell>
   );
