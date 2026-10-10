@@ -21,10 +21,10 @@ import { formatDateTimeWib } from "@/lib/utils";
 export const metadata: Metadata = { title: "Pengelola" };
 
 const STATUS_STYLES: Record<PengelolaAssignmentRow["status"], string> = {
-  AKTIF: "bg-emerald-100 text-emerald-800",
-  PENDING: "bg-amber-100 text-amber-800",
+  AKTIF: "bg-emerald-500/10 text-emerald-700 dark:text-emerald-300",
+  PENDING: "bg-amber-500/10 text-amber-700 dark:text-amber-300",
   KEDALUWARSA: "bg-muted text-muted-foreground",
-  DICABUT: "bg-red-100 text-red-800",
+  DICABUT: "bg-red-500/10 text-red-700 dark:text-red-300",
 };
 
 const STATUS_LABELS: Record<PengelolaAssignmentRow["status"], string> = {

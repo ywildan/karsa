@@ -5,13 +5,16 @@
  * nama user, dan logout. Route group tidak menambah URL.
  */
 
+import { cookies } from "next/headers";
 import Image from "next/image";
 import Link from "next/link";
 
 import { signOutAction } from "@/actions/auth";
 import { Button } from "@/components/button";
+import { ThemeToggle } from "@/components/theme-toggle";
 import { getSession } from "@/lib/auth-helpers";
 import { DESKTOP_HOME } from "@/lib/channel";
+import { THEME_COOKIE, themeFromCookieValue } from "@/lib/theme";
 import { cn } from "@/lib/utils";
 
 export default async function DesktopLayout({
@@ -23,6 +26,8 @@ export default async function DesktopLayout({
   const displayName =
     session?.user?.name?.trim() || session?.user?.email || "Pengguna Karsa";
   const isAdmin = session?.user?.is_admin === true;
+  const isDark =
+    themeFromCookieValue((await cookies()).get(THEME_COOKIE)?.value) === "dark";
 
   return (
     <div className="min-h-dvh">
@@ -44,6 +49,7 @@ export default async function DesktopLayout({
           </Link>
 
           <div className="flex items-center gap-2">
+            <ThemeToggle initialDark={isDark} />
             <span className="hidden max-w-[12rem] truncate text-sm text-muted-foreground sm:inline">
               {displayName}
             </span>

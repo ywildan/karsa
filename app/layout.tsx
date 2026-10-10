@@ -1,6 +1,9 @@
 import type { Metadata, Viewport } from "next";
 import { Inter } from "next/font/google";
+import { cookies } from "next/headers";
 import { Toaster } from "sonner";
+
+import { THEME_COOKIE, themeFromCookieValue } from "@/lib/theme";
 
 import "./globals.css";
 
@@ -59,19 +62,30 @@ export const viewport: Viewport = {
   ],
 };
 
-export default function RootLayout({
+export default async function RootLayout({
   children,
 }: Readonly<{
   children: React.ReactNode;
 }>) {
+  // Tema dibaca dari cookie di server supaya <html> langsung memakai class
+  // yang benar sejak render pertama — tidak ada kedip terang→gelap.
+  const theme = themeFromCookieValue((await cookies()).get(THEME_COOKIE)?.value);
+  const isDark = theme === "dark";
+
   return (
-    <html lang="id" suppressHydrationWarning>
+    <html
+      lang="id"
+      className={isDark ? "dark" : undefined}
+      style={{ colorScheme: theme }}
+      suppressHydrationWarning
+    >
       <body className={`${inter.variable} min-h-dvh font-sans`}>
         {children}
         <Toaster
           position="top-center"
           richColors
           closeButton
+          theme={theme}
           toastOptions={{ className: "text-sm" }}
         />
       </body>

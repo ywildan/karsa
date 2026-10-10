@@ -40,12 +40,12 @@ export default function PrivacyPage() {
       </LegalSection>
 
       <LegalSection title="5. Permintaan terkait data dan akun">
-        <p>Kamu dapat meminta informasi, koreksi, atau penghapusan akun dan data terkait dengan mengirim email ke <a href="mailto:yuwiaffa@gmail.com?subject=Permintaan%20Data%20Karsa" className="font-semibold text-[#ad560e] underline underline-offset-4">yuwiaffa@gmail.com</a>. Sertakan alamat email akun Karsa dan jenis permintaan; pengelola dapat meminta verifikasi kepemilikan akun sebelum menindaklanjutinya.</p>
+        <p>Kamu dapat meminta informasi, koreksi, atau penghapusan akun dan data terkait dengan mengirim email ke <a href="mailto:yuwiaffa@gmail.com?subject=Permintaan%20Data%20Karsa" className="font-semibold text-primary underline underline-offset-4">yuwiaffa@gmail.com</a>. Sertakan alamat email akun Karsa dan jenis permintaan; pengelola dapat meminta verifikasi kepemilikan akun sebelum menindaklanjutinya.</p>
         <p>Permintaan penghapusan ditinjau untuk menentukan data yang dapat dihapus dan data yang perlu dipertahankan karena alasan keamanan, audit, atau kewajiban yang berlaku. Pengelola akan menjelaskan tindak lanjut serta alasan bila ada data yang tidak dapat langsung dihapus. Jangan kirim kata sandi atau token login melalui email.</p>
       </LegalSection>
 
       <LegalSection title="6. Perubahan kebijakan">
-        <p>Kebijakan ini akan diperbarui jika cara Karsa memproses data berubah secara penting. Versi dan tanggal berlaku ditampilkan di atas halaman. Untuk aturan penggunaan fitur, lihat <Link href="/syarat-penggunaan" className="font-semibold text-[#ad560e] underline underline-offset-4">Syarat Penggunaan</Link>.</p>
+        <p>Kebijakan ini akan diperbarui jika cara Karsa memproses data berubah secara penting. Versi dan tanggal berlaku ditampilkan di atas halaman. Untuk aturan penggunaan fitur, lihat <Link href="/syarat-penggunaan" className="font-semibold text-primary underline underline-offset-4">Syarat Penggunaan</Link>.</p>
       </LegalSection>
     </LegalShell>
   );
