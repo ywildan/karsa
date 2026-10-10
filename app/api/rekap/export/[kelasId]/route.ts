@@ -5,6 +5,8 @@
  */
 import { buildRekapExcelFile } from "@/actions/rekap";
 import { auth } from "@/auth";
+import { canManageKelas } from "@/lib/pengelola";
+import { prisma } from "@/lib/prisma";
 
 const EXCEL_CONTENT_TYPE =
   "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet";
@@ -19,7 +21,7 @@ export async function GET(
     return Response.json({ error: "Belum login." }, { status: 401 });
   }
 
-  if (!session.user.authorization_verified || !session.user.is_admin) {
+  if (!session.user.authorization_verified) {
     return Response.json(
       { error: "Akses admin diperlukan." },
       { status: 403 },
@@ -29,6 +31,21 @@ export async function GET(
   const { kelasId } = await params;
   if (!kelasId?.trim()) {
     return Response.json({ error: "Kelas tidak ditemukan." }, { status: 404 });
+  }
+
+  // Admin penuh bebas; pengelola hanya boleh mengekspor kelas dalam
+  // lingkup penunjukannya (selain itu disamarkan sebagai tidak ditemukan).
+  if (!session.user.is_admin) {
+    const kelas = await prisma.kelas.findUnique({
+      where: { id: kelasId },
+      select: { id: true, prodi_id: true },
+    });
+    if (!kelas || !canManageKelas(session.user.pengelola_scopes, kelas)) {
+      return Response.json(
+        { error: "Kelas tidak ditemukan." },
+        { status: 404 },
+      );
+    }
   }
 
   const result = await buildRekapExcelFile(kelasId);
