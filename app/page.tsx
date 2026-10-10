@@ -1,6 +1,9 @@
+import { cookies } from "next/headers";
 import Link from "next/link";
 
 import { Button } from "@/components/button";
+import { ThemeToggle } from "@/components/theme-toggle";
+import { THEME_COOKIE, themeFromCookieValue } from "@/lib/theme";
 
 /**
  * Karsa — app/page.tsx
@@ -12,7 +15,10 @@ import { Button } from "@/components/button";
  *    mahasiswa/admin ke (desktop)/dashboard sebelum halaman ini tampil.
  *  · Fase 0.5 — copywriting di-cek ulang agar tidak ada sisa istilah lama.
  */
-export default function HomePage() {
+export default async function HomePage() {
+  const isDark =
+    themeFromCookieValue((await cookies()).get(THEME_COOKIE)?.value) === "dark";
+
   return (
     <main className="relative flex min-h-dvh flex-col items-center justify-center overflow-hidden px-6 py-16">
       {/* Ornamen latar: aura hangat dari warna aksen */}
@@ -20,6 +26,10 @@ export default function HomePage() {
         aria-hidden
         className="pointer-events-none absolute -top-40 left-1/2 h-80 w-[36rem] -translate-x-1/2 rounded-full bg-primary/10 blur-3xl"
       />
+
+      <div className="absolute right-4 top-4 z-10">
+        <ThemeToggle initialDark={isDark} />
+      </div>
 
       <div className="relative w-full max-w-xl text-center animate-slide-up">
         <span className="inline-flex items-center rounded-full border border-border bg-card px-3 py-1 text-xs font-medium text-muted-foreground">

@@ -92,6 +92,20 @@
     text-rendering: optimizeLegibility;
   }
 
+  /*
+   * Transisi lembut saat class `dark` dibalik toggle tema — hanya properti
+   * warna, supaya pergantian tema tidak terasa seperti kedip keras.
+   * Elemen dengan utility transition sendiri (tombol, link) menimpa aturan
+   * base ini seperti biasa.
+   */
+  *,
+  *::before,
+  *::after {
+    transition-property: background-color, border-color, fill, stroke;
+    transition-duration: 0.25s;
+    transition-timing-function: ease;
+  }
+
   /* Hormati preferensi pengguna yang mematikan animasi. */
   @media (prefers-reduced-motion: reduce) {
     *,
