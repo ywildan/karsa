@@ -1,5 +1,9 @@
 # Karsa Android Release Signing
 
+> **Dokumen historis — jangan dipakai sebagai acuan status terkini.**
+> Snapshot per saat ditulis (tanggal tidak dicantumkan di file ini). Kondisi kode sekarang sudah berubah; baca [`../ARSITEKTUR.md`](../ARSITEKTUR.md) dan dokumen aktif lain di `docs/`.
+> Ditandai 2026-10-11 saat sinkronisasi dokumen terhadap kode.
+
 ## Tujuan
 
 Semua APK release harus menggunakan satu keystore permanen agar pemasangan

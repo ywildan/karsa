@@ -2,8 +2,11 @@
 
 Sistem Pencatatan Poin Keaktifan Mahasiswa UNTIDAR — *"Setiap karsa, satu poin."*
 
-Dokumen ini adalah peta terkini monorepo `ywildan/karsa`. Detail kolom/relasi
-ada di `docs/archive/erd.md`.
+Dokumen ini adalah peta terkini monorepo `ywildan/karsa`. Sumber kebenaran
+struktur data adalah `prisma/schema.prisma` — lengkap 29 model.
+`docs/archive/erd.md` hanya diagram pada masa ia ditulis dan **tidak** memuat
+model-model tambahan (Karsa Lib, AI, grup, pengelola, mobile session), jadi
+jangan menjadikannya acuan kolom/relasi.
 
 ## Peta repo
 
@@ -12,9 +15,9 @@ ada di `docs/archive/erd.md`.
 | `app/` | Next.js 15 (App Router): landing, web app, admin panel (`/admin`), API routes `/api/mobile/v1/*`, auth |
 | `karsa-mobile/` | Aplikasi Flutter Android (label launcher "SiKarsa") |
 | `karsa-lib/` | Materi & demo Karsa Lib (artikel); API artikel/AI hidup di `app/api/mobile/v1/lib/` |
-| `prisma/` | `schema.prisma` + SQL: `init.sql`, `karsa-lib-ai.sql`, `mobile-groups.sql`, `mobile-native.sql` |
-| `scripts/` | `mobile_release.py` (versioning & release guard), skrip CI lain |
-| `tests/` | Tes backend (`test_mobile_release*.py`, dsb.) |
+| `prisma/` | `schema.prisma` + `init.sql` (cermin SQL siap-tempel) + SQL additif: `mobile-native.sql`, `mobile-groups.sql`, `mobile-groups-retention.sql`, `pengelola-scope.sql`, `karsa-lib-ai.sql`, `karsa-lib-author-social.sql`, `user-growth.sql` |
+| `scripts/` | `mobile_release.py` (versioning & release guard), `vercel-ignore-build.sh`, skrip CI lain |
+| `tests/` | Mayoritas tes backend TypeScript dijalankan lewat `tsx --test` / `node --test` (`group-policy.test.ts`, `pengelola-policy.test.ts`, `lib-ai.test.ts`, `lib-ai.integration.ts`, `group-api.integration.ts`); guard rilis Python lewat `test_mobile_release.py`. `user-growth.test.ts` ada di folder ini tetapi belum punya script npm maupun job CI — jalankan manual kalau dibutuhkan |
 | `lib/`, `components/`, `actions/` | Kode bersama Next.js (server actions, UI) |
 | `auth.ts`, `middleware.ts` | Auth.js + guard route Edge |
 
@@ -39,7 +42,36 @@ Web / Admin       ──HTTPS──▶ Server Actions + Route Handlers ──Pri
 - Supabase PostgreSQL 17, schema `public`.
 - Runtime aplikasi memakai role **`karsa_runtime`** (least-privilege + RLS); role `postgres` sudah dikeluarkan dari runtime.
 - Backup memakai role **`karsa_backup`** (read-only, `BYPASSRLS`).
-- Entitas inti: `User`, `Account`, `PoinLog`, `Kelas`, `KelasMatkul`, `Matkul`, `Prodi`, `Semester`, `KategoriPoin`, `AuditLog`, `Session`, `VerificationToken`, `MobileAuthRequest`, `MobileSession`, tabel grup (`GroupMessage`, `GroupReport`, `GroupBlock`), tabel AI Karsa Lib.
+- 29 model `schema.prisma`, dikelompokkan:
+  - **Master akademik**: `Prodi`, `Faculty`, `Matkul`, `Kelas`, `KelasMatkul`, `Semester`, `KategoriPoin`.
+  - **Poin**: `PoinLog` (terikat `kelas_matkul_id`, nilai 1–4 divalidasi Zod + CHECK database, `idempotency_key` unik).
+  - **Identitas & auth**: `User`, `Account`, `Session`, `VerificationToken`, `MobileAuthRequest`, `MobileSession`.
+  - **Peran delegasi**: `PengelolaAssignment` (lingkup prodi/kelas, terikat semester).
+  - **Grup kelas (mobile)**: `GroupMessage`, `GroupReport`, `GroupBlock`.
+  - **Karsa Lib — konten (7)**: `LibProfile`, `LibAuthorRequest`, `LibAuthorAccess`, `LibArticle`, `LibArticleView`, `LibComment`, `LibReport`.
+  - **Karsa Lib — AI (3)**: `LibAiSummary`, `LibAiTurn`, `LibAiUsageBucket` (bucket kuota pemakaian).
+  - **Audit**: `AuditLog`.
+- Kolom analitik pertumbuhan pengguna (`first_login_at` di `User` + index) ditambahkan lewat `prisma/user-growth.sql`; bukan model terpisah.
+- Aturan drift: `init.sql` adalah cermin `schema.prisma`; mengubah salah satu wajib mengubah keduanya.
+
+## Permukaan API mobile — `/api/mobile/v1/*`
+
+38 route handler, dipakai aplikasi Flutter SiKarsa. Semua prefix di bawah `/api/mobile/v1/`.
+
+| Kelompok | Route | Jumlah |
+|---|---|---|
+| Auth mobile (PKCE) | `auth/start`, `auth/exchange`, `auth/complete`, `auth/refresh`, `auth/logout` | 5 |
+| Poin | `points`, `points/[id]`, `point-categories`, `report` | 4 |
+| PJ & profil | `pj/assignments`, `pj/assignments/[assignmentId]/students`, `me` | 3 |
+| Leaderboard | `leaderboard/[assignmentId]`, `leaderboard/options` | 2 |
+| Grup & chat | `groups`, `groups/[assignmentId]/lock`, `groups/[assignmentId]/messages`, `.../messages/[messageId]`, `.../[messageId]/hide`, `.../[messageId]/pin`, `.../[messageId]/reports`, `groups/[assignmentId]/reports`, `.../reports/[reportId]/resolve`, `groups/blocks/[userId]` | 10 |
+| Karsa Lib | `lib/bootstrap`, `lib/feed`, `lib/articles`, `lib/articles/[articleId]`, `lib/articles/[articleId]/ai`, `.../ai/messages`, `.../ai/summary`, `lib/articles/[articleId]/comments`, `lib/comments/[commentId]`, `lib/authors/[authorId]`, `lib/author-requests`, `lib/profile`, `lib/vault`, `lib/reports` | 14 |
+
+Catatan:
+
+- `lib/author-requests` + `lib/authors/[authorId]` adalah permukaan akun sosial penulis (pengajuan penulis, akses, profil publik) — migrasinya `prisma/karsa-lib-author-social.sql`.
+- AI Karsa Lib (`.../ai*`) dan web search diatur kebijakan kuotanya; lihat `docs/TEMAN-BACA.md` dan `lib/karsa-lib/ai-policy.ts`.
+- Analitik pertumbuhan pengguna (`app/(desktop)/admin` + `prisma/user-growth.sql`) dibaca dari kolom `User.first_login_at`; tidak punya route sendiri.
 
 ## Deploy & CI
 

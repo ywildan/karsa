@@ -1,5 +1,7 @@
 # Prospek Karsa Lib
 
+> **Status saat ini: terimplementasi.** Karsa Lib kini menjadi fitur aktif di Karsa Mobile: model data `Lib*` pada `prisma/schema.prisma`, route `/api/mobile/v1/lib/*`, dan layar Flutter `karsa_lib_*` sudah tersedia, termasuk asisten teman baca dan web search. Dokumen ini dipertahankan utuh sebagai **catatan gagasan awal**; isi di bawah boleh menyimpang dari implementasi final. Acuan aktif: [`../docs/ARSITEKTUR.md`](../docs/ARSITEKTUR.md) dan [`../docs/TEMAN-BACA.md`](../docs/TEMAN-BACA.md).
+
 **Status:** gagasan awal, belum menjadi spesifikasi implementasi  
 **Tanggal rangkuman:** 30 September 2026
 

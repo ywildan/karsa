@@ -1,5 +1,9 @@
 # Karsa — Entity Relationship Diagram
 
+> **Dokumen historis — jangan dipakai sebagai acuan status terkini.**
+> Snapshot per saat ditulis (tanggal tidak dicantumkan di file ini; koreksi terakhir tercatat 2026-09-25 di `./DOC-CODE-RECONCILIATION-2026-09-25.md`). Kondisi kode sekarang sudah berubah — `prisma/schema.prisma` kini punya 29 model; baca [`../ARSITEKTUR.md`](../ARSITEKTUR.md) dan dokumen aktif lain di `docs/`.
+> Ditandai 2026-10-11 saat sinkronisasi dokumen terhadap kode.
+
 **Sistem Pencatatan Poin Keaktifan Mahasiswa UNTIDAR**
 
 > **Cakupan diagram §1:** hanya entity akademik inti. Entity tambahan —

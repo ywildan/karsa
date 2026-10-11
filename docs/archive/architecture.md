@@ -1,5 +1,10 @@
 # Karsa — Arsitektur Sistem
 
+> **Dokumen historis — jangan dipakai sebagai acuan status terkini.**
+> Snapshot per saat ditulis (tanggal tidak dicantumkan di file ini; label internal: "Fase 5 — Security Hardening"). Kondisi kode sekarang sudah berubah; baca [`../ARSITEKTUR.md`](../ARSITEKTUR.md) dan dokumen aktif lain di `docs/`.
+> Ditandai 2026-10-11 saat sinkronisasi dokumen terhadap kode.
+> Catatan: dokumen aktif arsitektur adalah `docs/ARSITEKTUR.md` (perhatikan nama file yang berbeda — kembaran ARSITEKTUR.md); file ini hanya catatan lama dan bukan acuan.
+
 **Sistem Pencatatan Poin Keaktifan Mahasiswa UNTIDAR**
 *Fase 5 — Security Hardening*
 
@@ -233,7 +238,7 @@
 > `VerificationToken`, `Semester`, `Prodi`, `Matkul`, `KategoriPoin`, `AuditLog`,
 > `MobileAuthRequest`, `MobileSession`, `GroupMessage`, `GroupReport`,
 > `GroupBlock`. Detail field/relasi/index/index unik/CHECK dirinci di
-> `docs/erd.md`.
+> `docs/archive/erd.md`.
 
 ---
 

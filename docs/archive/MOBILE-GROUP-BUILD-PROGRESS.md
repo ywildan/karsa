@@ -1,5 +1,10 @@
 # Karsa Mobile Group — Build Progress
 
+> **Dokumen historis — jangan dipakai sebagai acuan status terkini.**
+> Snapshot per 25 September 2026 (milestone terakhir yang dicatat di file ini). Kondisi kode sekarang sudah berubah; baca [`../ARSITEKTUR.md`](../ARSITEKTUR.md) dan dokumen aktif lain di `docs/`.
+> Ditandai 2026-10-11 saat sinkronisasi dokumen terhadap kode.
+> Catatan: instruksi "harus diperbarui pada setiap milestone" sudah tidak berlaku — fitur ini tidak lagi dikembangkan di dokumen ini.
+
 > Catatan kerja fitur grup percakapan mobile-only. Dokumen ini harus diperbarui
 > pada setiap milestone. Jangan pernah menulis password, token, connection string,
 > secret, atau isi percakapan production di dokumen ini.
@@ -256,7 +261,7 @@ dibutuhkan:
 - Angka production 17 RLS dan 26 policy (assertion CI `17|17|26` pada workflow
   `Verify Database Restore`) mencakup hardening tambahan yang diterapkan
   manual melalui Supabase SQL Editor, sebagaimana dicatat pada
-  `docs/SECURITY-HARDENING-LOG.md` Step 3, bukan hasil eksekusi file SQL di
+  `docs/archive/SECURITY-HARDENING-LOG.md` Step 3, bukan hasil eksekusi file SQL di
   repo. Diff antara 4 RLS / 9 policy repo ↔ 17 RLS / 26 policy production
   merupakan pekerjaan manual yang belum dipromosikan menjadi migrasi
   idempotent. Mengembalikan database production hanya dari file SQL repo tidak
@@ -382,11 +387,11 @@ dibutuhkan:
 ## Dokumen Terkait
 
 - `DEEP_RESEARCH_MOBILE_GROUP_PRIVACY.md`
-- `docs/SECURITY-HARDENING-LOG.md`
-- `docs/MOBILE-GROUP-ARCHITECTURE.md`
+- `docs/archive/SECURITY-HARDENING-LOG.md`
+- `docs/archive/MOBILE-GROUP-ARCHITECTURE.md`
 - `docs/mobile-groups-retention-verify.sql`
-- `docs/DATABASE-BACKUP-RESTORE.md`
-- `docs/architecture.md`
+- `docs/archive/DATABASE-BACKUP-RESTORE.md`
+- `docs/archive/architecture.md`
 - `prisma/schema.prisma`
 - `prisma/mobile-native.sql`
 - `prisma/mobile-groups-retention.sql`

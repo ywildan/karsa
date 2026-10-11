@@ -25,7 +25,8 @@ langkah diarsipkan di `docs/archive/SECURITY-HARDENING-LOG.md`.
   `Cross-Origin-Opener-Policy`, `Cross-Origin-Resource-Policy`,
   `X-Permitted-Cross-Domain-Policies` (+ HSTS dari Vercel). CSP penuh belum
   dipasang (butuh desain nonce/hash).
-- **WAF rate limit** (Vercel): `Karsa Mobile Auth Rate Limit` —
+- **WAF rate limit** (konfigurasi dashboard Vercel, di luar repo — tidak
+  terverifikasi dari kode): `Karsa Mobile Auth Rate Limit` —
   `/api/mobile/v1/auth/*`, 200 request/menit/IP, mode **Log** (naikkan ke 429
   setelah observasi).
 - **Fail-closed authorization**: kalau snapshot user gagal diverifikasi,

@@ -1,8 +1,9 @@
 > [!warning] DEPRECATED
-> Dokumen ini sudah tidak relevan. Audit trail sudah di-upgrade ke sistem
-> event log sistemik (Fase 6A). Lihat:
-> - `docs/SPEC-AUDIT-TRAIL.md` (spec)
+> Dokumen ini sudah tidak relevan — snapshot historis, jangan dipakai sebagai acuan status terkini. Audit trail sudah di-upgrade ke sistem
+> event log sistemik (Fase 6A). Acuan aktif kini [`../ARSITEKTUR.md`](../ARSITEKTUR.md). Lihat juga:
+> - [`./SPEC-AUDIT-TRAIL.md`](./SPEC-AUDIT-TRAIL.md) (spec — juga arsip historis, status "Draft"-nya sudah tertinggal)
 > - `prisma/init.sql` (DDL terbaru)
+> Ditandai 2026-10-11 saat sinkronisasi dokumen terhadap kode.
 
 # Setup audit input dan penghapusan poin
 
