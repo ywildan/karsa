@@ -1,5 +1,10 @@
 # 📘 PRD — Karsa
 
+> **Dokumen historis — jangan dipakai sebagai acuan status terkini.**
+> Snapshot per 2026-09-17 (footer: "Update terakhir: 2026-09-17"). Kondisi kode sekarang sudah berubah; baca [`../ARSITEKTUR.md`](../ARSITEKTUR.md) dan dokumen aktif lain di `docs/`.
+> Ditandai 2026-10-11 saat sinkronisasi dokumen terhadap kode.
+> Catatan: klaim "sumber kebenaran tunggal" dan aturan §0 untuk AI agent di bawah **sudah dicabut** — acuan aktif kini `docs/ARSITEKTUR.md`. Isi §0 dan sisa dokumen dibiarkan apa adanya sebagai catatan historis.
+
 ### Sistem Pencatatan Poin Keaktifan Mahasiswa UNTIDAR
 
 > **Versi:** 2.0 · **Brand:** Karsa · **Codename teknis:** `karsa` / `sipoin`

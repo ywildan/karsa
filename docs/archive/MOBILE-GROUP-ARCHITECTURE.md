@@ -1,7 +1,12 @@
 # Karsa Mobile Group — Architecture Contract
 
+> **Dokumen historis — jangan dipakai sebagai acuan status terkini.**
+> Snapshot per 24 September 2026 (tanggal milestone "Architecture contract" di `./MOBILE-GROUP-BUILD-PROGRESS.md`; tidak dicantumkan di dalam file ini). Kondisi kode sekarang sudah berubah; baca [`../ARSITEKTUR.md`](../ARSITEKTUR.md) dan dokumen aktif lain di `docs/`.
+> Ditandai 2026-10-11 saat sinkronisasi dokumen terhadap kode.
+> Catatan: klaim "belum dimigrasikan" di bawah sudah tidak berlaku — migrasi grup telah diterapkan (`prisma/mobile-groups.sql`), dan `./MOBILE-GROUP-BUILD-PROGRESS.md` mencatat migrasi production berhasil dijalankan dan terverifikasi pada 24 September 2026.
+
 > Status: approved design baseline, belum dimigrasikan ke database.
-> Sumber kebenaran progres: `docs/MOBILE-GROUP-BUILD-PROGRESS.md`.
+> Sumber kebenaran progres: `docs/archive/MOBILE-GROUP-BUILD-PROGRESS.md`.
 
 ## 1. Prinsip Domain
 

@@ -10,7 +10,9 @@ Aplikasi Flutter native untuk mahasiswa dan penanggung jawab (PJ) mata kuliah. A
 - PJ: seluruh fitur mahasiswa, input poin, riwayat input, dan hapus poin miliknya.
 - Admin tetap menggunakan dashboard web dan tidak memperoleh akses khusus di aplikasi.
 - Idempotency key mencegah poin ganda ketika permintaan terkirim ulang.
-- Teman baca artikel: panel ringkasan dan tanya AI, kuota, serta rujukan paragraf. Tetap berstatus “Dalam pengembangan” sampai backend diaktifkan; lihat [panduan konfigurasi AI](../docs/KARSA-LIB-AI-SETUP.md).
+- Karsa Lib: feed artikel per program studi, halaman baca artikel, vault penulis, editor untuk menulis/menerbitkan/mengarsipkan, dan pengajuan akses penulis. Tersedia melalui `/api/mobile/v1/lib/*`.
+- Chat grup per kelas/mata kuliah: kirim dan muat riwayat pesan, pin pesan, blokir pengguna, serta laporkan pesan melalui `/api/mobile/v1/groups/*`.
+- Teman baca (asisten AI artikel Karsa Lib): panel ringkasan dan tanya materi dengan rujukan paragraf serta kuota harian, ditambah opsi **web search** (ikon globe) yang menyuntik hasil pencarian realtime (Tavily) sebagai konteks. Fitur sudah terimplementasi di backend dan aplikasi; default nonaktif sampai `AI_ENABLED=true` beserta variabel lain diisi — lihat [panduan Teman Baca](../docs/TEMAN-BACA.md).
 
 ## Struktur
 
@@ -46,7 +48,9 @@ URL backend dapat diganti menjadi HTTPS origin melalui input manual workflow. Ni
 
 APK publik memerlukan Android 7+ dan ARM64. Build counter GitHub tetap dipakai agar versionCode meningkat dari APK yang sebelumnya dibagikan; angka `+N` pada pubspec tidak menggantikan counter tersebut. Sertifikat rilis dipin pada `android/release-cert.sha256`, berdasarkan APK `2.0.7` yang sudah diterbitkan. Jangan mengganti keystore/fingerprint untuk update biasa.
 
-## Verifikasi di HP untuk 2.0.8
+## Verifikasi manual (arsip, untuk 2.0.8)
+
+> Catatan: daftar ini disusun untuk rilis 2.0.8 dan dipertahankan sebagai arsip. Versi aktif saat ini `2.0.19+21` (lihat `pubspec.yaml`); checklist ini bukan acuan rilis terkini, tetapi poin-poinnya tetap relevan sebagai pola pengujian manual.
 
 - Pasang APK sebagai update di atas 2.0.7 tanpa uninstall; data/sesi yang masih sah harus tetap terbaca.
 - Coba login dari aplikasi baru dibuka, background, dan setelah aplikasi ditutup ketika browser masih terbuka.
@@ -60,4 +64,4 @@ Untuk pemeriksaan lokal: gunakan Flutter 3.47.0, jalankan `flutter pub get --enf
 
 ## Kontrak backend
 
-Endpoint native berada di `/api/mobile/v1`. Build APK harus diarahkan ke deployment backend yang telah menjalankan migrasi tambahan `prisma/mobile-native.sql`.
+Endpoint native berada di `/api/mobile/v1`. Build APK harus diarahkan ke deployment backend yang telah menjalankan skema dasar `prisma/init.sql` lalu seluruh migrasi additif di `prisma/` agar struktur database cocok dengan `prisma/schema.prisma`: `mobile-native.sql` (poin + idempotency key), `mobile-groups.sql` dan `mobile-groups-retention.sql` (chat grup + retensi), `karsa-lib-ai.sql` dan `karsa-lib-author-social.sql` (Karsa Lib, AI, dan profil penulis), `pengelola-scope.sql` (penunjukan pengelola scoped), serta `user-growth.sql` (analitik pertumbuhan pengguna).

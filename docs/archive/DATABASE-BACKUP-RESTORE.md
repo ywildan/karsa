@@ -1,5 +1,10 @@
 # Runbook Backup dan Restore Database Karsa
 
+> **Dokumen historis — jangan dipakai sebagai acuan status terkini.**
+> Snapshot per saat ditulis (tanggal tidak dicantumkan di file ini; run terkait dicatat 24 September 2026 di `./SECURITY-HARDENING-LOG.md`). Kondisi kode sekarang sudah berubah; baca [`../ARSITEKTUR.md`](../ARSITEKTUR.md) dan dokumen aktif lain di `docs/`.
+> Ditandai 2026-10-11 saat sinkronisasi dokumen terhadap kode.
+> Catatan: klaim "prosedur operasional" di bawah sudah dicabut — prosedur backup/restore aktif kini ada di [`../OPERASIONAL.md`](../OPERASIONAL.md); isi file ini dibiarkan sebagai catatan historis.
+
 Dokumen ini adalah prosedur operasional backup database Karsa. Jangan menulis
 password, token, connection string lengkap, atau isi data pengguna di dokumen,
 issue, log, maupun percakapan.
@@ -37,7 +42,7 @@ mendefinisikan 9 policy runtime dan mengaktifkan RLS pada 3 tabel grup,
 `prisma/mobile-native.sql` tidak memuat RLS/policy untuk `MobileAuthRequest`
 maupun `MobileSession`. Sisanya — 13 toggle RLS dan 17 policy pre-group —
 diterapkan manual melalui Supabase SQL Editor sebagaimana dicatat di
-`docs/SECURITY-HARDENING-LOG.md` Step 3 dan belum dikodifikasi menjadi migrasi
+`docs/archive/SECURITY-HARDENING-LOG.md` Step 3 dan belum dikodifikasi menjadi migrasi
 idempotent. Konsekuensinya, membangun database baru dari file SQL repo saja
 tidak akan memenuhi assertion `17|17|26` pada workflow **Verify Database
 Restore**; hanya restore dari artifact backup logis yang memulihkan keadaan
@@ -212,4 +217,4 @@ Referensi resmi:
 - Restore terisolasi lengkap berhasil: run `35963049994`.
 - Backup dengan verifikasi dekripsi otomatis berhasil: run `35963282880`.
 - Detail investigasi dan keputusan terdapat pada
-  `docs/SECURITY-HARDENING-LOG.md`.
+  `docs/archive/SECURITY-HARDENING-LOG.md`.

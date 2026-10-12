@@ -1,5 +1,9 @@
 # Incident Runbook — Karsa
 
+> **Dokumen historis — jangan dipakai sebagai acuan status terkini.**
+> Snapshot per 2026-09-21 (footer: "Dibuat 21 September 2026"). Kondisi kode sekarang sudah berubah; baca [`../ARSITEKTUR.md`](../ARSITEKTUR.md) dan dokumen aktif lain di `docs/`.
+> Ditandai 2026-10-11 saat sinkronisasi dokumen terhadap kode.
+
 Dokumen ini menjadi panduan operasional saat Karsa mengalami gangguan. Tujuan utamanya adalah memulihkan layanan dan menjaga integritas data secepat mungkin, kemudian memastikan penyebab utama ditangani.
 
 ## 1. Klasifikasi Insiden

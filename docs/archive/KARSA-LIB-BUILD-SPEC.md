@@ -1,9 +1,13 @@
 # Karsa Lib — Rangkuman Rencana Build
 
+> **Dokumen historis — jangan dipakai sebagai acuan status terkini.**
+> Snapshot per 2026-09-30. Kondisi kode sekarang sudah berubah; baca [`../ARSITEKTUR.md`](../ARSITEKTUR.md) dan dokumen aktif lain di `docs/`.
+> Ditandai 2026-10-11 saat sinkronisasi dokumen terhadap kode.
+
 **Status:** implementasi awal Karsa Lib telah dibangun; perlu konfigurasi email laporan dan penerapan skema database sebelum dipakai  
 **Tanggal:** 30 September 2026
 
-Dokumen ini merangkum lingkup produk dan implementasi awal. Demo visual saat ini ada di [`karsa-lib/demo.html`](../karsa-lib/demo.html); prospek awal ada di [`karsa-lib/PROSPEK.md`](../karsa-lib/PROSPEK.md).
+Dokumen ini merangkum lingkup produk dan implementasi awal. Demo visual saat ini ada di [`karsa-lib/demo.html`](../../karsa-lib/demo.html); prospek awal ada di [`karsa-lib/PROSPEK.md`](../../karsa-lib/PROSPEK.md).
 
 ## Ringkasan produk
 

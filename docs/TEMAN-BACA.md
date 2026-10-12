@@ -109,7 +109,8 @@ adapter tambahan. Tidak ada auto-retry dan redirect tidak diikuti.
   tidak menggagalkan jawaban. Yang dikirim ke Tavily: hanya teks pertanyaan.
 - **Analitik**: setiap turn AI mencatat `web_search`, `latency_ms`,
   `prompt_tokens`, `completion_tokens`, `search_error`, dan `web_sources`
-  (bahan evaluasi biaya & kualitas). Retensi teks pertanyaan: 90 hari.
+  (bahan evaluasi biaya & kualitas). Tidak ada job penghapusan otomatis untuk
+  `LibAiTurn`; riwayat hanya hilang lewat cascade saat akun/artikel dihapus.
 
 ## Kontrak endpoint
 

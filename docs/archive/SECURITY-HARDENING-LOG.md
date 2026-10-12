@@ -1,5 +1,9 @@
 # Security Hardening Log — Karsa
 
+> **Dokumen historis — jangan dipakai sebagai acuan status terkini.**
+> Snapshot per 24 September 2026 (bagian "Status": "Terakhir diperbarui"). Kondisi kode sekarang sudah berubah; baca [`../ARSITEKTUR.md`](../ARSITEKTUR.md) dan dokumen aktif lain di `docs/`.
+> Ditandai 2026-10-11 saat sinkronisasi dokumen terhadap kode.
+
 Dokumen ini adalah jurnal kerja pengamanan Karsa. Tujuannya agar setiap
 keputusan, hasil pemeriksaan, perubahan, dan prosedur rollback dapat dilanjutkan
 tanpa bergantung pada riwayat percakapan.
@@ -673,7 +677,7 @@ harian belum diaktifkan sampai uji manual dan restore terisolasi berhasil.
   dekripsi dan validasi ciphertext sebelum upload.
 - Artifact final bernama `karsa-database-backup-35963282880`, berukuran 48.108
   byte, dan berlaku sampai 24 Oktober 2026.
-- Runbook operasional dibuat pada `docs/DATABASE-BACKUP-RESTORE.md`; Step 11
+- Runbook operasional dibuat pada `docs/archive/DATABASE-BACKUP-RESTORE.md`; Step 11
   dinyatakan selesai.
 
 ## Step 12A — Audit Aplikasi dan Dependensi

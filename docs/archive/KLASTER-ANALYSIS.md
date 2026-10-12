@@ -1,5 +1,10 @@
 # Karsa — Analisis Klaster Kompleks
 
+> **Dokumen historis — jangan dipakai sebagai acuan status terkini.**
+> Snapshot per saat ditulis (tanggal tidak dicantumkan di file ini). Kondisi kode sekarang sudah berubah; baca [`../ARSITEKTUR.md`](../ARSITEKTUR.md) dan dokumen aktif lain di `docs/`.
+> Ditandai 2026-10-11 saat sinkronisasi dokumen terhadap kode.
+> Catatan: baris "roadmap jangka panjang" di bawah bukan roadmap aktif — file ini hanya snapshot analisis pada masanya; status klaster di tabel tidak lagi mencerminkan kondisi kode.
+
 **Dokumen referensi untuk diskusi strategis & roadmap jangka panjang**
 
 > Dokumen ini melacak 10 klaster topik kompleks yang perlu dibahas/dikerjakan sepanjang siklus hidup Karsa. Setiap klaster punya urgensi berbeda dan akan diselesaikan secara bertahap, terutama di Fase 6 (Hardening) dan seterusnya.

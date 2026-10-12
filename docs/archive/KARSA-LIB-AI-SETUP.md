@@ -1,10 +1,15 @@
 # Teman baca — AI artikel Karsa Lib
 
+> **Dokumen historis — jangan dipakai sebagai acuan status terkini.**
+> Snapshot per saat ditulis (tanggal tidak dicantumkan di file ini). Kondisi kode sekarang sudah berubah; baca [`../ARSITEKTUR.md`](../ARSITEKTUR.md) dan dokumen aktif lain di `docs/`.
+> Ditandai 2026-10-11 saat sinkronisasi dokumen terhadap kode.
+> Catatan: bagian "Aktivasi nanti" di bawah sudah terlewati — Karsa Lib AI kini menjadi fitur aktif dan panduan aktifnya ada di [`../TEMAN-BACA.md`](../TEMAN-BACA.md); isi file ini dibiarkan sebagai catatan historis.
+
 Fitur disiapkan di backend dan Flutter, tetapi default **nonaktif**. Tanpa konfigurasi yang lengkap, tombol Ringkas dan Tanya AI tetap bertanda “Dalam pengembangan”. APK tidak menyimpan API key, endpoint penyedia, atau model AI.
 
 ## Aktivasi nanti
 
-1. Jalankan seluruh [prisma/karsa-lib-ai.sql](../prisma/karsa-lib-ai.sql) di SQL Editor database Karsa. Ini hanya menambah tabel. Jika backend memakai role `karsa_runtime`, script memberikan izin dan policy RLS untuk role tersebut. Akses `anon`/`authenticated` tidak diberikan.
+1. Jalankan seluruh [prisma/karsa-lib-ai.sql](../../prisma/karsa-lib-ai.sql) di SQL Editor database Karsa. Ini hanya menambah tabel. Jika backend memakai role `karsa_runtime`, script memberikan izin dan policy RLS untuk role tersebut. Akses `anon`/`authenticated` tidak diberikan.
 2. Deploy backend terlebih dahulu, lalu APK dengan perubahan AI ini. Selama persiapan, biarkan `AI_ENABLED=false`. Backend baru menerima versi persetujuan dokumen 1.0 maupun 1.1, sehingga APK lama tetap dapat login.
 3. Di Vercel → project Karsa → Settings → Environment Variables, isi konfigurasi di bawah untuk environment yang dituju.
 4. Uji key dan model di Preview dengan akun mahasiswa serta artikel uji. Key layanan nyata dapat menghasilkan biaya; tes otomatis memakai provider tiruan.

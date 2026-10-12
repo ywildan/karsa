@@ -16,8 +16,8 @@ Karsa Mobile"). Versi kini: lihat `version:` di `karsa-mobile/pubspec.yaml`.
    - menaikkan versi (`scripts/mobile_release.py`),
    - build APK release Flutter,
    - membuat tag `karsa-v2.0.x` + commit `chore(mobile): release 2.0.x`,
-   - membuat GitHub Release berisi **satu file**: `Karsa-Mobile-2.0.x-arm64-v8a.apk`
-     + `release-metadata.json`.
+   - membuat GitHub Release berisi **satu APK**
+     (`Karsa-Mobile-2.0.x-arm64-v8a.apk`) beserta `release-metadata.json`.
 
 Jangan membuat release manual via `gh release create` — versinya tidak akan
 sinkron dengan pubspec.

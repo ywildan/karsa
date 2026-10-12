@@ -1,5 +1,10 @@
 # Spesifikasi Perluasan Audit Trail
 
+> **Dokumen historis — jangan dipakai sebagai acuan status terkini.**
+> Snapshot per saat ditulis (tanggal tidak dicantumkan di file ini; satu-satunya tanggal "19 Sep 2026" hanya contoh di mockup UI). Kondisi kode sekarang sudah berubah; baca [`../ARSITEKTUR.md`](../ARSITEKTUR.md) dan dokumen aktif lain di `docs/`.
+> Ditandai 2026-10-11 saat sinkronisasi dokumen terhadap kode.
+> Catatan: status "Draft" di tabel berikut tidak mencerminkan kenyataan — event log sistemik yang di-spesifikasi di sini sudah dipakai di implementasi (dipancarkan dari beberapa server action, lihat `actions/` dan `lib/audit.ts`), dan taksonominya sudah diselaraskan oleh `./DOC-CODE-RECONCILIATION-2026-09-25.md`.
+
 Dokumen teknis untuk memperluas audit trail Karsa dari pencatatan aktivitas poin menjadi event log sistemik.
 
 | Informasi | Nilai |
@@ -7,7 +12,7 @@ Dokumen teknis untuk memperluas audit trail Karsa dari pencatatan aktivitas poin
 | **Status** | Draft untuk ditinjau |
 | **Target fase** | 6A (diperluas) |
 | **Versi** | 1.0 |
-| **Lokasi dokumen** | `docs/SPEC-AUDIT-TRAIL.md` |
+| **Lokasi dokumen** | `docs/archive/SPEC-AUDIT-TRAIL.md` |
 
 ---
 
@@ -402,7 +407,7 @@ Untuk dropdown filter.
 
 ### Dokumentasi
 
-Tulis di `docs/SOP-KOREKSI-DAN-RETENSI.md`:
+Tulis di `docs/archive/SOP-KOREKSI-DAN-RETENSI.md`:
 
 ```markdown
 ### Audit Trail
@@ -432,7 +437,7 @@ Data audit disimpan selama 5 tahun, setelah itu dihapus.
 - `lib/audit.ts` — helper logging
 - `actions/audit.ts` — query + filter
 - `components/admin/audit-log-view.tsx` — UI
-- `docs/SPEC-AUDIT-TRAIL.md` — dokumen ini
+- `docs/archive/SPEC-AUDIT-TRAIL.md` — dokumen ini
 
 ### File yang Diubah — Tahap 1
 
@@ -448,7 +453,7 @@ Data audit disimpan selama 5 tahun, setelah itu dihapus.
 - `actions/kelas.ts` — add `logAudit()`
 - `actions/matkul.ts` — add `logAudit()` (jika ada assign matkul)
 - `actions/semester.ts` — add `logAudit()`
-- `docs/SOP-KOREKSI-DAN-RETENSI.md` — update retensi section
+- `docs/archive/SOP-KOREKSI-DAN-RETENSI.md` — update retensi section
 
 ---
 

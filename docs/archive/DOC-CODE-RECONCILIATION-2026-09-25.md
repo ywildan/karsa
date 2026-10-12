@@ -1,5 +1,9 @@
 # Laporan Rekonsiliasi Dokumentasi vs Kode — Karsa `feat/mobile-groups`
 
+> **Dokumen historis — jangan dipakai sebagai acuan status terkini.**
+> Snapshot per 2026-09-25 (tanggal tercantum di blok berikut). Kondisi kode sekarang sudah berubah; baca [`../ARSITEKTUR.md`](../ARSITEKTUR.md) dan dokumen aktif lain di `docs/`.
+> Ditandai 2026-10-11 saat sinkronisasi dokumen terhadap kode.
+
 > Tanggal: 25 September 2026
 > Branch: `feat/mobile-groups`
 > Cakupan audit: seluruh file di repository pada saat mulai sesi
@@ -20,14 +24,14 @@ Setelah audit, tujuh file dokumen dikoreksi. Tidak ada file `.ts`, `.tsx`,
 
 | # | File | Kategori | Jenis koreksi |
 |---|------|----------|---------------|
-| 1 | `docs/PRD-Karsa-v2.md` | Legacy | Neon→Supabase, xlsx→exceljs, enumerasi 17 model |
-| 2 | `docs/erd.md` | Legacy | Tambah 6 entitas baru + relasi + index + constraint |
-| 3 | `docs/architecture.md` | Legacy | Scope AuditLog diperluas + catatan 11 model tak digambar |
-| 4 | `docs/MOBILE-GROUP-ARCHITECTURE.md` | Kontrak | GroupBlock jujur, endpoint pin/lock/report/resolve, 20 error codes |
-| 5 | `docs/MOBILE-GROUP-BUILD-PROGRESS.md` | Progress | Test count 6→7, mute dihapus, catatan cakupan 17/26 |
-| 6 | `docs/DATABASE-BACKUP-RESTORE.md` | Runbook | Catatan bahwa 17/26 adalah keadaan production, bukan hasil SQL repo |
+| 1 | `docs/archive/PRD-Karsa-v2.md` | Legacy | Neon→Supabase, xlsx→exceljs, enumerasi 17 model |
+| 2 | `docs/archive/erd.md` | Legacy | Tambah 6 entitas baru + relasi + index + constraint |
+| 3 | `docs/archive/architecture.md` | Legacy | Scope AuditLog diperluas + catatan 11 model tak digambar |
+| 4 | `docs/archive/MOBILE-GROUP-ARCHITECTURE.md` | Kontrak | GroupBlock jujur, endpoint pin/lock/report/resolve, 20 error codes |
+| 5 | `docs/archive/MOBILE-GROUP-BUILD-PROGRESS.md` | Progress | Test count 6→7, mute dihapus, catatan cakupan 17/26 |
+| 6 | `docs/archive/DATABASE-BACKUP-RESTORE.md` | Runbook | Catatan bahwa 17/26 adalah keadaan production, bukan hasil SQL repo |
 | 7 | `DEEP_RESEARCH_MOBILE_GROUP_PRIVACY.md` | Riset | Catatan pasca-implementasi + pemetaan forum→groups + mute descoped |
-| 8 | `docs/SPEC-AUDIT-TRAIL.md` | Spec | Taksonomi §5 diselaraskan dengan action nyata yang di-emit kode |
+| 8 | `docs/archive/SPEC-AUDIT-TRAIL.md` | Spec | Taksonomi §5 diselaraskan dengan action nyata yang di-emit kode |
 
 ---
 
@@ -35,9 +39,9 @@ Setelah audit, tujuh file dokumen dikoreksi. Tidak ada file `.ts`, `.tsx`,
 
 ### 2.1 `prisma/init.sql` vs klaim "RLS diaktifkan + policy runtime dibuat untuk semua tabel aplikasi"
 
-- **Klaim lama**: `docs/PRD-Karsa-v2.md` dan `docs/MOBILE-GROUP-BUILD-PROGRESS.md` menyiratkan seluruh tabel production dilindungi RLS + policy, dan assertion CI `17|17|26` dipandang sebagai hasil dari SQL repo.
+- **Klaim lama**: `docs/archive/PRD-Karsa-v2.md` dan `docs/archive/MOBILE-GROUP-BUILD-PROGRESS.md` menyiratkan seluruh tabel production dilindungi RLS + policy, dan assertion CI `17|17|26` dipandang sebagai hasil dari SQL repo.
 - **Faktual**: `prisma/init.sql:249–252, 278` hanya mengaktifkan RLS pada **4** tabel (`GroupMessage`, `GroupReport`, `GroupBlock`, `AuditLog`). `prisma/init.sql` **tidak** memiliki satu baris `CREATE POLICY`. `prisma/mobile-native.sql` tidak memiliki RLS maupun policy. `prisma/mobile-groups.sql:291–293` mengaktifkan RLS pada 3 tabel grup dan mendefinisikan **9** policy runtime.
-- **Rekonsiliasi**: `docs/DATABASE-BACKUP-RESTORE.md` kini memiliki subbagian "Cakupan" yang menyatakan eksplisit bahwa 17 RLS dan 26 policy adalah **keadaan production** hasil hardening manual via Supabase SQL Editor (lihat `docs/SECURITY-HARDENING-LOG.md` §Hasil Step 3). Membangun database baru dari file SQL repo saja tidak akan memenuhi assertion restore.
+- **Rekonsiliasi**: `docs/archive/DATABASE-BACKUP-RESTORE.md` kini memiliki subbagian "Cakupan" yang menyatakan eksplisit bahwa 17 RLS dan 26 policy adalah **keadaan production** hasil hardening manual via Supabase SQL Editor (lihat `docs/archive/SECURITY-HARDENING-LOG.md` §Hasil Step 3). Membangun database baru dari file SQL repo saja tidak akan memenuhi assertion restore.
 - **Kode tidak diubah** — file SQL tetap apa adanya. Rekomendasi tindak lanjut (di luar scope sesi ini): kodifikasi hardening manual menjadi `prisma/hardening-pregroups.sql` agar reproduksible.
 
 ### 2.2 `DEEP_RESEARCH_MOBILE_GROUP_PRIVACY.md:60` menyebut endpoint `/api/mobile/v1/forum/*`
@@ -69,7 +73,7 @@ Setelah audit, tujuh file dokumen dikoreksi. Tidak ada file `.ts`, `.tsx`,
 
 ## 3. Dokumen basi terhadap schema 17 model
 
-### 3.1 `docs/PRD-Karsa-v2.md`
+### 3.1 `docs/archive/PRD-Karsa-v2.md`
 
 Empat koreksi:
 
@@ -78,7 +82,7 @@ Empat koreksi:
 - **:442** klaim "11 tabel" → enumerasi lengkap 17 model dengan rujukan file SQL migrasi (`prisma/init.sql`, `prisma/mobile-native.sql`, `prisma/mobile-groups.sql`, `prisma/mobile-groups-retention.sql`).
 - **:513** acceptance P7 "Cek schema Neon sinkron" → "Cek schema Supabase sinkron".
 
-### 3.2 `docs/erd.md`
+### 3.2 `docs/archive/erd.md`
 
 Lima koreksi:
 
@@ -88,16 +92,16 @@ Lima koreksi:
 - §3 Relationships diperluas dengan 14 baris FK tambahan mencakup relasi mobile + grup.
 - §4 Indexes ditambah 16 baris baru; §5 Constraints ditambah 9 baris (CHECK tombstone, hidden_reason, reason enum, details length, status enum, `blocker_id <> blocked_id`, unique keys).
 
-### 3.3 `docs/architecture.md`
+### 3.3 `docs/archive/architecture.md`
 
 Dua koreksi:
 
 - **:333** scope `AuditLog` dipersempit dari "Event sistemik poin dan PJ" menjadi enumerasi keluarga action yang benar-benar di-emit kode: `KELAS_*`, `MATKUL_*`, `PRODI_*`, `SEMESTER_*`, `MAHASISWA_*`, `POIN_*`, `PJ_*`, `GROUP_*`.
-- Catatan baru di bawah diagram §5 yang mendaftar 11 model tambahan tidak digambar (VerificationToken, MobileAuthRequest, MobileSession, GroupMessage, GroupReport, GroupBlock + empat lookup) dengan cross-reference ke `docs/erd.md`.
+- Catatan baru di bawah diagram §5 yang mendaftar 11 model tambahan tidak digambar (VerificationToken, MobileAuthRequest, MobileSession, GroupMessage, GroupReport, GroupBlock + empat lookup) dengan cross-reference ke `docs/archive/erd.md`.
 
 ---
 
-## 4. Taksonomi audit action (`docs/SPEC-AUDIT-TRAIL.md` §5)
+## 4. Taksonomi audit action (`docs/archive/SPEC-AUDIT-TRAIL.md` §5)
 
 Klaim §5 asli: 13 baris aksi, termasuk `MATKUL_ASSIGN` dan `SEMESTER_SET_ACTIVE`.
 
@@ -211,7 +215,7 @@ Hanya sebagai catatan, **tidak** dikerjakan pada sesi ini karena menyentuh kode:
   hari pin) ke Supabase production — sesuai catatan
   `MOBILE-GROUP-BUILD-PROGRESS.md` §"Masa aktif pin 40 hari".
 - **R6** Sinkronkan kembali `prisma/schema.prisma`, `prisma/init.sql`, dan
-  `docs/erd.md` pada setiap penambahan kolom/model baru (contoh drift terbaru:
+  `docs/archive/erd.md` pada setiap penambahan kolom/model baru (contoh drift terbaru:
   dua kolom lock `KelasMatkul`).
 
 ---

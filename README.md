@@ -9,10 +9,33 @@
 
 ## Status
 
-**Fase 0 — code complete.** Seluruh file Fase 0 sudah ditulis. `prisma generate`,
-`prisma db push`, `prisma db seed`, dan `next build` **belum dijalankan** di
-sandbox (sandbox tidak bisa mengunduh engine Prisma dan tidak punya akses ke
-Supabase). Verifikasi build & Prisma dilakukan di lokal.
+**Berjalan di produksi.** Web Next.js melayani aplikasi desktop + API mobile, dan
+aplikasi Android **SiKarsa** (Flutter) sudah rilis hingga `2.0.19+21`.
+Autentikasi Google (Auth.js v5) terpasang penuh, termasuk jalur login khusus
+mobile (`/api/mobile/v1/auth/*`).
+
+Build dan rilis tidak dilakukan dari mesin pengembang: web dibangun otomatis
+oleh Vercel dari `main`, APK Android dibangun oleh GitHub Actions
+([`docs/RILIS-MOBILE.md`](docs/RILIS-MOBILE.md)). Karena itu clone repo ini tidak
+berisi `node_modules` dan verifikasi pertama kali memang perlu `npm install`
+di lokal.
+
+Perkembangan proyek pernah dicatat sebagai fase (Fase 0 → Fase 3A). Label fase
+itu kini hanya sejarah — rekamannya ada di [`docs/archive/`](docs/archive/),
+bukan sebagai acuan status.
+
+---
+
+## Komponen repo
+
+| Direktori | Isi |
+|---|---|
+| `app/` | Next.js 15 (App Router): web desktop, halaman mobile, panel admin, API `/api/mobile/v1/*` |
+| `karsa-mobile/` | Aplikasi Flutter Android (label launcher "SiKarsa") |
+| `karsa-lib/` | Materi & demo Karsa Lib; implementasi hidup di `app/api/mobile/v1/lib/` dan `lib/karsa-lib/` |
+| `prisma/` | `schema.prisma` (sumber kebenaran struktur data) + `init.sql` dan SQL additif |
+| `docs/` | Dokumen aktif + [`docs/archive/`](docs/archive/) untuk snapshot historis |
+| `actions/`, `lib/`, `components/` | Server actions, kode bersama, UI |
 
 ---
 
@@ -36,12 +59,12 @@ npx prisma db push
 npm run db:seed
 
 # 5. Verifikasi
-npx tsc --noEmit
+npm run typecheck
 npm run lint
 npm run build
 ```
 
-### Test user (Dev Quick Login Fase 1)
+### Test user (Dev Quick Login)
 
 Blok SEED di `prisma/init.sql` **dan** `npm run db:seed` sama-sama membuat data
 uji ini — jadi kamu bisa ganti role tanpa akun Google asli:
@@ -49,8 +72,8 @@ uji ini — jadi kamu bisa ganti role tanpa akun Google asli:
 | Email | NIM | Peran |
 |---|---|---|
 | `admin@students.untidar.ac.id` | — | admin (`is_admin = true`, tanpa kelas) |
-| `pj.budi@students.untidar.ac.id` | 2310501001 | PJ (TI-01, pegang 2 KelasMatkul) |
-| `siti.aminah@students.untidar.ac.id` | 2310501002 | mahasiswa TI-01 |
+| `pj.budi@students.untidar.ac.id` | 2310501001 | PJ TI-01 (pemegang KelasMatkul Algoritma dan Pemrograman) |
+| `siti.aminah@students.untidar.ac.id` | 2310501002 | mahasiswa TI-01 + PJ Pemrograman Web |
 | `agus.santoso@students.untidar.ac.id` | 2310501003 | mahasiswa TI-01 |
 | `user.baru@students.untidar.ac.id` | 2310501099 | tanpa kelas (`kelas_id = null`) |
 
@@ -58,7 +81,7 @@ Plus 1 Prodi (Teknik Informatika), 2 Matkul (Algoritma dan Pemrograman,
 Pemrograman Web), 1 Kelas (TI-01), 2 KelasMatkul, dan 2 sample PoinLog.
 
 Semua baris pakai id eksplisit (`usr_admin`, `prodi_ti`, `kelas_ti01`, dst.)
-supaya mudah direferensikan di Fase 1. Data uji bisa dimatikan dengan
+supaya mudah direferensikan. Data uji bisa dimatikan dengan
 `SEED_TEST_DATA="false"` — **wajib** kalau seed dijalankan ke database produksi.
 
 **Idempoten — aman dijalankan berulang.** `prisma/init.sql` dan `npm run db:seed`
@@ -82,9 +105,12 @@ tertimpa — kecuali tanggal & status aktif semester seed itu sendiri.
 
 `schema.prisma` adalah sumber kebenaran struktur data. `init.sql` adalah
 **cermin**-nya dalam bentuk SQL siap-tempel untuk Supabase — dipakai kalau
-`prisma db push` tidak bisa dijalankan (mis. dari sandbox tanpa akses jaringan
-ke Supabase atau tanpa engine Prisma). **Kalau salah satu diubah, update
-keduanya.**
+`prisma db push` tidak bisa dijalankan (mis. tanpa akses jaringan ke Supabase
+atau tanpa engine Prisma). Selain `init.sql`, `prisma/` memuat SQL additif yang
+sudah diterapkan bertahap: `mobile-native.sql`, `mobile-groups.sql`,
+`mobile-groups-retention.sql`, `pengelola-scope.sql`, `karsa-lib-ai.sql`,
+`karsa-lib-author-social.sql`, `user-growth.sql`.
+**Kalau salah satu diubah, update keduanya.**
 
 ---
 
@@ -93,12 +119,18 @@ keduanya.**
 | Perintah | Fungsi |
 |---|---|
 | `npm run dev` | Development server |
-| `npm run build` | Build produksi |
+| `npm run build` | Build produksi (`prisma generate && next build`) |
+| `npm run start` | Jalankan hasil build |
 | `npm run lint` | ESLint (`next lint`) |
 | `npm run typecheck` | `tsc --noEmit` |
+| `npm run test:groups` | Kebijakan grup (policy murni) |
+| `npm run test:groups:integration` | Integrasi API grup |
+| `npm run test:pengelola` | Kebijakan lingkup pengelola |
+| `npm run test:lib-ai` | Kebijakan AI Karsa Lib |
+| `npm run test:lib-ai:integration` | Integrasi AI Karsa Lib |
 | `npm run db:generate` | Generate Prisma Client |
 | `npm run db:push` | Sinkronkan schema ke database |
-| `npm run db:seed` | Seed kategori + semester |
+| `npm run db:seed` | Seed kategori + semester (+ data uji) |
 | `npm run db:studio` | Prisma Studio |
 
 ---
@@ -106,13 +138,25 @@ keduanya.**
 ## Arsitektur singkat
 
 ```
-Framework : Next.js (App Router) + TypeScript strict
+Framework : Next.js 15 (App Router) + TypeScript strict
 Styling   : Tailwind CSS + shadcn/ui
-Database  : PostgreSQL (Supabase)
+Database  : PostgreSQL 17 (Supabase), role runtime least-privilege + RLS
 ORM       : Prisma 6
-Auth      : NextAuth v5 (Google OAuth, JWT)   ← belum dipasang (fase berikutnya)
+Auth      : Auth.js / NextAuth v5 — Google OAuth, JWT, PrismaAdapter
+Mobile    : Flutter (karsa-mobile), login via kode otorisasi + session token
 ```
 
+Autentikasi memakai **dua instance**: `auth.config.ts` (Edge-safe, tanpa Prisma,
+dipakai `middleware.ts`) dan `auth.ts` (menambah PrismaAdapter). Klaim akses
+di-refresh dari database setiap pembacaan session dan **fail-closed** jika
+database error — lihat `docs/KEAMANAN.md`.
+
 Dua channel (PRD §4.1): **mobile** (PJ input poin) dan **desktop** (rapor
-mahasiswa + panel admin). Route group `(mobile)` & `(desktop)` beserta middleware
-deteksi device dipasang di Fase 1.5.
+mahasiswa + panel admin). Keduanya sudah terpasang sebagai route group
+`app/(mobile)`, `app/(desktop)`, `app/(auth)`, `app/(public)`; `middleware.ts`
+mendeteksi device dan menulis cookie channel untuk gating `/admin`,
+`/pengelola`, dan jalur mobile.
+
+Permukaan API mobile (`/api/mobile/v1/*`, 38 endpoint): auth PKCE (5), grup &
+chat (10), Karsa Lib termasuk AI dan web search (14), plus poin, PJ assignment,
+leaderboard, laporan, dan profil. Rinciannya di `docs/ARSITEKTUR.md`.
