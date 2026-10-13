@@ -3,9 +3,14 @@ import test from 'node:test';
 
 import {
   aiSuccessRate,
+  aiUsdIdrRate,
   estimateAiCostNanoUsd,
+  formatAiCost,
+  formatNanoIdr,
   formatNanoUsd,
+  parseAiCurrency,
   parseAiPriceToNano,
+  parseUsdIdrRate,
 } from '../lib/karsa-lib/ai-usage';
 
 test('parseAiPriceToNano converts USD prices exactly', () => {
@@ -54,6 +59,35 @@ test('formatNanoUsd keeps tiny gateway costs visible', () => {
   assert.equal(formatNanoUsd(BigInt(1234567890)), '$1.2345');
   assert.equal(formatNanoUsd(BigInt(500)), '<$0.000001');
   assert.equal(formatNanoUsd(null), '—');
+});
+
+test('currency preference and rate parsing fall back safely', () => {
+  assert.equal(parseAiCurrency('idr'), 'idr');
+  assert.equal(parseAiCurrency('usd'), 'usd');
+  assert.equal(parseAiCurrency('eur'), 'usd');
+  assert.equal(parseAiCurrency(undefined), 'usd');
+  assert.equal(parseUsdIdrRate('17900'), 17900);
+  assert.equal(parseUsdIdrRate('abc'), null);
+  assert.equal(parseUsdIdrRate('-5'), null);
+  assert.equal(parseUsdIdrRate(''), null);
+  assert.equal(aiUsdIdrRate({}), 17900);
+  assert.equal(aiUsdIdrRate({ AI_USD_IDR_RATE: '16500' }), 16500);
+  assert.equal(aiUsdIdrRate({ AI_USD_IDR_RATE: 'rusak' }), 17900);
+});
+
+test('formatNanoIdr converts display values with the given rate', () => {
+  // $0,0008 pada kurs 17.900 = Rp14,32.
+  assert.equal(formatNanoIdr(BigInt(800000), 17900), 'Rp14,32');
+  // $21,11 pada kurs 17.900 = Rp377.869 (ribuan tanpa desimal).
+  assert.equal(formatNanoIdr(BigInt(21110000000), 17900), 'Rp377.869');
+  assert.equal(formatNanoIdr(BigInt(0), 17900), 'Rp0');
+  assert.equal(formatNanoIdr(BigInt(500), 17900), '<Rp1');
+  assert.equal(formatNanoIdr(null, 17900), '—');
+});
+
+test('formatAiCost dispatches by currency', () => {
+  assert.equal(formatAiCost(BigInt(800000), 'usd', 17900), '$0.0008');
+  assert.equal(formatAiCost(BigInt(800000), 'idr', 17900), 'Rp14,32');
 });
 
 test('aiSuccessRate handles empty ranges', () => {

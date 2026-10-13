@@ -121,6 +121,10 @@ adapter tambahan. Tidak ada auto-retry dan redirect tidak diikuti.
   dihitung. Biaya di dashboard adalah estimasi dari snapshot itu, bukan
   tagihan final provider. Database yang sudah berjalan perlu menjalankan
   `prisma/ai-usage-analytics.sql` sebelum halaman ini dipakai.
+- **Toggle mata uang dashboard**: biaya selalu disimpan dalam USD, tetapi
+  dashboard dan kartu ringkasan beranda admin punya toggle tampilan USD/IDR
+  (cookie `karsa_ai_currency`). Konversi IDR memakai env `AI_USD_IDR_RATE`
+  (bawaan 17900 bila belum diisi) dan hanya memengaruhi tampilan, bukan data.
 
 ## Kontrak endpoint
 
