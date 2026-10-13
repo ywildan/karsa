@@ -296,23 +296,32 @@ export function AiUsageView({ prodiOptions }: { prodiOptions: AiUsageProdiOption
                 Belum ada pemakaian AI pada rentang dan filter ini.
               </p>
             ) : (
-              <div className="mt-5 flex h-40 items-end gap-1" role="img"
+              <div className="mt-5 flex h-40 gap-1" role="img"
                 aria-label={`Grafik request AI per hari, tertinggi ${formatNumber(maxDaily)} request`}>
-                {data.daily.map((day) => (
-                  <div key={day.day} className="group flex min-w-0 flex-1 flex-col items-center gap-2">
-                    <div className="flex h-32 w-full items-end">
-                      <div
-                        className={cn("w-full rounded-t-md bg-primary/80 transition-colors group-hover:bg-primary",
-                          day.requests === 0 && "bg-muted")}
-                        style={{ height: `${Math.max(day.requests ? 6 : 2, (day.requests / maxDaily) * 100)}%` }}
-                        title={`${formatDay(day.day)}: ${formatNumber(day.requests)} request · ${formatNumber(day.promptTokens + day.completionTokens)} token · ${formatNanoUsd(BigInt(day.costNanoUsd))}`}
-                      />
+                {data.daily.map((day, index) => {
+                  // Rentang panjang: label cukup angka tanggal (bulan terlihat
+                  // di keterangan rentang), kecuali hari pertama dan tanggal 1
+                  // yang tetap membawa nama bulan. Label dikunci satu baris dan
+                  // kolom dikunci tingginya agar baseline batang tidak bergeser.
+                  const showFullLabel = data.daily.length <= 14 || index === 0 || day.day.endsWith("-01");
+                  return (
+                    <div key={day.day} className="group flex h-full min-w-0 flex-1 flex-col items-center gap-2">
+                      <div className="flex w-full flex-1 items-end">
+                        <div
+                          className={cn("w-full rounded-t-md bg-primary/80 transition-colors group-hover:bg-primary",
+                            day.requests === 0 && "bg-muted")}
+                          style={{ height: `${Math.max(day.requests ? 6 : 2, (day.requests / maxDaily) * 100)}%` }}
+                          title={`${formatDay(day.day)}: ${formatNumber(day.requests)} request · ${formatNumber(day.promptTokens + day.completionTokens)} token · ${formatNanoUsd(BigInt(day.costNanoUsd))}`}
+                        />
+                      </div>
+                      <div className="flex h-4 shrink-0 items-start justify-center">
+                        <span className="hidden whitespace-nowrap text-[10px] leading-4 text-muted-foreground sm:block">
+                          {showFullLabel ? formatDay(day.day) : day.day.slice(8)}
+                        </span>
+                      </div>
                     </div>
-                    <span className="hidden text-[10px] text-muted-foreground sm:block">
-                      {data.daily.length <= 31 ? formatDay(day.day) : day.day.slice(8)}
-                    </span>
-                  </div>
-                ))}
+                  );
+                })}
               </div>
             )}
           </div>
