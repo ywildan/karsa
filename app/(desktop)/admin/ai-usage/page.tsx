@@ -1,7 +1,9 @@
 import type { Metadata } from "next";
+import { cookies } from "next/headers";
 
 import { AiUsageView } from "@/components/admin/ai-usage-view";
 import { requireAdmin } from "@/lib/auth-helpers";
+import { AI_CURRENCY_COOKIE, aiUsdIdrRate, parseAiCurrency } from "@/lib/karsa-lib/ai-usage";
 import { prisma } from "@/lib/prisma";
 
 export const metadata: Metadata = {
@@ -10,6 +12,10 @@ export const metadata: Metadata = {
 
 export default async function AiUsagePage() {
   await requireAdmin();
+
+  const cookieStore = await cookies();
+  const initialCurrency = parseAiCurrency(cookieStore.get(AI_CURRENCY_COOKIE)?.value);
+  const usdIdrRate = aiUsdIdrRate();
 
   const prodiOptions = await prisma.prodi
     .findMany({ orderBy: { name: "asc" }, select: { id: true, name: true } })
@@ -27,7 +33,7 @@ export default async function AiUsagePage() {
         </p>
       </header>
 
-      <AiUsageView prodiOptions={prodiOptions} />
+      <AiUsageView prodiOptions={prodiOptions} usdIdrRate={usdIdrRate} initialCurrency={initialCurrency} />
     </main>
   );
 }

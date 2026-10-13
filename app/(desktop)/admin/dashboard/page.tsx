@@ -15,9 +15,17 @@ import {
   type LucideIcon,
 } from "lucide-react";
 
+import { cookies } from "next/headers";
+
 import { requireAdmin } from "@/lib/auth-helpers";
 import { getAiUsageCurrentMonthSummary } from "@/lib/admin/ai-usage";
-import { formatNanoUsd } from "@/lib/karsa-lib/ai-usage";
+import {
+  AI_CURRENCY_COOKIE,
+  aiUsdIdrRate,
+  formatAiCost,
+  parseAiCurrency,
+} from "@/lib/karsa-lib/ai-usage";
+import { AiCurrencyToggle } from "@/components/admin/ai-currency-toggle";
 import { UserGrowthChart } from "@/components/admin/user-growth-chart";
 import { buildUserGrowth } from "@/lib/admin/user-growth";
 import { STUDENT_EMAIL_DOMAIN } from "@/lib/mahasiswa";
@@ -78,6 +86,9 @@ const AUDIT_LABELS: Record<string, string> = {
 
 export default async function AdminDashboardPage() {
   const admin = await requireAdmin();
+  const cookieStore = await cookies();
+  const aiCurrency = parseAiCurrency(cookieStore.get(AI_CURRENCY_COOKIE)?.value);
+  const usdIdrRate = aiUsdIdrRate();
 
   const [
     facultyCount,
@@ -271,12 +282,15 @@ export default async function AdminDashboardPage() {
               Teman Baca Karsa Lib, dihitung menurut kalender WIB.
             </p>
           </div>
-          <Link
-            href="/admin/ai-usage"
-            className="inline-flex items-center gap-1 text-sm font-semibold text-primary hover:underline"
-          >
-            Lihat detail <ArrowRight className="h-4 w-4" aria-hidden />
-          </Link>
+          <div className="flex items-center gap-3">
+            <AiCurrencyToggle value={aiCurrency} />
+            <Link
+              href="/admin/ai-usage"
+              className="inline-flex items-center gap-1 text-sm font-semibold text-primary hover:underline"
+            >
+              Lihat detail <ArrowRight className="h-4 w-4" aria-hidden />
+            </Link>
+          </div>
         </div>
         {aiUsage ? (
           <div className="mt-5 grid grid-cols-2 gap-4 xl:grid-cols-4">
@@ -293,8 +307,10 @@ export default async function AdminDashboardPage() {
               <p className="mt-1 text-xs text-muted-foreground">Total token</p>
             </div>
             <div>
-              <p className="text-2xl font-semibold tabular-nums tracking-tight">{formatNanoUsd(BigInt(aiUsage.costNanoUsd))}</p>
-              <p className="mt-1 text-xs text-muted-foreground">Estimasi biaya tercatat</p>
+              <p className="text-2xl font-semibold tabular-nums tracking-tight">{formatAiCost(BigInt(aiUsage.costNanoUsd), aiCurrency, usdIdrRate)}</p>
+              <p className="mt-1 text-xs text-muted-foreground">
+                Estimasi biaya tercatat{aiCurrency === "idr" ? ` · kurs $1 = Rp${usdIdrRate.toLocaleString("id-ID")}` : ""}
+              </p>
             </div>
           </div>
         ) : (
