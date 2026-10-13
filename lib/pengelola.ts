@@ -13,9 +13,6 @@
  * `lib/user-snapshot.ts` dari baris penunjukan aktif.
  */
 
-/** Jenis lingkup penunjukan. String, tanpa enum native (konvensi schema). */
-export type PengelolaScopeType = "PRODI" | "KELAS";
-
 /** Lingkup efektif seorang pengelola, hasil penurunan dari penunjukan aktif. */
 export interface PengelolaScopes {
   prodi_ids: string[];

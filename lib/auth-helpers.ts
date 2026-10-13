@@ -22,7 +22,7 @@ import type { Session } from "next-auth";
 
 import { auth } from "@/auth";
 import { resolveChannel, type Channel } from "@/lib/channel";
-import { canManageKelas, canManageProdi } from "@/lib/pengelola";
+import { canManageKelas } from "@/lib/pengelola";
 import { prisma } from "@/lib/prisma";
 import { HOME_DEFAULT, LOGIN_PATH } from "@/lib/roles";
 
@@ -82,21 +82,6 @@ export async function requirePj(): Promise<SessionUser> {
 export async function requirePengelola(): Promise<SessionUser> {
   const user = await requireUser();
   if (!user.authorization_verified || !(user.is_admin || user.is_pengelola)) {
-    redirect(HOME_DEFAULT);
-  }
-  return user;
-}
-
-/**
- * Wajib berhak mengelola prodi ini: admin penuh selalu lolos; pengelola
- * harus memegang lingkup prodi tersebut (`lib/pengelola.ts`).
- */
-export async function requirePengelolaProdi(
-  prodiId: string,
-): Promise<SessionUser> {
-  const user = await requirePengelola();
-  if (user.is_admin) return user;
-  if (!canManageProdi(user.pengelola_scopes, prodiId)) {
     redirect(HOME_DEFAULT);
   }
   return user;
