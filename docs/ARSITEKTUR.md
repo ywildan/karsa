@@ -36,6 +36,7 @@ Web / Admin       ──HTTPS──▶ Server Actions + Route Handlers ──Pri
 - Guard: `middleware.ts` (Edge) + `requireAdmin` / `requirePj` / `requireUser` di server actions.
 - Mobile memakai `MobileAuthRequest` → `MobileSession` (kode otorisasi, bukan cookie).
 - Jika refresh snapshot user gagal, klaim akses di-fail-closed-kan (`is_admin`/`is_pj` = false) — lihat `docs/KEAMANAN.md`.
+- Gerbang NIM: mahasiswa (email `@students.untidar.ac.id`) yang `nim`-nya masih kosong wajib mengisi NIM dulu di `/lengkapi-nim` sebelum memakai aplikasi, karena akun hasil login Google sendiri tidak dibuatkan admin (satu-satunya pengisian NIM lain adalah `createAndAddMahasiswa` oleh admin/pengelola). Policy murni di `lib/nim-gate.ts` (admin & pengelola dikecualikan; email non-mahasiswa tidak diwajibkan), ditegakkan di middleware (klaim cookie) dan layout `(desktop)`/`(mobile)` + halaman gerbangnya (klaim segar DB). Pengisian bersifat satu kali dari sisi user (`actions/profil.ts`, audit `USER_NIM_SET`); koreksi NIM yang sudah terisi hanya lewat admin/DB.
 
 ## Database
 

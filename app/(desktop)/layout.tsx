@@ -8,12 +8,14 @@
 import { cookies } from "next/headers";
 import Image from "next/image";
 import Link from "next/link";
+import { redirect } from "next/navigation";
 
 import { signOutAction } from "@/actions/auth";
 import { Button } from "@/components/button";
 import { ThemeToggle } from "@/components/theme-toggle";
 import { getSession } from "@/lib/auth-helpers";
 import { DESKTOP_HOME } from "@/lib/channel";
+import { NIM_GATE_PATH, needsNimCompletion } from "@/lib/nim-gate";
 import { THEME_COOKIE, themeFromCookieValue } from "@/lib/theme";
 import { cn } from "@/lib/utils";
 
@@ -23,6 +25,13 @@ export default async function DesktopLayout({
   children: React.ReactNode;
 }>) {
   const session = await getSession();
+
+  // Gerbang NIM otoritatif: klaim di sini segar dari DB (snapshot per
+  // request), menutup seluruh grup (desktop) termasuk path yang tidak ada
+  // di matcher middleware. Lihat `lib/nim-gate.ts`.
+  if (session?.user && needsNimCompletion(session.user)) {
+    redirect(NIM_GATE_PATH);
+  }
   const displayName =
     session?.user?.name?.trim() || session?.user?.email || "Pengguna Karsa";
   const isAdmin = session?.user?.is_admin === true;
