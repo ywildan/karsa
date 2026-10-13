@@ -13,11 +13,12 @@ import {
 } from "lucide-react";
 
 import { getAiUsage, type AiUsageFilters } from "@/actions/ai-usage";
+import { AiCurrencyToggle } from "@/components/admin/ai-currency-toggle";
 import { Button } from "@/components/button";
 import { Input } from "@/components/ui/input";
 import { Select } from "@/components/ui/select";
 import type { AiUsageAnalytics, AiUsageMode, AiUsageStatus } from "@/lib/admin/ai-usage";
-import { aiSuccessRate, formatNanoUsd } from "@/lib/karsa-lib/ai-usage";
+import { aiSuccessRate, formatAiCost, type AiCurrency } from "@/lib/karsa-lib/ai-usage";
 import { cn, formatDateTimeWib, formatNumber } from "@/lib/utils";
 
 export type AiUsageProdiOption = { id: string; name: string };
@@ -84,7 +85,15 @@ function Skeleton() {
   );
 }
 
-export function AiUsageView({ prodiOptions }: { prodiOptions: AiUsageProdiOption[] }) {
+export function AiUsageView({
+  prodiOptions,
+  usdIdrRate,
+  initialCurrency,
+}: {
+  prodiOptions: AiUsageProdiOption[];
+  usdIdrRate: number;
+  initialCurrency: AiCurrency;
+}) {
   const initialRange = React.useMemo(() => presetRange("30"), []);
   const [preset, setPreset] = React.useState<Preset>("30");
   const [start, setStart] = React.useState(initialRange.start);
@@ -94,6 +103,7 @@ export function AiUsageView({ prodiOptions }: { prodiOptions: AiUsageProdiOption
   const [status, setStatus] = React.useState<AiUsageStatus>("ALL");
   const [userSearch, setUserSearch] = React.useState("");
   const [data, setData] = React.useState<AiUsageAnalytics | null>(null);
+  const [currency, setCurrency] = React.useState<AiCurrency>(initialCurrency);
   const [loading, setLoading] = React.useState(true);
   const [failed, setFailed] = React.useState(false);
   const [reloadKey, setReloadKey] = React.useState(0);
@@ -132,6 +142,15 @@ export function AiUsageView({ prodiOptions }: { prodiOptions: AiUsageProdiOption
       setEnd(range.end);
     }
   }
+
+  React.useEffect(() => {
+    setCurrency(initialCurrency);
+  }, [initialCurrency]);
+
+  const fmtCost = React.useCallback(
+    (nanoUsd: string) => formatAiCost(BigInt(nanoUsd), currency, usdIdrRate),
+    [currency, usdIdrRate],
+  );
 
   const summary = data?.summary;
   const maxDaily = Math.max(1, ...(data?.daily.map((day) => day.requests) ?? [1]));
@@ -222,6 +241,15 @@ export function AiUsageView({ prodiOptions }: { prodiOptions: AiUsageProdiOption
 
       {!loading && !failed && data && summary ? (
         <>
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <p className="text-xs text-muted-foreground">
+              {currency === "idr"
+                ? `Biaya ditampilkan dalam rupiah · kurs $1 = Rp${usdIdrRate.toLocaleString("id-ID")}`
+                : "Biaya ditampilkan dalam USD · ganti ke IDR untuk tampilan rupiah"}
+            </p>
+            <AiCurrencyToggle value={currency} onChange={setCurrency} />
+          </div>
+
           <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
             <MetricCard
               label="Total request"
@@ -243,7 +271,7 @@ export function AiUsageView({ prodiOptions }: { prodiOptions: AiUsageProdiOption
             />
             <MetricCard
               label="Estimasi biaya"
-              value={formatNanoUsd(BigInt(summary.costNanoUsd))}
+              value={fmtCost(summary.costNanoUsd)}
               description={summary.totalRequests
                 ? `Dari ${formatNumber(summary.costKnownRequests)} request yang harganya tercatat (${costCoverage}%)`
                 : "Belum ada request pada rentang ini"}
@@ -296,23 +324,32 @@ export function AiUsageView({ prodiOptions }: { prodiOptions: AiUsageProdiOption
                 Belum ada pemakaian AI pada rentang dan filter ini.
               </p>
             ) : (
-              <div className="mt-5 flex h-40 items-end gap-1" role="img"
+              <div className="mt-5 flex h-40 gap-1" role="img"
                 aria-label={`Grafik request AI per hari, tertinggi ${formatNumber(maxDaily)} request`}>
-                {data.daily.map((day) => (
-                  <div key={day.day} className="group flex min-w-0 flex-1 flex-col items-center gap-2">
-                    <div className="flex h-32 w-full items-end">
-                      <div
-                        className={cn("w-full rounded-t-md bg-primary/80 transition-colors group-hover:bg-primary",
-                          day.requests === 0 && "bg-muted")}
-                        style={{ height: `${Math.max(day.requests ? 6 : 2, (day.requests / maxDaily) * 100)}%` }}
-                        title={`${formatDay(day.day)}: ${formatNumber(day.requests)} request · ${formatNumber(day.promptTokens + day.completionTokens)} token · ${formatNanoUsd(BigInt(day.costNanoUsd))}`}
-                      />
+                {data.daily.map((day, index) => {
+                  // Rentang panjang: label cukup angka tanggal (bulan terlihat
+                  // di keterangan rentang), kecuali hari pertama dan tanggal 1
+                  // yang tetap membawa nama bulan. Label dikunci satu baris dan
+                  // kolom dikunci tingginya agar baseline batang tidak bergeser.
+                  const showFullLabel = data.daily.length <= 14 || index === 0 || day.day.endsWith("-01");
+                  return (
+                    <div key={day.day} className="group flex h-full min-w-0 flex-1 flex-col items-center gap-2">
+                      <div className="flex w-full flex-1 items-end">
+                        <div
+                          className={cn("w-full rounded-t-md bg-primary/80 transition-colors group-hover:bg-primary",
+                            day.requests === 0 && "bg-muted")}
+                          style={{ height: `${Math.max(day.requests ? 6 : 2, (day.requests / maxDaily) * 100)}%` }}
+                          title={`${formatDay(day.day)}: ${formatNumber(day.requests)} request · ${formatNumber(day.promptTokens + day.completionTokens)} token · ${fmtCost(day.costNanoUsd)}`}
+                        />
+                      </div>
+                      <div className="flex h-4 shrink-0 items-start justify-center">
+                        <span className="hidden whitespace-nowrap text-[10px] leading-4 text-muted-foreground sm:block">
+                          {showFullLabel ? formatDay(day.day) : day.day.slice(8)}
+                        </span>
+                      </div>
                     </div>
-                    <span className="hidden text-[10px] text-muted-foreground sm:block">
-                      {data.daily.length <= 31 ? formatDay(day.day) : day.day.slice(8)}
-                    </span>
-                  </div>
-                ))}
+                  );
+                })}
               </div>
             )}
           </div>
@@ -369,7 +406,7 @@ export function AiUsageView({ prodiOptions }: { prodiOptions: AiUsageProdiOption
                           {formatNumber(user.promptTokens)} in · {formatNumber(user.completionTokens)} out
                         </span>
                       </td>
-                      <td className="px-4 py-3 font-medium">{formatNanoUsd(BigInt(user.costNanoUsd))}</td>
+                      <td className="px-4 py-3 font-medium">{fmtCost(user.costNanoUsd)}</td>
                       <td className="px-4 py-3">{formatNumber(user.failedRequests)}</td>
                       <td className="px-4 py-3 text-muted-foreground">
                         {user.lastActiveAt ? formatDateTimeWib(user.lastActiveAt) : "—"}
@@ -413,7 +450,7 @@ export function AiUsageView({ prodiOptions }: { prodiOptions: AiUsageProdiOption
                         </td>
                         <td className="px-4 py-3">{formatNumber(article.requests)}</td>
                         <td className="px-4 py-3">{formatNumber(article.totalTokens)}</td>
-                        <td className="px-4 py-3 font-medium">{formatNanoUsd(BigInt(article.costNanoUsd))}</td>
+                        <td className="px-4 py-3 font-medium">{fmtCost(article.costNanoUsd)}</td>
                       </tr>
                     ))}
                     {data.articles.length === 0 ? (
@@ -449,7 +486,7 @@ export function AiUsageView({ prodiOptions }: { prodiOptions: AiUsageProdiOption
                         <td className="px-4 py-3 font-medium sm:px-5">{model.model}</td>
                         <td className="px-4 py-3">{formatNumber(model.requests)}</td>
                         <td className="px-4 py-3">{formatNumber(model.promptTokens + model.completionTokens)}</td>
-                        <td className="px-4 py-3 font-medium">{formatNanoUsd(BigInt(model.costNanoUsd))}</td>
+                        <td className="px-4 py-3 font-medium">{fmtCost(model.costNanoUsd)}</td>
                       </tr>
                     ))}
                     {data.models.length === 0 ? (

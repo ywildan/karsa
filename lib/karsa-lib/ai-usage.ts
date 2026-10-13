@@ -80,3 +80,56 @@ export function aiSuccessRate(completed: number, total: number): number {
   if (total <= 0) return 0;
   return Math.round((completed / total) * 1000) / 10;
 }
+
+// ---------------------------------------------------------------------------
+// Tampilan mata uang dashboard. Data biaya SELALU disimpan dalam nano-USD;
+// IDR hanyalah konversi tampilan memakai kurs yang sedang terpasang, jadi
+// mengganti kurs tidak mengubah data historis USD-nya.
+// ---------------------------------------------------------------------------
+
+export type AiCurrency = "usd" | "idr";
+
+/** Cookie pilihan mata uang, mengikuti pola cookie tema `karsa_theme`. */
+export const AI_CURRENCY_COOKIE = "karsa_ai_currency";
+
+/** Kurs bawaan bila env `AI_USD_IDR_RATE` belum diisi (rupiah per 1 USD). */
+export const DEFAULT_USD_IDR_RATE = 17900;
+
+export function parseAiCurrency(value: string | undefined | null): AiCurrency {
+  return value === "idr" ? "idr" : "usd";
+}
+
+/** Parse kurs dari env; null bila kosong/tidak valid. */
+export function parseUsdIdrRate(value: string | undefined | null): number | null {
+  if (value == null) return null;
+  const parsed = Number(value.trim());
+  if (!Number.isFinite(parsed) || parsed <= 0 || parsed > 1_000_000_000) return null;
+  return parsed;
+}
+
+/** Kurs efektif: env `AI_USD_IDR_RATE` menang, selain itu kurs bawaan. */
+export function aiUsdIdrRate(env: Record<string, string | undefined> = process.env): number {
+  return parseUsdIdrRate(env.AI_USD_IDR_RATE) ?? DEFAULT_USD_IDR_RATE;
+}
+
+/** Format nano-USD sebagai rupiah memakai kurs tampilan yang diberikan. */
+export function formatNanoIdr(nano: bigint | number | null | undefined, rate: number): string {
+  if (nano == null) return "—";
+  const value = typeof nano === "bigint" ? Number(nano) : nano;
+  const idr = (value / 1_000_000_000) * rate;
+  if (idr === 0) return "Rp0";
+  if (idr < 1) return "<Rp1";
+  if (idr < 1000) {
+    return `Rp${idr.toLocaleString("id-ID", { maximumFractionDigits: 2 })}`;
+  }
+  return `Rp${idr.toLocaleString("id-ID", { maximumFractionDigits: 0 })}`;
+}
+
+/** Format biaya sesuai mata uang tampilan terpilih. */
+export function formatAiCost(
+  nano: bigint | number | null | undefined,
+  currency: AiCurrency,
+  usdIdrRate: number,
+): string {
+  return currency === "idr" ? formatNanoIdr(nano, usdIdrRate) : formatNanoUsd(nano);
+}
