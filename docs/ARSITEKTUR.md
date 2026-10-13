@@ -42,14 +42,14 @@ Web / Admin       ──HTTPS──▶ Server Actions + Route Handlers ──Pri
 - Supabase PostgreSQL 17, schema `public`.
 - Runtime aplikasi memakai role **`karsa_runtime`** (least-privilege + RLS); role `postgres` sudah dikeluarkan dari runtime.
 - Backup memakai role **`karsa_backup`** (read-only, `BYPASSRLS`).
-- 29 model `schema.prisma`, dikelompokkan:
+- 30 model `schema.prisma`, dikelompokkan:
   - **Master akademik**: `Prodi`, `Faculty`, `Matkul`, `Kelas`, `KelasMatkul`, `Semester`, `KategoriPoin`.
   - **Poin**: `PoinLog` (terikat `kelas_matkul_id`, nilai 1–4 divalidasi Zod + CHECK database, `idempotency_key` unik).
   - **Identitas & auth**: `User`, `Account`, `Session`, `VerificationToken`, `MobileAuthRequest`, `MobileSession`.
   - **Peran delegasi**: `PengelolaAssignment` (lingkup prodi/kelas, terikat semester).
   - **Grup kelas (mobile)**: `GroupMessage`, `GroupReport`, `GroupBlock`.
   - **Karsa Lib — konten (7)**: `LibProfile`, `LibAuthorRequest`, `LibAuthorAccess`, `LibArticle`, `LibArticleView`, `LibComment`, `LibReport`.
-  - **Karsa Lib — AI (3)**: `LibAiSummary`, `LibAiTurn`, `LibAiUsageBucket` (bucket kuota pemakaian).
+  - **Karsa Lib — AI (4)**: `LibAiSummary`, `LibAiTurn`, `LibAiUsageBucket` (bucket kuota pemakaian), `LibAiSummaryGeneration` (event pembuatan ringkasan untuk analitik usage per pengguna di `/admin/ai-usage`; migrasinya `prisma/ai-usage-analytics.sql`).
   - **Audit**: `AuditLog`.
 - Kolom analitik pertumbuhan pengguna (`first_login_at` di `User` + index) ditambahkan lewat `prisma/user-growth.sql`; bukan model terpisah.
 - Aturan drift: `init.sql` adalah cermin `schema.prisma`; mengubah salah satu wajib mengubah keduanya.

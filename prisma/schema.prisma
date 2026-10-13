@@ -76,6 +76,7 @@ model User {
   libArticleViews      LibArticleView[]
   libComments          LibComment[]        @relation("LibCommentAuthor")
   libAiTurns           LibAiTurn[]
+  libAiSummaryGenerations LibAiSummaryGeneration[] @relation("LibAiSummaryGenerationTrigger")
   libCommentsDeleted   LibComment[]        @relation("LibCommentDeletedBy")
   libReports           LibReport[]         @relation("LibReportReporter")
   libReportsResolved   LibReport[]         @relation("LibReportResolver")
@@ -565,6 +566,7 @@ model LibArticle {
 
   aiSummary LibAiSummary?
   aiTurns   LibAiTurn[]
+  aiSummaryGenerations LibAiSummaryGeneration[]
 
   @@index([prodi_id, status, published_at(sort: Desc)])
   @@index([author_id, status, updated_at(sort: Desc)])
@@ -616,12 +618,53 @@ model LibAiTurn {
   search_error     String?
   /// Sumber web (Tavily) untuk jawaban web search: [{title, url, published_at?}].
   web_sources      Json?
+  /// Analitik model & biaya: model yang diminta/dilaporkan provider dan
+  /// snapshot harga saat request terjadi (nano-USD per 1 juta token).
+  model_requested  String?
+  model_reported   String?
+  input_price_nano_usd_per_million  BigInt?
+  output_price_nano_usd_per_million BigInt?
+  estimated_cost_nano_usd           BigInt?
   created_at  DateTime @default(now())
   updated_at  DateTime @default(now()) @updatedAt
   article LibArticle @relation(fields: [article_id], references: [id], onDelete: Cascade)
   user    User       @relation(fields: [user_id], references: [id], onDelete: Cascade)
   @@unique([user_id, article_id, request_id])
   @@index([user_id, article_id, revision, created_at])
+  @@index([created_at])
+  @@index([article_id, created_at])
+  @@index([web_search, created_at])
+  @@index([status, created_at])
+}
+
+/// Satu pembuatan ringkasan baru (bukan pembacaan cache). Ringkasan cache
+/// dibagikan ke semua pembaca, jadi usage modelnya dicatat sebagai event
+/// terpisah dari user yang memicu pembuatannya.
+model LibAiSummaryGeneration {
+  id               String   @id @default(cuid())
+  article_id       String
+  triggered_by_id  String
+  revision         String
+  status           String   @default("PENDING")
+  model_requested  String?
+  model_reported   String?
+  prompt_tokens    Int?
+  completion_tokens Int?
+  latency_ms       Int?
+  input_price_nano_usd_per_million  BigInt?
+  output_price_nano_usd_per_million BigInt?
+  estimated_cost_nano_usd           BigInt?
+  error_code       String?
+  created_at       DateTime @default(now())
+  updated_at       DateTime @default(now()) @updatedAt
+
+  article     LibArticle @relation(fields: [article_id], references: [id], onDelete: Cascade)
+  triggeredBy User       @relation("LibAiSummaryGenerationTrigger", fields: [triggered_by_id], references: [id], onDelete: Cascade)
+
+  @@index([article_id, created_at])
+  @@index([triggered_by_id, created_at])
+  @@index([status, created_at])
+  @@index([created_at])
 }
 
 /// Counter harian atomik: GLOBAL, USER_CHAT:<id>, USER_SUMMARY:<id>.

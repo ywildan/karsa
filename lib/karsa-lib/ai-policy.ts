@@ -6,6 +6,9 @@ export type AiConfig = {
   key: string; baseUrl: string; model: string; chatLimit: number;
   summaryLimit: number; globalLimit: number; maxTokens: number;
   timeoutMs: number; tokenParameter: 'max_tokens' | 'max_completion_tokens';
+  /** Harga opsional untuk analitik biaya (USD per 1 juta token). */
+  inputPricePerMillionUsd: string | null;
+  outputPricePerMillionUsd: string | null;
   /** Web search (Tavily): free = 3x/bulan, premium = 3x/hari, plus = 5x/hari. */
   webSearchFreeLimit: number; webSearchPremiumLimit: number;
   webSearchPlusLimit: number; webSearchGlobalLimit: number;
@@ -28,8 +31,14 @@ export function aiConfig(env: Record<string, string | undefined> = process.env):
         url.hostname.endsWith('.localhost') || url.hostname.endsWith('.local')) return null;
     const tokenParameter = env.AI_TOKEN_PARAMETER ?? 'max_completion_tokens';
     if (tokenParameter !== 'max_tokens' && tokenParameter !== 'max_completion_tokens') return null;
+    const price = (value: string | undefined) => {
+      const trimmed = value?.trim();
+      return trimmed && /^\d+(?:\.\d{1,9})?$/.test(trimmed) ? trimmed : null;
+    };
     return {
       key, model, baseUrl: url.toString().replace(/\/$/, ''), tokenParameter,
+      inputPricePerMillionUsd: price(env.AI_PRICE_INPUT_PER_MILLION_USD),
+      outputPricePerMillionUsd: price(env.AI_PRICE_OUTPUT_PER_MILLION_USD),
       chatLimit: number(env.AI_USER_DAILY_LIMIT, 5, 100),
       summaryLimit: number(env.AI_USER_SUMMARY_DAILY_LIMIT, 3, 50),
       globalLimit: number(env.AI_GLOBAL_DAILY_LIMIT, 100, 10000),
@@ -84,6 +93,8 @@ export type AiAnswer = {
   sources: number[];
   web_sources?: WebSource[];
   usage?: { prompt_tokens: number; completion_tokens: number };
+  /** Nama model yang dilaporkan provider; boleh sama dengan nama combo. */
+  reported_model?: string;
 };
 export class AiProviderError extends Error {
   constructor() { super('AI_PROVIDER_UNAVAILABLE'); }
@@ -225,6 +236,9 @@ Gunakan sources kosong jika artikel tidak membahas pertanyaan. Jangan mengarang 
     const usage = data?.usage;
     if (usage && Number.isInteger(usage?.prompt_tokens) && Number.isInteger(usage?.completion_tokens)) {
       answer.usage = { prompt_tokens: usage.prompt_tokens, completion_tokens: usage.completion_tokens };
+    }
+    if (typeof data?.model === 'string' && data.model.trim()) {
+      answer.reported_model = data.model.trim().slice(0, 200);
     }
     return answer;
   } catch { throw new AiProviderError(); }

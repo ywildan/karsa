@@ -6,10 +6,73 @@ import { z } from 'zod';
 import type { MobileActor } from '@/lib/mobile/auth';
 import { prisma } from '@/lib/prisma';
 import type { LibResult } from './service';
-import { aiConfig, aiDay, aiMonth, aiRevision, canAccessAiArticle, requestAi, type AiConfig, type WebSource } from './ai-policy';
+import { aiConfig, aiDay, aiMonth, aiRevision, canAccessAiArticle, requestAi, type AiConfig, type AiAnswer, type WebSource } from './ai-policy';
+import { estimateAiCostNanoUsd, parseAiPriceToNano } from './ai-usage';
 import { searchWeb, WebSearchError, type WebResult } from './ai-search';
 
 const fail = (status: number, code: string, message: string) => ({ ok: false as const, status, code, message });
+
+/**
+ * Snapshot analitik untuk satu panggilan provider: model yang diminta,
+ * model yang dilaporkan, harga yang berlaku, dan estimasi biaya dalam
+ * nano-USD. Harga dibekukan saat request terjadi supaya perubahan harga
+ * berikutnya tidak mengubah riwayat dashboard.
+ */
+function usageSnapshot(config: AiConfig, answer?: AiAnswer) {
+  const inputPrice = parseAiPriceToNano(config.inputPricePerMillionUsd);
+  const outputPrice = parseAiPriceToNano(config.outputPricePerMillionUsd);
+  return {
+    model_requested: config.model,
+    model_reported: answer?.reported_model ?? null,
+    input_price_nano_usd_per_million: inputPrice,
+    output_price_nano_usd_per_million: outputPrice,
+    estimated_cost_nano_usd: estimateAiCostNanoUsd({
+      promptTokens: answer?.usage?.prompt_tokens ?? null,
+      completionTokens: answer?.usage?.completion_tokens ?? null,
+      inputPriceNanoPerMillion: inputPrice,
+      outputPriceNanoPerMillion: outputPrice,
+    }),
+  };
+}
+
+/** Catat snapshot ke turn chat/search; kegagalan analitik tidak boleh menggagalkan jawaban. */
+async function recordTurnUsage(turnId: string, config: AiConfig, answer?: AiAnswer) {
+  try {
+    await prisma.libAiTurn.update({ where: { id: turnId }, data: usageSnapshot(config, answer) });
+  } catch (error) {
+    console.error('[ai-usage] gagal mencatat usage turn', error);
+  }
+}
+
+/** Catat satu pembuatan ringkasan baru (pembacaan cache tidak dicatat). */
+async function recordSummaryGeneration(input: {
+  articleId: string;
+  triggeredById: string;
+  revision: string;
+  status: 'COMPLETE' | 'FAILED';
+  config: AiConfig;
+  answer?: AiAnswer;
+  latencyMs: number;
+  errorCode?: string;
+}) {
+  try {
+    await prisma.libAiSummaryGeneration.create({
+      data: {
+        article_id: input.articleId,
+        triggered_by_id: input.triggeredById,
+        revision: input.revision,
+        status: input.status,
+        latency_ms: Math.max(0, Math.round(input.latencyMs)),
+        error_code: input.errorCode ?? null,
+        prompt_tokens: input.answer?.usage?.prompt_tokens ?? null,
+        completion_tokens: input.answer?.usage?.completion_tokens ?? null,
+        ...usageSnapshot(input.config, input.answer),
+      },
+    });
+  } catch (error) {
+    console.error('[ai-usage] gagal mencatat pembuatan ringkasan', error);
+  }
+}
 const inputSchema = z.object({ revision: z.string().regex(/^[a-f0-9]{64}$/) });
 const questionSchema = inputSchema.extend({ question: z.string().trim().min(1).max(600), request_id: z.string().min(16).max(128).regex(/^[a-zA-Z0-9_-]+$/), web_search: z.boolean().optional().default(false) });
 class BudgetExceeded extends Error {}
@@ -136,17 +199,34 @@ export async function summarizeArticle(actor: MobileActor, id: string, input: un
     if (ready?.revision === revision && ready.content) return { ok: true, data: { body: ready.content, sources: sources(ready.sources), cached: true, quota: await quota(actor, config) } };
     return fail(409, 'AI_SUMMARY_PENDING', 'Ringkasan sedang disiapkan. Coba lagi sebentar.');
   }
+  let providerStartedAt: number | null = null;
   try {
     await transaction(tx => reserve(tx, actor, config, 'SUMMARY'));
+    providerStartedAt = Date.now();
     const answer = await requestAi(config, article, null);
+    const latencyMs = Date.now() - providerStartedAt;
     const current = await articleFor(actor, id);
-    if (!current || aiRevision(current, config) !== revision) return fail(409, 'AI_ARTICLE_CHANGED', 'Artikel diperbarui. Muat ulang artikel.');
+    if (!current || aiRevision(current, config) !== revision) {
+      await recordSummaryGeneration({ articleId: id, triggeredById: actor.id, revision, status: 'FAILED',
+        config, answer, latencyMs, errorCode: 'AI_ARTICLE_CHANGED' });
+      return fail(409, 'AI_ARTICLE_CHANGED', 'Artikel diperbarui. Muat ulang artikel.');
+    }
     const saved = await prisma.libAiSummary.updateMany({ where: { article_id: id, lease_token: token, revision },
       data: { content: answer.answer, sources: answer.sources, lease_token: null, lease_expires_at: null } });
-    if (!saved.count) return fail(409, 'AI_SUMMARY_PENDING', 'Ringkasan berubah. Coba lagi sebentar.');
+    if (!saved.count) {
+      await recordSummaryGeneration({ articleId: id, triggeredById: actor.id, revision, status: 'FAILED',
+        config, answer, latencyMs, errorCode: 'AI_SUMMARY_PENDING' });
+      return fail(409, 'AI_SUMMARY_PENDING', 'Ringkasan berubah. Coba lagi sebentar.');
+    }
+    await recordSummaryGeneration({ articleId: id, triggeredById: actor.id, revision, status: 'COMPLETE',
+      config, answer, latencyMs });
     return { ok: true, data: { body: answer.answer, sources: answer.sources, cached: false, quota: await quota(actor, config) } };
   } catch (error) {
     if (error instanceof BudgetExceeded) return fail(429, 'AI_QUOTA_EXCEEDED', 'Batas pemakaian AI hari ini tercapai. Coba kembali besok.');
+    if (providerStartedAt != null) {
+      await recordSummaryGeneration({ articleId: id, triggeredById: actor.id, revision, status: 'FAILED',
+        config, latencyMs: Date.now() - providerStartedAt, errorCode: 'AI_PROVIDER_UNAVAILABLE' });
+    }
     return fail(502, 'AI_PROVIDER_UNAVAILABLE', 'Layanan AI belum dapat menjawab. Coba lagi nanti.');
   } finally {
     await prisma.libAiSummary.updateMany({ where: { article_id: id, lease_token: token }, data: { lease_token: null, lease_expires_at: null } });
@@ -218,12 +298,15 @@ export async function askArticleAi(actor: MobileActor, id: string, input: unknow
     const answer = await requestAi(config, article, parsed.data.question, history.reverse(), fetch, { webResults });
     const current = await articleFor(actor, id);
     if (!current || aiRevision(current, config) !== revision) {
-      await prisma.libAiTurn.update({ where: { id: turn.id }, data: { status: 'FAILED', latency_ms: Date.now() - startedAt } });
+      await prisma.libAiTurn.update({ where: { id: turn.id }, data: { status: 'FAILED', latency_ms: Date.now() - startedAt,
+        prompt_tokens: answer.usage?.prompt_tokens ?? null, completion_tokens: answer.usage?.completion_tokens ?? null } });
+      await recordTurnUsage(turn.id, config, answer);
       return fail(409, 'AI_ARTICLE_CHANGED', 'Artikel diperbarui. Muat ulang artikel.');
     }
     await prisma.libAiTurn.update({ where: { id: turn.id }, data: { answer: answer.answer, sources: answer.sources,
       web_sources: answer.web_sources ?? Prisma.DbNull, status: 'COMPLETE', latency_ms: Date.now() - startedAt,
       prompt_tokens: answer.usage?.prompt_tokens ?? null, completion_tokens: answer.usage?.completion_tokens ?? null } });
+    await recordTurnUsage(turn.id, config, answer);
     return { ok: true, status: 201, data: { id: turn.id, question: turn.question, answer: answer.answer, sources: answer.sources,
       web_search: useWebSearch, web_sources: answer.web_sources ?? [], quota: await quota(actor, config) } };
   } catch {
@@ -231,6 +314,9 @@ export async function askArticleAi(actor: MobileActor, id: string, input: unknow
     if (stored?.status === 'COMPLETE') return fail(503, 'AI_RESULT_UNAVAILABLE', 'Jawaban sudah disimpan. Coba lagi untuk memuatnya.');
     await prisma.libAiTurn.updateMany({ where: { id: turn.id, status: 'PENDING' },
       data: { status: 'FAILED', latency_ms: Date.now() - startedAt } });
+    // Request yang gagal tetap terlihat di analitik sebagai percobaan ke
+    // provider (token/biaya kosong karena provider tidak memberi usage).
+    await recordTurnUsage(turn.id, config);
     return fail(502, 'AI_REQUEST_FAILED', 'Layanan AI belum dapat menjawab. Coba lagi nanti.');
   }
 }

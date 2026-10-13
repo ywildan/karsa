@@ -111,6 +111,16 @@ adapter tambahan. Tidak ada auto-retry dan redirect tidak diikuti.
   `prompt_tokens`, `completion_tokens`, `search_error`, dan `web_sources`
   (bahan evaluasi biaya & kualitas). Tidak ada job penghapusan otomatis untuk
   `LibAiTurn`; riwayat hanya hilang lewat cascade saat akun/artikel dihapus.
+- **Dashboard penggunaan AI**: halaman admin `/admin/ai-usage` (menu
+  Pengawasan → Penggunaan AI) menampilkan usage per mahasiswa untuk chat,
+  search mode, dan pembuatan ringkasan baru. Setiap panggilan provider juga
+  mencatat snapshot model yang diminta/dilaporkan serta harga saat itu juga
+  (`AI_PRICE_INPUT_PER_MILLION_USD` / `AI_PRICE_OUTPUT_PER_MILLION_USD`,
+  USD per 1 juta token); pembuatan ringkasan dicatat di tabel
+  `LibAiSummaryGeneration`, sedangkan pembacaan ringkasan cache tidak
+  dihitung. Biaya di dashboard adalah estimasi dari snapshot itu, bukan
+  tagihan final provider. Database yang sudah berjalan perlu menjalankan
+  `prisma/ai-usage-analytics.sql` sebelum halaman ini dipakai.
 
 ## Kontrak endpoint
 

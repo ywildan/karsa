@@ -6,6 +6,7 @@ import { usePathname } from "next/navigation";
 import {
   BookOpen,
   BookOpenText,
+  Bot,
   CalendarDays,
   ChevronDown,
   GraduationCap,
@@ -47,7 +48,10 @@ const NAV_GROUPS: { label: string; items: NavItem[] }[] = [
   },
   {
     label: "Pengawasan",
-    items: [{ href: "/admin/audit", label: "Audit log", icon: ScrollText }],
+    items: [
+      { href: "/admin/audit", label: "Audit log", icon: ScrollText },
+      { href: "/admin/ai-usage", label: "Penggunaan AI", icon: Bot },
+    ],
   },
 ];
 

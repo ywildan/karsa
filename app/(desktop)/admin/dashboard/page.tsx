@@ -4,6 +4,7 @@ import {
   ArrowRight,
   BookOpen,
   BookOpenText,
+  Bot,
   CalendarDays,
   GraduationCap,
   Landmark,
@@ -15,6 +16,8 @@ import {
 } from "lucide-react";
 
 import { requireAdmin } from "@/lib/auth-helpers";
+import { getAiUsageCurrentMonthSummary } from "@/lib/admin/ai-usage";
+import { formatNanoUsd } from "@/lib/karsa-lib/ai-usage";
 import { UserGrowthChart } from "@/components/admin/user-growth-chart";
 import { buildUserGrowth } from "@/lib/admin/user-growth";
 import { STUDENT_EMAIL_DOMAIN } from "@/lib/mahasiswa";
@@ -86,6 +89,7 @@ export default async function AdminDashboardPage() {
     libQueue,
     recentActivity,
     userGrowth,
+    aiUsage,
   ] = await Promise.all([
     prisma.faculty.count(),
     prisma.prodi.count(),
@@ -125,6 +129,10 @@ export default async function AdminDashboardPage() {
         console.error("[admin/dashboard] gagal memuat pertumbuhan pengguna", error);
         return null;
       }),
+    getAiUsageCurrentMonthSummary().catch((error) => {
+      console.error("[admin/dashboard] gagal memuat penggunaan AI", error);
+      return null;
+    }),
   ]);
 
   const pendingTotal = libQueue
@@ -246,6 +254,57 @@ export default async function AdminDashboardPage() {
           Grafik pertumbuhan pengguna belum dapat dimuat. Coba lagi setelah beberapa saat.
         </section>
       )}
+
+      <section
+        aria-labelledby="admin-ai-usage-title"
+        className="rounded-2xl border border-border bg-card p-5 sm:p-6"
+      >
+        <div className="flex flex-wrap items-end justify-between gap-3">
+          <div>
+            <div className="flex items-center gap-2">
+              <Bot className="h-4 w-4 text-primary" aria-hidden />
+              <h2 id="admin-ai-usage-title" className="text-base font-semibold tracking-tight">
+                Penggunaan AI bulan ini
+              </h2>
+            </div>
+            <p className="mt-1 text-sm text-muted-foreground">
+              Teman Baca Karsa Lib, dihitung menurut kalender WIB.
+            </p>
+          </div>
+          <Link
+            href="/admin/ai-usage"
+            className="inline-flex items-center gap-1 text-sm font-semibold text-primary hover:underline"
+          >
+            Lihat detail <ArrowRight className="h-4 w-4" aria-hidden />
+          </Link>
+        </div>
+        {aiUsage ? (
+          <div className="mt-5 grid grid-cols-2 gap-4 xl:grid-cols-4">
+            <div>
+              <p className="text-2xl font-semibold tabular-nums tracking-tight">{formatNumber(aiUsage.totalRequests)}</p>
+              <p className="mt-1 text-xs text-muted-foreground">Total request</p>
+            </div>
+            <div>
+              <p className="text-2xl font-semibold tabular-nums tracking-tight">{formatNumber(aiUsage.activeUsers)}</p>
+              <p className="mt-1 text-xs text-muted-foreground">Pengguna aktif</p>
+            </div>
+            <div>
+              <p className="text-2xl font-semibold tabular-nums tracking-tight">{formatNumber(aiUsage.totalTokens)}</p>
+              <p className="mt-1 text-xs text-muted-foreground">Total token</p>
+            </div>
+            <div>
+              <p className="text-2xl font-semibold tabular-nums tracking-tight">{formatNanoUsd(BigInt(aiUsage.costNanoUsd))}</p>
+              <p className="mt-1 text-xs text-muted-foreground">Estimasi biaya tercatat</p>
+            </div>
+          </div>
+        ) : (
+          <p className="mt-4 text-sm leading-6 text-muted-foreground">
+            Ringkasan penggunaan AI belum dapat dimuat. Bila tabel analitik belum
+            dibuat, jalankan <code className="rounded bg-muted px-1 py-0.5 text-xs">prisma/ai-usage-analytics.sql</code> di
+            Supabase SQL Editor.
+          </p>
+        )}
+      </section>
 
       <section aria-labelledby="admin-shortcuts-title">
         <SectionHeading
