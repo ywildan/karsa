@@ -17,6 +17,25 @@ test('feature is off unless explicitly enabled and fully configured', () => {
   assert.equal(aiConfig({ ...env, AI_GLOBAL_DAILY_LIMIT: '0' }), null);
 });
 
+test('optional analytics prices are parsed but never disable the feature', () => {
+  const priced = aiConfig({ ...env, AI_PRICE_INPUT_PER_MILLION_USD: '0.15', AI_PRICE_OUTPUT_PER_MILLION_USD: '0.50' })!;
+  assert.equal(priced.inputPricePerMillionUsd, '0.15');
+  assert.equal(priced.outputPricePerMillionUsd, '0.50');
+  const invalid = aiConfig({ ...env, AI_PRICE_INPUT_PER_MILLION_USD: 'abc' })!;
+  assert.equal(invalid.inputPricePerMillionUsd, null);
+  assert.equal(invalid.outputPricePerMillionUsd, null);
+});
+
+test('provider reported model and usage are captured for analytics', async () => {
+  const answer = await requestAi(config, article, 'Apa itu debit?', [], (async () => Response.json({
+    model: 'combo-model',
+    usage: { prompt_tokens: 120, completion_tokens: 30 },
+    choices: [{ message: { content: '{"answer":"Jawaban","sources":[1]}' } }],
+  })) as typeof fetch);
+  assert.equal(answer.reported_model, 'combo-model');
+  assert.deepEqual(answer.usage, { prompt_tokens: 120, completion_tokens: 30 });
+});
+
 test('cache revisions change with body, title, model or provider', () => {
   const revision = aiRevision(article, config);
   for (const changed of [{ ...article, body: 'Isi baru' }, { ...article, title: 'Judul baru' }]) {
