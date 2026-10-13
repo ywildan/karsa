@@ -19,6 +19,7 @@
     "test:pengelola": "tsx --test tests/pengelola-policy.test.ts",
     "test:lib-ai": "node --import tsx --test tests/lib-ai.test.ts",
     "test:ai-usage": "tsx --test tests/ai-usage.test.ts",
+    "test:nim-gate": "tsx --test tests/nim-gate.test.ts",
     "test:lib-ai:integration": "node --conditions=react-server --import tsx --test tests/lib-ai.integration.ts",
     "test:groups:integration": "tsx --test tests/group-api.integration.ts",
     "db:generate": "prisma generate",

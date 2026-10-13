@@ -9,6 +9,7 @@
 import { cookies, headers } from "next/headers";
 import Image from "next/image";
 import Link from "next/link";
+import { redirect } from "next/navigation";
 
 import { signOutAction } from "@/actions/auth";
 import { Button } from "@/components/button";
@@ -16,6 +17,7 @@ import { MobileBottomNav } from "@/components/mobile-bottom-nav";
 import { ThemeToggle } from "@/components/theme-toggle";
 import { requirePj } from "@/lib/auth-helpers";
 import { detectChannelFromUserAgent, MOBILE_HOME } from "@/lib/channel";
+import { NIM_GATE_PATH, needsNimCompletion } from "@/lib/nim-gate";
 import { THEME_COOKIE, themeFromCookieValue } from "@/lib/theme";
 
 export default async function MobileLayout({
@@ -24,6 +26,11 @@ export default async function MobileLayout({
   children: React.ReactNode;
 }>) {
   const user = await requirePj();
+
+  // Gerbang NIM: PJ adalah mahasiswa juga — tanpa NIM, lengkapi dulu.
+  if (needsNimCompletion(user)) {
+    redirect(NIM_GATE_PATH);
+  }
   const ua = (await headers()).get("user-agent");
   const showDesktopHint = detectChannelFromUserAgent(ua) === "desktop";
   const displayName = user.name?.trim() || user.email || "Pengguna Karsa";

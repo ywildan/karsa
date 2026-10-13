@@ -5,6 +5,9 @@
  *
  *   /                 → sudah login → home channel; belum → landing
  *   /login            → sudah login → home channel
+ *   /lengkapi-nim    → gerbang NIM: hanya user yang wajib mengisi yang boleh
+ *                       tinggal; mahasiswa tanpa NIM dari path lain dipantul
+ *                       ke sini (policy `lib/nim-gate.ts`)
  *   /admin/*          → wajib login + `is_admin`; bukan admin → /dashboard
  *   path mobile       → wajib login + `is_pj`; selain itu → /dashboard
  *   /dashboard        → PJ **non-admin** → /catat-poin
@@ -36,6 +39,7 @@ import {
   resolveChannel,
   type Channel,
 } from "@/lib/channel";
+import { NIM_GATE_PATH, needsNimCompletion } from "@/lib/nim-gate";
 import { HOME_DEFAULT, LOGIN_PATH, homePathForUser } from "@/lib/roles";
 
 const { auth } = NextAuth(authConfig);
@@ -99,6 +103,20 @@ export default auth((req) => {
     return NextResponse.redirect(loginUrl);
   }
 
+  // Gerbang NIM (cek cepat dari klaim cookie; penegakan otoritatif ada di
+  // layout (desktop)/(mobile) + halaman gerbangnya dengan klaim segar DB):
+  // mahasiswa tanpa NIM wajib ke halaman lengkapi NIM dulu, dan user yang
+  // tidak wajib tidak boleh terdampar di halaman itu.
+  if (pathname === NIM_GATE_PATH) {
+    if (!needsNimCompletion(user)) {
+      return redirectTo(req, homePathForUser(user!, channel), channel, existing);
+    }
+    return nextWithChannel(channel, existing);
+  }
+  if (needsNimCompletion(user)) {
+    return redirectTo(req, NIM_GATE_PATH, channel, existing);
+  }
+
   // Area admin: hanya `is_admin`. Channel tidak menghalangi kalau admin
   // menavigasi ke sini sendiri (home mobile admin = /dashboard).
   if (pathname === "/admin" || pathname.startsWith("/admin/")) {
@@ -146,6 +164,7 @@ export const config = {
   matcher: [
     "/",
     "/login",
+    "/lengkapi-nim",
     "/admin/:path*",
     "/dashboard/:path*",
     "/catat-poin/:path*",
