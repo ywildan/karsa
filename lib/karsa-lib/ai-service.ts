@@ -6,14 +6,14 @@ import { z } from 'zod';
 import type { MobileActor } from '@/lib/mobile/auth';
 import { prisma } from '@/lib/prisma';
 import type { LibResult } from './service';
-import { aiConfig, aiDay, aiMonth, aiRevision, canAccessAiArticle, requestAi, type AiConfig, type AiAnswer, type WebSource } from './ai-policy';
+import { aiDay, aiMonth, aiRevision, canAccessAiArticle, requestAi, type AiConfig, type AiAnswer, type WebSource } from './ai-policy';
 import { estimateAiCostNanoUsd, parseAiPriceToNano } from './ai-usage';
 import {
   resolveAiGlobalLimits,
   resolveAiUserLimits,
   type AiUserLimitOverrides,
 } from './ai-settings';
-import { getAiSettingValues } from './ai-settings-store';
+import { getAiSettingValues, getEffectiveAiConfig } from './ai-settings-store';
 import { searchWeb, WebSearchError, type WebResult } from './ai-search';
 
 const fail = (status: number, code: string, message: string) => ({ ok: false as const, status, code, message });
@@ -186,7 +186,7 @@ async function reserve(tx: Prisma.TransactionClient, actor: MobileActor, config:
 export async function getArticleAiState(actor: MobileActor, id: string, expected?: string): Promise<LibResult<unknown>> {
   const article = await articleFor(actor, id);
   if (!article) return fail(404, 'ARTICLE_NOT_FOUND', 'Artikel tidak ditemukan.');
-  const config = aiConfig(), revision = aiRevision(article, config);
+  const config = await getEffectiveAiConfig(), revision = aiRevision(article, config);
   if (!config) return { ok: true, data: { enabled: false, revision, summary: null, messages: [], quota: null } };
   if (expected && expected !== revision) return fail(409, 'AI_ARTICLE_CHANGED', 'Artikel diperbarui. Muat ulang artikel sebelum menggunakan AI.');
   const [cache, turns, usage] = await Promise.all([
@@ -204,7 +204,7 @@ export async function getArticleAiState(actor: MobileActor, id: string, expected
 export async function summarizeArticle(actor: MobileActor, id: string, input: unknown): Promise<LibResult<unknown>> {
   const article = await articleFor(actor, id);
   if (!article) return fail(404, 'ARTICLE_NOT_FOUND', 'Artikel tidak ditemukan.');
-  const config = aiConfig();
+  const config = await getEffectiveAiConfig();
   if (!config) return fail(503, 'AI_DISABLED', 'Teman baca masih dalam pengembangan.');
   const parsed = inputSchema.safeParse(input);
   if (!parsed.success) return fail(400, 'AI_INVALID_INPUT', 'Permintaan ringkasan tidak valid.');
@@ -260,7 +260,7 @@ export async function summarizeArticle(actor: MobileActor, id: string, input: un
 export async function askArticleAi(actor: MobileActor, id: string, input: unknown): Promise<LibResult<unknown>> {
   const article = await articleFor(actor, id);
   if (!article) return fail(404, 'ARTICLE_NOT_FOUND', 'Artikel tidak ditemukan.');
-  const config = aiConfig();
+  const config = await getEffectiveAiConfig();
   if (!config) return fail(503, 'AI_DISABLED', 'Teman baca masih dalam pengembangan.');
   const parsed = questionSchema.safeParse(input);
   if (!parsed.success) return fail(400, 'AI_INVALID_INPUT', 'Pertanyaan maksimal 600 karakter.');

@@ -11,6 +11,8 @@
  * lewat `invalidateAiSettingsCache`.
  */
 
+import { aiConfig, type AiConfig } from "@/lib/karsa-lib/ai-policy";
+import { resolveAiBaseUrl } from "@/lib/karsa-lib/ai-settings";
 import { prisma } from "@/lib/prisma";
 
 const CACHE_TTL_MS = 60_000;
@@ -35,4 +37,18 @@ export async function getAiSettingValues(): Promise<Record<string, string>> {
 
 export function invalidateAiSettingsCache(): void {
   cache = null;
+}
+
+/**
+ * Config AI efektif untuk request: config env dengan base URL yang mungkin
+ * dioverride pengaturan dashboard. SEMUA konsumen config (ai-service dan
+ * service.ts) wajib lewat sini — bila tidak, `ai_revision` yang dilihat
+ * aplikasi bisa berbeda dari yang dihitung server dan cache ringkasan
+ * tidak akan pernah kena.
+ */
+export async function getEffectiveAiConfig(): Promise<AiConfig | null> {
+  const config = aiConfig();
+  if (!config) return null;
+  const { baseUrl } = resolveAiBaseUrl(await getAiSettingValues(), config);
+  return baseUrl === config.baseUrl ? config : { ...config, baseUrl };
 }
