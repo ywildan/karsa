@@ -8,6 +8,12 @@ import { prisma } from '@/lib/prisma';
 import type { LibResult } from './service';
 import { aiConfig, aiDay, aiMonth, aiRevision, canAccessAiArticle, requestAi, type AiConfig, type AiAnswer, type WebSource } from './ai-policy';
 import { estimateAiCostNanoUsd, parseAiPriceToNano } from './ai-usage';
+import {
+  resolveAiGlobalLimits,
+  resolveAiUserLimits,
+  type AiUserLimitOverrides,
+} from './ai-settings';
+import { getAiSettingValues } from './ai-settings-store';
 import { searchWeb, WebSearchError, type WebResult } from './ai-search';
 
 const fail = (status: number, code: string, message: string) => ({ ok: false as const, status, code, message });
@@ -99,23 +105,36 @@ const webSources = (value: Prisma.JsonValue | null): WebSource[] => Array.isArra
       typeof (item as WebSource).title === 'string' && typeof (item as WebSource).url === 'string')
   : [];
 
+/** Limit khusus per user dari snapshot aktor (NULL = ikut bawaan). */
+function actorOverrides(actor: MobileActor): AiUserLimitOverrides {
+  return {
+    chat: actor.ai_chat_limit_override ?? null,
+    summary: actor.ai_summary_limit_override ?? null,
+    webSearch: actor.ai_web_search_limit_override ?? null,
+  };
+}
+
 async function quota(actor: MobileActor, config: AiConfig) {
   const { day, reset_at } = aiDay();
   const { month } = aiMonth();
   const tier = normalizeTier(actor.premium_tier);
-  const webLimit = tier === 'plus' ? config.webSearchPlusLimit : tier === 'premium' ? config.webSearchPremiumLimit : config.webSearchFreeLimit;
-  // Gratis: 3x/bulan (bucket bulanan). Premium/plus: harian.
-  const webScope = tier === 'free' ? `USER_WEBSEARCH_FREE:${actor.id}` : `USER_WEBSEARCH:${actor.id}`;
-  const webDay = tier === 'free' ? month : day;
+  const limits = resolveAiUserLimits({
+    tier: actor.premium_tier,
+    overrides: actorOverrides(actor),
+    config,
+  });
+  // Gratis: jendela bulanan (bucket bulanan). Premium/plus: harian.
+  const webScope = limits.webSearchPeriod === 'month' ? `USER_WEBSEARCH_FREE:${actor.id}` : `USER_WEBSEARCH:${actor.id}`;
+  const webDay = limits.webSearchPeriod === 'month' ? month : day;
   const [chat, summary, web] = await Promise.all([
     prisma.libAiUsageBucket.findUnique({ where: { scope_day: { scope: `USER_CHAT:${actor.id}`, day } } }),
     prisma.libAiUsageBucket.findUnique({ where: { scope_day: { scope: `USER_SUMMARY:${actor.id}`, day } } }),
     prisma.libAiUsageBucket.findUnique({ where: { scope_day: { scope: webScope, day: webDay } } }),
   ]);
-  return { limit: config.chatLimit, remaining: Math.max(0, config.chatLimit - (chat?.used ?? 0)),
-    summary_limit: config.summaryLimit, summary_remaining: Math.max(0, config.summaryLimit - (summary?.used ?? 0)),
-    websearch_tier: tier, websearch_limit: webLimit,
-    websearch_remaining: Math.max(0, webLimit - (web?.used ?? 0)), reset_at };
+  return { limit: limits.chatLimit, remaining: Math.max(0, limits.chatLimit - (chat?.used ?? 0)),
+    summary_limit: limits.summaryLimit, summary_remaining: Math.max(0, limits.summaryLimit - (summary?.used ?? 0)),
+    websearch_tier: tier, websearch_limit: limits.webSearchLimit,
+    websearch_remaining: Math.max(0, limits.webSearchLimit - (web?.used ?? 0)), reset_at };
 }
 
 async function transaction<T>(run: (tx: Prisma.TransactionClient) => Promise<T>): Promise<T> {
@@ -130,25 +149,30 @@ async function transaction<T>(run: (tx: Prisma.TransactionClient) => Promise<T>)
 
 async function reserve(tx: Prisma.TransactionClient, actor: MobileActor, config: AiConfig, kind: 'CHAT' | 'SUMMARY' | 'WEBSEARCH') {
   const { day } = aiDay();
-  const tier = normalizeTier(actor.premium_tier);
-  let userScope: string, userDay: string, userLimit: number, globalScope = 'GLOBAL', globalLimit = config.globalLimit;
+  const resolved = resolveAiUserLimits({
+    tier: actor.premium_tier,
+    overrides: actorOverrides(actor),
+    config,
+  });
+  // Limit global: pengaturan dashboard (LibAiSetting) menang atas env.
+  const globals = resolveAiGlobalLimits(await getAiSettingValues(), config);
+  let userScope: string, userDay: string, userLimit: number, globalScope = 'GLOBAL', globalLimit = globals.globalLimit;
   if (kind === 'WEBSEARCH') {
-    // Gratis: 3x/bulan; premium/plus: harian. Global: 100/hari untuk semua tier.
+    // Gratis: jendela bulanan; premium/plus: harian. Global untuk semua tier.
     globalScope = 'GLOBAL_WEBSEARCH';
-    globalLimit = config.webSearchGlobalLimit;
-    if (tier === 'free') {
+    globalLimit = globals.webSearchGlobalLimit;
+    if (resolved.webSearchPeriod === 'month') {
       userScope = `USER_WEBSEARCH_FREE:${actor.id}`;
       userDay = aiMonth().month;
-      userLimit = config.webSearchFreeLimit;
     } else {
       userScope = `USER_WEBSEARCH:${actor.id}`;
       userDay = day;
-      userLimit = tier === 'plus' ? config.webSearchPlusLimit : config.webSearchPremiumLimit;
     }
+    userLimit = resolved.webSearchLimit;
   } else {
     userScope = `USER_${kind}:${actor.id}`;
     userDay = day;
-    userLimit = kind === 'CHAT' ? config.chatLimit : config.summaryLimit;
+    userLimit = kind === 'CHAT' ? resolved.chatLimit : resolved.summaryLimit;
   }
   const limits: [string, string, number][] = [[globalScope, day, globalLimit], [userScope, userDay, userLimit]];
   for (const [scope, scopeDay, limit] of limits) {

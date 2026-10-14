@@ -32,6 +32,10 @@ export interface UserSnapshot {
   is_admin: boolean;
   /** Tier langganan web search: "free" | "premium" | "plus". */
   premium_tier: string;
+  /** Limit khusus Teman Baca per user (NULL = ikut bawaan tier/env). */
+  ai_chat_limit_override: number | null;
+  ai_summary_limit_override: number | null;
+  ai_web_search_limit_override: number | null;
   kelas_id: string | null;
   is_pj: boolean;
   /**
@@ -156,8 +160,50 @@ async function loadPengelolaScopes(row: SnapshotRow): Promise<PengelolaScopes> {
   }
 }
 
+/**
+ * Limit khusus Teman Baca per user, dibaca TERPISAH dari snapshot utama dan
+ * dibungkus try/catch penuh (pola yang sama dengan penunjukan pengelola):
+ * bila kolomnya belum dimigrasikan (`ai-premium-admin.sql` belum dijalankan),
+ * snapshot tidak boleh ikut gagal — cukup perlakukan sebagai tanpa override.
+ */
+async function loadAiLimitOverrides(userId: string): Promise<{
+  ai_chat_limit_override: number | null;
+  ai_summary_limit_override: number | null;
+  ai_web_search_limit_override: number | null;
+}> {
+  const none = {
+    ai_chat_limit_override: null,
+    ai_summary_limit_override: null,
+    ai_web_search_limit_override: null,
+  };
+  try {
+    const row = await prisma.user.findUnique({
+      where: { id: userId },
+      select: {
+        ai_chat_limit_override: true,
+        ai_summary_limit_override: true,
+        ai_web_search_limit_override: true,
+      },
+    });
+    return {
+      ai_chat_limit_override: row?.ai_chat_limit_override ?? null,
+      ai_summary_limit_override: row?.ai_summary_limit_override ?? null,
+      ai_web_search_limit_override: row?.ai_web_search_limit_override ?? null,
+    };
+  } catch (error) {
+    console.error(
+      "[snapshot] gagal membaca limit khusus AI — dianggap tanpa override.",
+      error,
+    );
+    return none;
+  }
+}
+
 async function toSnapshot(row: SnapshotRow): Promise<UserSnapshot> {
-  const pengelolaScopes = await loadPengelolaScopes(row);
+  const [pengelolaScopes, aiOverrides] = await Promise.all([
+    loadPengelolaScopes(row),
+    loadAiLimitOverrides(row.id),
+  ]);
   return {
     id: row.id,
     name: row.name,
@@ -166,6 +212,9 @@ async function toSnapshot(row: SnapshotRow): Promise<UserSnapshot> {
     nim: row.nim,
     is_admin: row.is_admin,
     premium_tier: row.premium_tier,
+    ai_chat_limit_override: aiOverrides.ai_chat_limit_override,
+    ai_summary_limit_override: aiOverrides.ai_summary_limit_override,
+    ai_web_search_limit_override: aiOverrides.ai_web_search_limit_override,
     kelas_id: row.kelas_id,
     is_pj: row.kelasMatkulAsPj.length > 0,
     is_pengelola: hasPengelolaScope(pengelolaScopes),

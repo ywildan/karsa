@@ -55,6 +55,9 @@ export async function mobileUserPayload(userId: string) {
     kelas_id: snapshot.kelas_id,
     is_admin: snapshot.is_admin,
     premium_tier: snapshot.premium_tier,
+    ai_chat_limit_override: snapshot.ai_chat_limit_override,
+    ai_summary_limit_override: snapshot.ai_summary_limit_override,
+    ai_web_search_limit_override: snapshot.ai_web_search_limit_override,
     lib_profile: snapshot.libProfile,
     capabilities: {
       record_points: !snapshot.is_admin && snapshot.is_pj,
