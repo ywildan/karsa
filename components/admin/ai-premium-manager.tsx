@@ -9,6 +9,7 @@ import {
   searchAiSubscribers,
   setAiBaseUrl,
   setAiGlobalSettings,
+  setAiTokenAllotments,
   setUserAiLimitOverrides,
   setUserPremiumTier,
 } from "@/actions/ai-premium";
@@ -34,6 +35,104 @@ function parseLimitInput(raw: string): number | null | undefined {
   const value = Number(trimmed);
   if (!Number.isInteger(value) || value < 0 || value > 1000) return undefined;
   return value;
+}
+
+function parseTokenInput(raw: string): number | null | undefined {
+  const trimmed = raw.trim();
+  if (trimmed === "") return null;
+  const value = Number(trimmed);
+  if (!Number.isInteger(value) || value < 0 || value > 100_000_000) return undefined;
+  return value;
+}
+
+function TokenAllotmentRow({
+  tierLabel,
+  value,
+  source,
+  onSave,
+}: {
+  tierLabel: string;
+  value: number;
+  source: "dashboard" | "default";
+  onSave: (next: number | null) => Promise<boolean>;
+}) {
+  const [raw, setRaw] = React.useState(String(value));
+  const [pending, setPending] = React.useState(false);
+  React.useEffect(() => setRaw(String(value)), [value]);
+
+  async function save(next: number | null) {
+    setPending(true);
+    const ok = await onSave(next);
+    setPending(false);
+    if (!ok) setRaw(String(value));
+  }
+
+  return (
+    <div className="flex flex-col gap-3 border-b border-border py-4 last:border-b-0 sm:flex-row sm:items-end sm:justify-between">
+      <div className="min-w-0">
+        <p className="flex flex-wrap items-center gap-2 text-sm font-semibold">
+          Jatah token {tierLabel} / bulan
+          <span
+            className={cn(
+              "rounded-full px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide",
+              source === "dashboard"
+                ? "bg-primary/10 text-primary"
+                : "bg-muted text-muted-foreground",
+            )}
+          >
+            {source === "dashboard" ? "Dari dashboard" : "Bawaan"}
+          </span>
+        </p>
+        <p className="mt-1 text-xs leading-5 text-muted-foreground">
+          Total token input + output chat dan web search per mahasiswa tier{" "}
+          {tierLabel} setiap bulan (WIB). Sekarang: {formatNumber(value)} token.
+        </p>
+      </div>
+      <div className="flex items-end gap-2">
+        <div className="grid gap-1">
+          <Label htmlFor={`token-${tierLabel}`} className="sr-only">
+            Jatah token {tierLabel} per bulan
+          </Label>
+          <Input
+            id={`token-${tierLabel}`}
+            type="number"
+            min={0}
+            max={100000000}
+            value={raw}
+            onChange={(event) => setRaw(event.target.value)}
+            className="w-36"
+            disabled={pending}
+          />
+        </div>
+        <Button
+          type="button"
+          size="sm"
+          disabled={pending}
+          onClick={() => {
+            const parsed = parseTokenInput(raw);
+            if (parsed === undefined || parsed === null) {
+              toast.error("Jatah token harus bilangan bulat 0–100.000.000.");
+              return;
+            }
+            void save(parsed);
+          }}
+        >
+          Simpan
+        </Button>
+        {source === "dashboard" ? (
+          <Button
+            type="button"
+            size="sm"
+            variant="outline"
+            disabled={pending}
+            onClick={() => void save(null)}
+          >
+            Ikut bawaan
+          </Button>
+        ) : null}
+      </div>
+    </div>
+  );
 }
 
 function GlobalSettingRow({
@@ -264,14 +363,14 @@ function SubscriberRow({ row }: { row: AiSubscriberRow }) {
   const [tier, setTier] = React.useState<AiTier>(row.tier);
   const [tierPending, setTierPending] = React.useState(false);
   const [editorOpen, setEditorOpen] = React.useState(false);
-  const [chat, setChat] = React.useState(row.overrides.chat?.toString() ?? "");
+  const [token, setToken] = React.useState(row.overrides.token?.toString() ?? "");
   const [summary, setSummary] = React.useState(row.overrides.summary?.toString() ?? "");
   const [web, setWeb] = React.useState(row.overrides.webSearch?.toString() ?? "");
   const [limitPending, setLimitPending] = React.useState(false);
 
   React.useEffect(() => {
     setTier(row.tier);
-    setChat(row.overrides.chat?.toString() ?? "");
+    setToken(row.overrides.token?.toString() ?? "");
     setSummary(row.overrides.summary?.toString() ?? "");
     setWeb(row.overrides.webSearch?.toString() ?? "");
   }, [row]);
@@ -295,17 +394,17 @@ function SubscriberRow({ row }: { row: AiSubscriberRow }) {
   }
 
   function saveLimits() {
-    const parsedChat = parseLimitInput(chat);
+    const parsedToken = parseTokenInput(token);
     const parsedSummary = parseLimitInput(summary);
     const parsedWeb = parseLimitInput(web);
-    if (parsedChat === undefined || parsedSummary === undefined || parsedWeb === undefined) {
-      toast.error("Limit khusus harus bilangan bulat 0–1000, atau kosongkan untuk ikut bawaan.");
+    if (parsedToken === undefined || parsedSummary === undefined || parsedWeb === undefined) {
+      toast.error("Limit khusus tidak valid: jatah token 0–100.000.000, limit lain 0–1000, atau kosongkan untuk ikut bawaan.");
       return;
     }
     setLimitPending(true);
     void setUserAiLimitOverrides({
       userId: row.id,
-      chat: parsedChat,
+      token: parsedToken,
       summary: parsedSummary,
       webSearch: parsedWeb,
     })
@@ -322,7 +421,7 @@ function SubscriberRow({ row }: { row: AiSubscriberRow }) {
   }
 
   const hasOverrides =
-    row.overrides.chat !== null || row.overrides.summary !== null || row.overrides.webSearch !== null;
+    row.overrides.token !== null || row.overrides.summary !== null || row.overrides.webSearch !== null;
 
   return (
     <div className="border-b border-border py-4 last:border-b-0">
@@ -334,7 +433,8 @@ function SubscriberRow({ row }: { row: AiSubscriberRow }) {
           </p>
           <p className="truncate text-xs text-muted-foreground">{row.email}</p>
           <p className="mt-1 text-xs text-muted-foreground">
-            Hari ini: chat {row.usageToday.chat}/{row.effective.chatLimit} · ringkasan{" "}
+            Token bulan ini: {formatNumber(row.tokenUsedMonth)}/
+            {formatNumber(row.effective.tokenLimit)} · ringkasan hari ini{" "}
             {row.usageToday.summary}/{row.effective.summaryLimit} · web search{" "}
             {row.usageToday.webSearch}/{row.effective.webSearchLimit} per{" "}
             {row.effective.webSearchPeriod === "month" ? "bulan" : "hari"}
@@ -382,9 +482,9 @@ function SubscriberRow({ row }: { row: AiSubscriberRow }) {
         <div className="mt-3 grid gap-3 rounded-xl border border-border bg-background p-3 sm:grid-cols-4 sm:items-end">
           {(
             [
-              { label: "Chat / hari", value: chat, set: setChat, fallback: row.effective.chatLimit },
-              { label: "Ringkasan / hari", value: summary, set: setSummary, fallback: row.effective.summaryLimit },
-              { label: "Web search", value: web, set: setWeb, fallback: row.effective.webSearchLimit },
+              { label: "Jatah token / bulan", value: token, set: setToken, fallback: row.effective.tokenLimit, max: 100000000 },
+              { label: "Ringkasan / hari", value: summary, set: setSummary, fallback: row.effective.summaryLimit, max: 1000 },
+              { label: "Web search", value: web, set: setWeb, fallback: row.effective.webSearchLimit, max: 1000 },
             ] as const
           ).map((field) => (
             <div key={field.label} className="grid gap-1">
@@ -392,7 +492,7 @@ function SubscriberRow({ row }: { row: AiSubscriberRow }) {
               <Input
                 type="number"
                 min={0}
-                max={1000}
+                max={field.max}
                 value={field.value}
                 onChange={(event) => field.set(event.target.value)}
                 placeholder={`Bawaan: ${field.fallback}`}
@@ -410,7 +510,7 @@ function SubscriberRow({ row }: { row: AiSubscriberRow }) {
               variant="ghost"
               disabled={limitPending}
               onClick={() => {
-                setChat("");
+                setToken("");
                 setSummary("");
                 setWeb("");
               }}
@@ -419,8 +519,9 @@ function SubscriberRow({ row }: { row: AiSubscriberRow }) {
             </Button>
           </div>
           <p className="text-[11px] leading-4 text-muted-foreground sm:col-span-4">
-            Kosong berarti ikut bawaan tier/env. Isi 0 untuk mematikan fitur itu
-            bagi mahasiswa ini.
+            Kosong berarti ikut bawaan tier/env. Isi 0 pada jatah token untuk
+            menghabiskan jatah mahasiswa ini, atau 0 pada limit lain untuk
+            mematikan fitur itu baginya.
           </p>
         </div>
       ) : null}
@@ -469,6 +570,22 @@ export function AiPremiumManager({
   // bila sumbernya env, menyimpan satu field tidak boleh mengunci field lain.
   const rawGlobal = settings.globalDailyLimit.source === "dashboard" ? settings.globalDailyLimit.value : null;
   const rawWebGlobal = settings.webSearchGlobalLimit.source === "dashboard" ? settings.webSearchGlobalLimit.value : null;
+  const rawAllotments: Record<AiTier, number | null> = {
+    free: settings.tokenAllotments.free.source === "dashboard" ? settings.tokenAllotments.free.value : null,
+    premium: settings.tokenAllotments.premium.source === "dashboard" ? settings.tokenAllotments.premium.value : null,
+    plus: settings.tokenAllotments.plus.source === "dashboard" ? settings.tokenAllotments.plus.value : null,
+  };
+
+  async function saveAllotment(tier: AiTier, next: number | null): Promise<boolean> {
+    const result = await setAiTokenAllotments({ ...rawAllotments, [tier]: next });
+    if (!result.ok) {
+      toast.error(result.error);
+      return false;
+    }
+    toast.success(result.message ?? "Jatah token tersimpan.");
+    router.refresh();
+    return true;
+  }
 
   return (
     <div className="space-y-5">
@@ -498,6 +615,15 @@ export function AiPremiumManager({
           }
         />
         <BaseUrlSettingRow value={settings.baseUrl.value} source={settings.baseUrl.source} />
+        {TIERS.map((tier) => (
+          <TokenAllotmentRow
+            key={tier.value}
+            tierLabel={tier.label}
+            value={settings.tokenAllotments[tier.value].value}
+            source={settings.tokenAllotments[tier.value].source}
+            onSave={(next) => saveAllotment(tier.value, next)}
+          />
+        ))}
       </div>
 
       <div className="rounded-2xl border border-border bg-card px-4 py-4 sm:px-5">
