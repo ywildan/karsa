@@ -19,6 +19,12 @@ const AUDIT_ACTION_CATEGORIES = [
   "KELAS",
   "MATKUL",
   "SEMESTER",
+  "PENGELOLA",
+  "PRODI",
+  "FACULTY",
+  "KARSA_LIB",
+  "USER",
+  "AI",
 ] as const;
 
 export type AuditActionCategory = (typeof AUDIT_ACTION_CATEGORIES)[number];

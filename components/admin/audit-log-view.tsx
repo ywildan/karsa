@@ -43,7 +43,30 @@ const ACTION_LABELS: Record<string, string> = {
   KELAS_UPDATE: "Kelas Diubah",
   KELAS_DELETE: "Kelas Dihapus",
   MATKUL_ASSIGN: "Matkul Ditugaskan",
+  MATKUL_CREATE: "Matkul Dibuat",
+  MATKUL_UPDATE: "Matkul Diubah",
+  MATKUL_DELETE: "Matkul Dihapus",
+  SEMESTER_CREATE: "Semester Dibuat",
+  SEMESTER_UPDATE: "Semester Diubah",
+  SEMESTER_DELETE: "Semester Dihapus",
   SEMESTER_SET_ACTIVE: "Semester Diaktifkan",
+  PENGELOLA_ASSIGN: "Pengelola Ditunjuk",
+  PENGELOLA_REVOKE: "Pengelola Dicabut",
+  PRODI_CREATE: "Prodi Dibuat",
+  PRODI_UPDATE: "Prodi Diubah",
+  PRODI_DELETE: "Prodi Dihapus",
+  FACULTY_CREATE: "Fakultas Dibuat",
+  FACULTY_UPDATE: "Fakultas Diubah",
+  FACULTY_DELETE: "Fakultas Dihapus",
+  KARSA_LIB_AUTHOR_APPROVE: "Penulis Karsa Lib Disetujui",
+  KARSA_LIB_AUTHOR_REJECT: "Penulis Karsa Lib Ditolak",
+  KARSA_LIB_AUTHOR_REVOKE: "Akses Penulis Karsa Lib Dicabut",
+  KARSA_LIB_REPORT_REMOVE: "Laporan Karsa Lib: Konten Dihapus",
+  KARSA_LIB_REPORT_DISMISS: "Laporan Karsa Lib: Diabaikan",
+  USER_NIM_SET: "NIM Dilengkapi",
+  AI_TIER_SET: "Tier AI Diubah",
+  AI_LIMIT_SET: "Limit AI Khusus Diubah",
+  AI_GLOBAL_SETTINGS_SET: "Pengaturan AI Global Diubah",
 };
 
 const CATEGORY_STYLES: Record<string, string> = {
@@ -53,9 +76,17 @@ const CATEGORY_STYLES: Record<string, string> = {
   KELAS: "bg-purple-500/10 text-purple-700 dark:text-purple-300",
   MATKUL: "bg-cyan-500/10 text-cyan-700 dark:text-cyan-300",
   SEMESTER: "bg-amber-500/10 text-amber-700 dark:text-amber-300",
+  PENGELOLA: "bg-indigo-500/10 text-indigo-700 dark:text-indigo-300",
+  PRODI: "bg-lime-500/10 text-lime-700 dark:text-lime-300",
+  FACULTY: "bg-sky-500/10 text-sky-700 dark:text-sky-300",
+  KARSA_LIB: "bg-fuchsia-500/10 text-fuchsia-700 dark:text-fuchsia-300",
+  USER: "bg-teal-500/10 text-teal-700 dark:text-teal-300",
+  AI: "bg-rose-500/10 text-rose-700 dark:text-rose-300",
 };
 
 function getActionCategory(action: string): string {
+  // Awalan dua kata: jangan sampai badge-nya terpotong jadi "KARSA".
+  if (action.startsWith("KARSA_LIB_")) return "KARSA_LIB";
   return action.split("_")[0] || "LAINNYA";
 }
 
@@ -500,11 +531,42 @@ export function AuditLogView({
             </optgroup>
             <optgroup label="Matkul">
               <option value="category:MATKUL">Semua aktivitas matkul</option>
-              <option value="MATKUL_ASSIGN">Assign matkul</option>
             </optgroup>
             <optgroup label="Semester">
               <option value="category:SEMESTER">Semua aktivitas semester</option>
+              <option value="SEMESTER_CREATE">Buat semester</option>
+              <option value="SEMESTER_UPDATE">Edit semester</option>
+              <option value="SEMESTER_DELETE">Hapus semester</option>
               <option value="SEMESTER_SET_ACTIVE">Aktifkan semester</option>
+            </optgroup>
+            <optgroup label="Pengelola">
+              <option value="category:PENGELOLA">Semua aktivitas pengelola</option>
+              <option value="PENGELOLA_ASSIGN">Tunjuk pengelola</option>
+              <option value="PENGELOLA_REVOKE">Cabut pengelola</option>
+            </optgroup>
+            <optgroup label="Prodi">
+              <option value="category:PRODI">Semua aktivitas prodi</option>
+            </optgroup>
+            <optgroup label="Fakultas">
+              <option value="category:FACULTY">Semua aktivitas fakultas</option>
+            </optgroup>
+            <optgroup label="Karsa Lib">
+              <option value="category:KARSA_LIB">Semua aktivitas Karsa Lib</option>
+              <option value="KARSA_LIB_AUTHOR_APPROVE">Penulis disetujui</option>
+              <option value="KARSA_LIB_AUTHOR_REJECT">Penulis ditolak</option>
+              <option value="KARSA_LIB_AUTHOR_REVOKE">Akses penulis dicabut</option>
+              <option value="KARSA_LIB_REPORT_REMOVE">Laporan: konten dihapus</option>
+              <option value="KARSA_LIB_REPORT_DISMISS">Laporan: diabaikan</option>
+            </optgroup>
+            <optgroup label="Akun">
+              <option value="category:USER">Semua aktivitas akun</option>
+              <option value="USER_NIM_SET">NIM dilengkapi</option>
+            </optgroup>
+            <optgroup label="AI">
+              <option value="category:AI">Semua aktivitas AI</option>
+              <option value="AI_TIER_SET">Tier AI diubah</option>
+              <option value="AI_LIMIT_SET">Limit AI khusus diubah</option>
+              <option value="AI_GLOBAL_SETTINGS_SET">Pengaturan AI global diubah</option>
             </optgroup>
           </Select>
         </div>
