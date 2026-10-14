@@ -1201,6 +1201,7 @@ ALTER TABLE "LibAiTurn" ADD COLUMN IF NOT EXISTS "model_reported" TEXT;
 ALTER TABLE "LibAiTurn" ADD COLUMN IF NOT EXISTS "input_price_nano_usd_per_million" BIGINT;
 ALTER TABLE "LibAiTurn" ADD COLUMN IF NOT EXISTS "output_price_nano_usd_per_million" BIGINT;
 ALTER TABLE "LibAiTurn" ADD COLUMN IF NOT EXISTS "estimated_cost_nano_usd" BIGINT;
+ALTER TABLE "LibAiTurn" ADD COLUMN IF NOT EXISTS "provider" TEXT NOT NULL DEFAULT 'primary';
 CREATE INDEX IF NOT EXISTS "LibAiTurn_created_at_idx" ON "LibAiTurn"("created_at");
 CREATE INDEX IF NOT EXISTS "LibAiTurn_article_id_created_at_idx" ON "LibAiTurn"("article_id", "created_at");
 CREATE INDEX IF NOT EXISTS "LibAiTurn_web_search_created_at_idx" ON "LibAiTurn"("web_search", "created_at");
@@ -1219,6 +1220,7 @@ CREATE TABLE IF NOT EXISTS "LibAiSummaryGeneration" (
   "input_price_nano_usd_per_million" BIGINT,
   "output_price_nano_usd_per_million" BIGINT,
   "estimated_cost_nano_usd" BIGINT,
+  "provider" TEXT NOT NULL DEFAULT 'primary',
   "error_code" TEXT,
   "created_at" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
   "updated_at" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
