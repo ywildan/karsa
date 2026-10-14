@@ -46,6 +46,12 @@ model User {
   /// Tier langganan web search Teman Baca: "free" | "premium" | "plus".
   /// Diatur manual oleh admin (via SQL/admin panel) sampai ada payment gateway.
   premium_tier  String    @default("free")
+  /// Limit khusus Teman Baca per user (dashboard Langganan AI). NULL = ikut
+  /// bawaan tier/env; 0 = fitur dimatikan untuk user ini. Rentang 0–1000
+  /// ditegakkan CHECK di SQL.
+  ai_chat_limit_override       Int?
+  ai_summary_limit_override    Int?
+  ai_web_search_limit_override Int?
   kelas_id      String?
   first_login_at DateTime?
   created_at    DateTime  @default(now())
@@ -673,6 +679,16 @@ model LibAiUsageBucket {
   day   String
   used  Int @default(0)
   @@id([scope, day])
+}
+
+/// Pengaturan Teman Baca yang bisa diedit admin dari dashboard Langganan AI
+/// (key-value; kunci dikenal: "global_daily_limit",
+/// "websearch_global_limit"). Baris yang tidak ada = ikut env. Konfigurasi
+/// provider (base URL, API key, model) SENGAJA tidak disimpan di sini.
+model LibAiSetting {
+  key        String   @id
+  value      String
+  updated_at DateTime @default(now()) @updatedAt
 }
 
 /// Komentar dan satu tingkat balasan. Body dipertahankan sebagai tombstone
