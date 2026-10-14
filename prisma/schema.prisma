@@ -631,6 +631,9 @@ model LibAiTurn {
   input_price_nano_usd_per_million  BigInt?
   output_price_nano_usd_per_million BigInt?
   estimated_cost_nano_usd           BigInt?
+  /// Provider yang melayani: "primary" (gateway utama) atau "fallback"
+  /// (provider resmi cadangan dari env AI_FALLBACK_*).
+  provider         String   @default("primary")
   created_at  DateTime @default(now())
   updated_at  DateTime @default(now()) @updatedAt
   article LibArticle @relation(fields: [article_id], references: [id], onDelete: Cascade)
@@ -660,6 +663,8 @@ model LibAiSummaryGeneration {
   input_price_nano_usd_per_million  BigInt?
   output_price_nano_usd_per_million BigInt?
   estimated_cost_nano_usd           BigInt?
+  /// Provider yang melayani: "primary" atau "fallback".
+  provider         String   @default("primary")
   error_code       String?
   created_at       DateTime @default(now())
   updated_at       DateTime @default(now()) @updatedAt

@@ -143,6 +143,20 @@ adapter tambahan. Tidak ada auto-retry dan redirect tidak diikuti.
   Database yang sudah berjalan perlu menjalankan `prisma/ai-premium-admin.sql`
   sebelum halaman ini dipakai; tanpa itu limit mengikuti env dan halaman
   menampilkan penanda untuk menjalankan SQL-nya.
+- **Provider fallback (cadangan)**: env opsional `AI_FALLBACK_BASE_URL` /
+  `AI_FALLBACK_API_KEY` / `AI_FALLBACK_MODEL` menunjuk provider resmi yang
+  dihubungi langsung (mis. OpenRouter) saat provider utama gagal — dipakai
+  terutama saat instance Kaggle (base URL utama) sedang mati. Request dicoba
+  tepat satu kali ke fallback (semua kegagalan utama memicu), dengan
+  `AI_FALLBACK_TOKEN_PARAMETER` opsional dan pasangan harga
+  `AI_FALLBACK_PRICE_*` opsional untuk estimasi biaya. Trio tidak lengkap
+  atau tidak valid berarti fallback dianggap tidak ada. Kuota direservasi
+  satu kali (percobaan ulang tidak memotong dobel) dan `aiRevision` tetap
+  dari provider utama. Request yang dilayani fallback tercatat dengan
+  penanda `provider = "fallback"` di `LibAiTurn`/`LibAiSummaryGeneration`
+  dan tampil terpisah di bagian "Per provider" pada `/admin/ai-usage`
+  (perlu `prisma/ai-fallback-provider.sql` dijalankan sekali; pencatatan
+  tetap fail-safe tanpa kolom itu).
 
 ## Kontrak endpoint
 

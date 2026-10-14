@@ -312,6 +312,31 @@ export function AiUsageView({
             </p>
           ) : null}
 
+          {data.providers.length > 0 ? (
+            <div className="rounded-2xl border border-border/70 bg-card p-4 sm:p-5">
+              <h2 className="text-base font-semibold tracking-tight">Per provider</h2>
+              <p className="mt-1 text-xs text-muted-foreground">
+                Fallback adalah provider resmi cadangan yang melayani saat provider utama gagal.
+              </p>
+              <div className="mt-3 grid gap-3 sm:grid-cols-2">
+                {data.providers.map((row) => (
+                  <div key={row.provider} className="rounded-xl bg-muted/40 px-4 py-3">
+                    <div className="flex items-center justify-between gap-2">
+                      <p className="text-sm font-semibold">
+                        {row.provider === "fallback" ? "Fallback (cadangan)" : "Utama"}
+                      </p>
+                      <p className="text-sm font-semibold">{fmtCost(row.costNanoUsd)}</p>
+                    </div>
+                    <p className="mt-1 text-xs leading-5 text-muted-foreground">
+                      {formatNumber(row.requests)} request · {formatNumber(row.completedRequests)} berhasil ·{" "}
+                      {formatNumber(row.promptTokens + row.completionTokens)} token
+                    </p>
+                  </div>
+                ))}
+              </div>
+            </div>
+          ) : null}
+
           <div className="rounded-2xl border border-border/70 bg-card p-4 sm:p-5">
             <div className="flex flex-wrap items-baseline justify-between gap-2">
               <h2 className="text-base font-semibold tracking-tight">Request per hari</h2>

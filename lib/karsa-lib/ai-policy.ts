@@ -2,6 +2,22 @@ import { createHash } from 'node:crypto';
 import { isIP } from 'node:net';
 import { z } from 'zod';
 
+/** Identitas provider yang melayani satu request AI. */
+export type AiProviderId = 'primary' | 'fallback';
+
+/**
+ * Provider cadangan opsional (env `AI_FALLBACK_*`): provider resmi yang
+ * dihubungi langsung (bukan lewat gateway utama) saat provider utama gagal.
+ * Trio key/base URL/model tidak lengkap atau tidak valid = fallback dianggap
+ * tidak ada dan perilaku AI sama seperti tanpa fallback.
+ */
+export type AiFallbackConfig = {
+  key: string; baseUrl: string; model: string;
+  tokenParameter: 'max_tokens' | 'max_completion_tokens';
+  inputPricePerMillionUsd: string | null;
+  outputPricePerMillionUsd: string | null;
+};
+
 export type AiConfig = {
   key: string; baseUrl: string; model: string; chatLimit: number;
   summaryLimit: number; globalLimit: number; maxTokens: number;
@@ -12,6 +28,8 @@ export type AiConfig = {
   /** Web search (Tavily): free = 3x/bulan, premium = 3x/hari, plus = 5x/hari. */
   webSearchFreeLimit: number; webSearchPremiumLimit: number;
   webSearchPlusLimit: number; webSearchGlobalLimit: number;
+  /** Provider cadangan; null bila env fallback tidak lengkap/tidak valid. */
+  fallback: AiFallbackConfig | null;
 };
 
 const number = (value: string | undefined, fallback: number, max: number) => {
@@ -53,8 +71,30 @@ export function aiConfig(env: Record<string, string | undefined> = process.env):
       const trimmed = value?.trim();
       return trimmed && /^\d+(?:\.\d{1,9})?$/.test(trimmed) ? trimmed : null;
     };
+    // Fallback: aktif hanya bila trio key + base URL + model lengkap dan
+    // valid. Token parameter terpisah bersifat opsional (bawaan: ikut utama);
+    // nilai tidak dikenal diabaikan, bukan menggagalkan fallback.
+    const fallbackKey = env.AI_FALLBACK_API_KEY?.trim();
+    const fallbackModel = env.AI_FALLBACK_MODEL?.trim();
+    const fallbackBaseUrl = parseAiBaseUrl(env.AI_FALLBACK_BASE_URL);
+    const fallbackTokenRaw = env.AI_FALLBACK_TOKEN_PARAMETER;
+    const fallback: AiFallbackConfig | null =
+      fallbackKey && fallbackModel && fallbackBaseUrl &&
+      !/[\r\n]/.test(fallbackKey) && fallbackModel.length <= 200
+        ? {
+            key: fallbackKey,
+            baseUrl: fallbackBaseUrl,
+            model: fallbackModel,
+            tokenParameter:
+              fallbackTokenRaw === 'max_tokens' || fallbackTokenRaw === 'max_completion_tokens'
+                ? fallbackTokenRaw
+                : tokenParameter,
+            inputPricePerMillionUsd: price(env.AI_FALLBACK_PRICE_INPUT_PER_MILLION_USD),
+            outputPricePerMillionUsd: price(env.AI_FALLBACK_PRICE_OUTPUT_PER_MILLION_USD),
+          }
+        : null;
     return {
-      key, model, baseUrl, tokenParameter,
+      key, model, baseUrl, tokenParameter, fallback,
       inputPricePerMillionUsd: price(env.AI_PRICE_INPUT_PER_MILLION_USD),
       outputPricePerMillionUsd: price(env.AI_PRICE_OUTPUT_PER_MILLION_USD),
       chatLimit: number(env.AI_USER_DAILY_LIMIT, 5, 100),
@@ -113,6 +153,8 @@ export type AiAnswer = {
   usage?: { prompt_tokens: number; completion_tokens: number };
   /** Nama model yang dilaporkan provider; boleh sama dengan nama combo. */
   reported_model?: string;
+  /** Provider yang benar-benar melayani request ini (diisi `requestAi`). */
+  provider?: AiProviderId;
 };
 export class AiProviderError extends Error {
   constructor() { super('AI_PROVIDER_UNAVAILABLE'); }
@@ -186,8 +228,16 @@ export type RequestAiOptions = {
   webResults?: { title: string; url: string; snippet: string; published_at?: string }[];
 };
 
-export async function requestAi(
-  config: AiConfig,
+/** Identitas satu provider yang bisa dicoba `requestAi`. */
+type AiProviderTarget = Pick<
+  AiFallbackConfig,
+  'key' | 'baseUrl' | 'model' | 'tokenParameter'
+>;
+
+/** Satu percobaan request ke satu provider; semua kegagalan = AiProviderError. */
+async function attemptAi(
+  target: AiProviderTarget,
+  config: Pick<AiConfig, 'timeoutMs' | 'maxTokens'>,
   article: { title: string; body: string },
   question: string | null,
   history: { question: string; answer: string | null }[] = [],
@@ -229,10 +279,10 @@ Gunakan sources kosong jika artikel tidak membahas pertanyaan. Jangan mengarang 
     { role: 'user', content: question ?? 'Buat ringkasan artikel di atas.' },
   ];
   try {
-    const response = await fetcher(`${config.baseUrl}/chat/completions`, {
+    const response = await fetcher(`${target.baseUrl}/chat/completions`, {
       method: 'POST', redirect: 'error', signal: AbortSignal.timeout(config.timeoutMs),
-      headers: { Authorization: `Bearer ${config.key}`, 'Content-Type': 'application/json' },
-      body: JSON.stringify({ model: config.model, messages, stream: false, [config.tokenParameter]: config.maxTokens }),
+      headers: { Authorization: `Bearer ${target.key}`, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ model: target.model, messages, stream: false, [target.tokenParameter]: config.maxTokens }),
     });
     if (!response.ok || !response.body) throw new AiProviderError();
     const reader = response.body.getReader();
@@ -260,4 +310,29 @@ Gunakan sources kosong jika artikel tidak membahas pertanyaan. Jangan mengarang 
     }
     return answer;
   } catch { throw new AiProviderError(); }
+}
+
+/**
+ * Request AI dengan fallback satu kali: coba provider utama; bila gagal
+ * (semua kegagalan sudah diseragamkan menjadi `AiProviderError` oleh
+ * `attemptAi`) dan fallback terkonfigurasi, coba tepat satu kali ke
+ * fallback. Jawaban ditandai `provider` sesuai yang melayani, agar
+ * pencatatan analitik bisa membedakan traffic dan biaya keduanya.
+ */
+export async function requestAi(
+  config: AiConfig,
+  article: { title: string; body: string },
+  question: string | null,
+  history: { question: string; answer: string | null }[] = [],
+  fetcher: typeof fetch = fetch,
+  options: RequestAiOptions = {},
+): Promise<AiAnswer> {
+  try {
+    const answer = await attemptAi(config, config, article, question, history, fetcher, options);
+    return { ...answer, provider: 'primary' };
+  } catch (error) {
+    if (!config.fallback) throw error;
+    const answer = await attemptAi(config.fallback, config, article, question, history, fetcher, options);
+    return { ...answer, provider: 'fallback' };
+  }
 }

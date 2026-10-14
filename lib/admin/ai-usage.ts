@@ -76,6 +76,15 @@ export type AiUsageModelRow = {
   costNanoUsd: string;
 };
 
+export type AiUsageProviderRow = {
+  provider: "primary" | "fallback";
+  requests: number;
+  completedRequests: number;
+  promptTokens: number;
+  completionTokens: number;
+  costNanoUsd: string;
+};
+
 export type AiUsageAnalytics = {
   summary: {
     totalRequests: number;
@@ -97,6 +106,8 @@ export type AiUsageAnalytics = {
   users: AiUsageUserRow[];
   articles: AiUsageArticleRow[];
   models: AiUsageModelRow[];
+  /** Pemisahan traffic per provider (kosong bila kolom provider belum ada). */
+  providers: AiUsageProviderRow[];
 };
 
 type NormalizedRecord = {
@@ -127,7 +138,7 @@ function emptyAnalytics(): AiUsageAnalytics {
       promptTokens: 0, completionTokens: 0, totalTokens: 0,
       costNanoUsd: "0", costKnownRequests: 0, averageLatencyMs: null,
     },
-    daily: [], users: [], articles: [], models: [],
+    daily: [], users: [], articles: [], models: [], providers: [],
   };
 }
 
@@ -350,6 +361,69 @@ export async function getAiUsageAnalytics(query: AiUsageQuery): Promise<AiUsageA
     };
   });
 
+  // Pemisahan per provider lewat groupBy terpisah yang fail-safe: bila kolom
+  // `provider` belum ada di database (SQL belum dijalankan), bagian ini
+  // dikembalikan kosong dan seluruh dashboard lain tetap berfungsi.
+  const providers = await (async (): Promise<AiUsageProviderRow[]> => {
+    try {
+      const sumSelect = {
+        prompt_tokens: true,
+        completion_tokens: true,
+        estimated_cost_nano_usd: true,
+      } as const;
+      const [turnGroups, generationGroups] = await Promise.all([
+        includeTurns
+          ? prisma.libAiTurn.groupBy({
+              by: ["provider", "status"],
+              where: turnWhere,
+              _count: { _all: true },
+              _sum: sumSelect,
+            })
+          : Promise.resolve([]),
+        includeSummaries
+          ? prisma.libAiSummaryGeneration.groupBy({
+              by: ["provider", "status"],
+              where: summaryWhere,
+              _count: { _all: true },
+              _sum: sumSelect,
+            })
+          : Promise.resolve([]),
+      ]);
+      const byProvider = new Map<
+        string,
+        { requests: number; completed: number; prompt: number; completion: number; cost: bigint }
+      >();
+      for (const group of [...turnGroups, ...generationGroups]) {
+        const entry = byProvider.get(group.provider) ?? {
+          requests: 0, completed: 0, prompt: 0, completion: 0, cost: BigInt(0),
+        };
+        entry.requests += group._count._all;
+        if (group.status === "COMPLETE") entry.completed += group._count._all;
+        entry.prompt += group._sum.prompt_tokens ?? 0;
+        entry.completion += group._sum.completion_tokens ?? 0;
+        if (group._sum.estimated_cost_nano_usd != null) {
+          entry.cost += group._sum.estimated_cost_nano_usd;
+        }
+        byProvider.set(group.provider, entry);
+      }
+      return (["primary", "fallback"] as const)
+        .filter((provider) => byProvider.has(provider))
+        .map((provider) => {
+          const entry = byProvider.get(provider)!;
+          return {
+            provider,
+            requests: entry.requests,
+            completedRequests: entry.completed,
+            promptTokens: entry.prompt,
+            completionTokens: entry.completion,
+            costNanoUsd: entry.cost.toString(),
+          };
+        });
+    } catch {
+      return [];
+    }
+  })();
+
   return {
     summary: {
       totalRequests: records.length,
@@ -367,7 +441,7 @@ export async function getAiUsageAnalytics(query: AiUsageQuery): Promise<AiUsageA
       costKnownRequests: costKnown,
       averageLatencyMs: latencyCount ? Math.round(latencyTotal / latencyCount) : null,
     },
-    daily, users, articles, models,
+    daily, users, articles, models, providers,
   };
 }
 

@@ -27,6 +27,80 @@ test('parseAiBaseUrl shares the exact env validation rules', () => {
   assert.equal(parseAiBaseUrl(undefined), null);
 });
 
+const fallbackEnv = {
+  ...env,
+  AI_FALLBACK_BASE_URL: 'https://openrouter.example.com/api/v1',
+  AI_FALLBACK_API_KEY: 'fallback-test-key',
+  AI_FALLBACK_MODEL: 'fallback-model',
+  AI_FALLBACK_PRICE_INPUT_PER_MILLION_USD: '0.2',
+  AI_FALLBACK_PRICE_OUTPUT_PER_MILLION_USD: '0.6',
+};
+
+test('fallback config needs a complete valid trio and stays optional', () => {
+  const withFallback = aiConfig(fallbackEnv)!;
+  assert.equal(withFallback.fallback?.baseUrl, 'https://openrouter.example.com/api/v1');
+  assert.equal(withFallback.fallback?.model, 'fallback-model');
+  assert.equal(withFallback.fallback?.tokenParameter, 'max_completion_tokens');
+  assert.equal(withFallback.fallback?.inputPricePerMillionUsd, '0.2');
+  // Tidak lengkap / tidak valid: fallback dianggap tidak ada, utama tetap jalan.
+  assert.equal(aiConfig({ ...fallbackEnv, AI_FALLBACK_API_KEY: '' })!.fallback, null);
+  assert.equal(aiConfig({ ...fallbackEnv, AI_FALLBACK_MODEL: '' })!.fallback, null);
+  assert.equal(aiConfig({ ...fallbackEnv, AI_FALLBACK_BASE_URL: 'http://openrouter.example.com' })!.fallback, null);
+  assert.equal(aiConfig(env)!.fallback, null);
+  // Token parameter fallback terpisah dihormati; nilai aneh diabaikan ke utama.
+  assert.equal(aiConfig({ ...fallbackEnv, AI_FALLBACK_TOKEN_PARAMETER: 'max_tokens' })!.fallback?.tokenParameter, 'max_tokens');
+  assert.equal(aiConfig({ ...fallbackEnv, AI_FALLBACK_TOKEN_PARAMETER: 'aneh' })!.fallback?.tokenParameter, 'max_completion_tokens');
+});
+
+test('requestAi stays on primary when primary succeeds', async () => {
+  const seen: string[] = [];
+  const fetcher = (async (input: unknown) => {
+    seen.push(String(input));
+    return Response.json({
+      model: 'primary-reported',
+      usage: { prompt_tokens: 10, completion_tokens: 5 },
+      choices: [{ message: { content: '{"answer":"Utama","sources":[1]}' } }],
+    });
+  }) as typeof fetch;
+  const answer = await requestAi(aiConfig(fallbackEnv)!, article, 'Apa itu debit?', [], fetcher);
+  assert.equal(answer.provider, 'primary');
+  assert.equal(answer.answer, 'Utama');
+  assert.deepEqual(seen, ['https://ai.example.com/v1/chat/completions']);
+});
+
+test('requestAi falls back once with fallback credentials when primary fails', async () => {
+  const calls: { url: string; auth: string | null; model: string }[] = [];
+  const fetcher = (async (input: unknown, init?: { headers?: Record<string, string>; body?: string }) => {
+    const body = JSON.parse(init?.body ?? '{}') as { model: string };
+    calls.push({ url: String(input), auth: init?.headers?.Authorization ?? null, model: body.model });
+    if (String(input).includes('ai.example.com')) {
+      return new Response('down', { status: 503 });
+    }
+    return Response.json({
+      model: 'fallback-reported',
+      usage: { prompt_tokens: 20, completion_tokens: 7 },
+      choices: [{ message: { content: '{"answer":"Cadangan","sources":[1]}' } }],
+    });
+  }) as typeof fetch;
+  const answer = await requestAi(aiConfig(fallbackEnv)!, article, 'Apa itu debit?', [], fetcher);
+  assert.equal(answer.provider, 'fallback');
+  assert.equal(answer.answer, 'Cadangan');
+  assert.equal(answer.reported_model, 'fallback-reported');
+  assert.equal(calls.length, 2);
+  assert.equal(calls[1].url, 'https://openrouter.example.com/api/v1/chat/completions');
+  assert.equal(calls[1].auth, 'Bearer fallback-test-key');
+  assert.equal(calls[1].model, 'fallback-model');
+});
+
+test('requestAi throws when primary and fallback both fail, and never retries without fallback', async () => {
+  const failing = (async () => new Response('down', { status: 500 })) as typeof fetch;
+  await assert.rejects(requestAi(aiConfig(fallbackEnv)!, article, 'Apa itu debit?', [], failing), AiProviderError);
+  let calls = 0;
+  const counting = (async () => { calls++; return new Response('down', { status: 500 }); }) as typeof fetch;
+  await assert.rejects(requestAi(aiConfig(env)!, article, 'Apa itu debit?', [], counting), AiProviderError);
+  assert.equal(calls, 1);
+});
+
 test('optional analytics prices are parsed but never disable the feature', () => {
   const priced = aiConfig({ ...env, AI_PRICE_INPUT_PER_MILLION_USD: '0.15', AI_PRICE_OUTPUT_PER_MILLION_USD: '0.50' })!;
   assert.equal(priced.inputPricePerMillionUsd, '0.15');
@@ -124,7 +198,7 @@ test('compatible endpoint receives server key, bounded request and article conte
     assert.ok(!String(options?.body).includes(env.AI_API_KEY));
     return Response.json({ choices: [{ message: { content: '{"answer":"Jawaban","sources":[2]}' } }] });
   };
-  assert.deepEqual(await requestAi(config, article, 'Apa itu debit?', [], mockFetch), { answer: 'Jawaban', sources: [2] });
+  assert.deepEqual(await requestAi(config, article, 'Apa itu debit?', [], mockFetch), { answer: 'Jawaban', sources: [2], provider: 'primary' });
   assert.equal(calls, 1);
 });
 

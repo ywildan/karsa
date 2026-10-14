@@ -24,11 +24,18 @@ const fail = (status: number, code: string, message: string) => ({ ok: false as 
  * nano-USD. Harga dibekukan saat request terjadi supaya perubahan harga
  * berikutnya tidak mengubah riwayat dashboard.
  */
-function usageSnapshot(config: AiConfig, answer?: AiAnswer) {
-  const inputPrice = parseAiPriceToNano(config.inputPricePerMillionUsd);
-  const outputPrice = parseAiPriceToNano(config.outputPricePerMillionUsd);
+function usageSnapshot(config: AiConfig, answer?: AiAnswer, includeProvider = true) {
+  // Harga + model yang dibekukan adalah milik provider yang BENAR-BENAR
+  // melayani (fallback memakai pasangan harga dan modelnya sendiri).
+  const servedByFallback = answer?.provider === 'fallback' && config.fallback !== null;
+  const serving = servedByFallback && config.fallback ? config.fallback : config;
+  const inputPrice = parseAiPriceToNano(serving.inputPricePerMillionUsd);
+  const outputPrice = parseAiPriceToNano(serving.outputPricePerMillionUsd);
   return {
-    model_requested: config.model,
+    ...(includeProvider
+      ? { provider: servedByFallback ? ('fallback' as const) : ('primary' as const) }
+      : {}),
+    model_requested: serving.model,
     model_reported: answer?.reported_model ?? null,
     input_price_nano_usd_per_million: inputPrice,
     output_price_nano_usd_per_million: outputPrice,
@@ -45,8 +52,17 @@ function usageSnapshot(config: AiConfig, answer?: AiAnswer) {
 async function recordTurnUsage(turnId: string, config: AiConfig, answer?: AiAnswer) {
   try {
     await prisma.libAiTurn.update({ where: { id: turnId }, data: usageSnapshot(config, answer) });
-  } catch (error) {
-    console.error('[ai-usage] gagal mencatat usage turn', error);
+  } catch {
+    // Kolom `provider` mungkin belum ada (SQL belum dijalankan): jangan
+    // korbankan seluruh snapshot, coba lagi tanpa kolom itu.
+    try {
+      await prisma.libAiTurn.update({
+        where: { id: turnId },
+        data: usageSnapshot(config, answer, false),
+      });
+    } catch (error) {
+      console.error('[ai-usage] gagal mencatat usage turn', error);
+    }
   }
 }
 
@@ -61,22 +77,29 @@ async function recordSummaryGeneration(input: {
   latencyMs: number;
   errorCode?: string;
 }) {
+  const baseData = {
+    article_id: input.articleId,
+    triggered_by_id: input.triggeredById,
+    revision: input.revision,
+    status: input.status,
+    latency_ms: Math.max(0, Math.round(input.latencyMs)),
+    error_code: input.errorCode ?? null,
+    prompt_tokens: input.answer?.usage?.prompt_tokens ?? null,
+    completion_tokens: input.answer?.usage?.completion_tokens ?? null,
+  };
   try {
     await prisma.libAiSummaryGeneration.create({
-      data: {
-        article_id: input.articleId,
-        triggered_by_id: input.triggeredById,
-        revision: input.revision,
-        status: input.status,
-        latency_ms: Math.max(0, Math.round(input.latencyMs)),
-        error_code: input.errorCode ?? null,
-        prompt_tokens: input.answer?.usage?.prompt_tokens ?? null,
-        completion_tokens: input.answer?.usage?.completion_tokens ?? null,
-        ...usageSnapshot(input.config, input.answer),
-      },
+      data: { ...baseData, ...usageSnapshot(input.config, input.answer) },
     });
-  } catch (error) {
-    console.error('[ai-usage] gagal mencatat pembuatan ringkasan', error);
+  } catch {
+    // Sama seperti recordTurnUsage: kolom `provider` mungkin belum ada.
+    try {
+      await prisma.libAiSummaryGeneration.create({
+        data: { ...baseData, ...usageSnapshot(input.config, input.answer, false) },
+      });
+    } catch (error) {
+      console.error('[ai-usage] gagal mencatat pembuatan ringkasan', error);
+    }
   }
 }
 const inputSchema = z.object({ revision: z.string().regex(/^[a-f0-9]{64}$/) });
