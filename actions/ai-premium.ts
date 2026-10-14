@@ -1,0 +1,204 @@
+/**
+ * Karsa — actions/ai-premium.ts
+ * ----------------------------------------------------------------------------
+ * Mutasi dashboard "Langganan AI" (admin saja): ganti tier langganan user,
+ * limit khusus per user, dan limit global (`LibAiSetting`). Semua perubahan
+ * dicatat ke `AuditLog` dalam transaksi yang sama (pola repo), dan cache
+ * pengaturan diinstance ini dikosongkan agar langsung berlaku.
+ */
+"use server";
+
+import { revalidatePath } from "next/cache";
+import { z } from "zod";
+
+import type { ActionResult } from "@/lib/action-utils";
+import { zodFirstError } from "@/lib/action-utils";
+import { listAiSubscribers, type AiSubscriberRow } from "@/lib/admin/ai-premium";
+import { auditActorFromSession, logAudit } from "@/lib/audit";
+import { requireAdmin } from "@/lib/auth-helpers";
+import {
+  AI_GLOBAL_LIMIT_MAX,
+  AI_SETTING_GLOBAL_DAILY_LIMIT,
+  AI_SETTING_WEBSEARCH_GLOBAL_LIMIT,
+  isValidAiLimitOverride,
+} from "@/lib/karsa-lib/ai-settings";
+import { invalidateAiSettingsCache } from "@/lib/karsa-lib/ai-settings-store";
+import { prisma } from "@/lib/prisma";
+
+const PAGE_PATH = "/admin/ai-premium";
+const SQL_HINT =
+  "Tabel pengaturan AI belum ada di database. Jalankan prisma/ai-premium-admin.sql di Supabase SQL Editor dulu.";
+
+export async function searchAiSubscribers(query: string): Promise<AiSubscriberRow[]> {
+  await requireAdmin();
+  return listAiSubscribers(typeof query === "string" ? query.slice(0, 100) : "");
+}
+
+const tierSchema = z.object({
+  userId: z.string().min(1),
+  tier: z.enum(["free", "premium", "plus"]),
+});
+
+export async function setUserPremiumTier(input: {
+  userId: string;
+  tier: "free" | "premium" | "plus";
+}): Promise<ActionResult> {
+  const admin = await requireAdmin();
+  const parsed = tierSchema.safeParse(input);
+  if (!parsed.success) return { ok: false, error: zodFirstError(parsed.error) };
+  const { userId, tier } = parsed.data;
+
+  const user = await prisma.user.findUnique({
+    where: { id: userId },
+    select: { id: true, name: true, email: true, premium_tier: true, is_admin: true },
+  });
+  if (!user || user.is_admin) return { ok: false, error: "User tidak ditemukan." };
+  if (user.premium_tier === tier) return { ok: true, message: "Tier tidak berubah." };
+
+  try {
+    await prisma.$transaction(async (tx) => {
+      await tx.user.update({ where: { id: userId }, data: { premium_tier: tier } });
+      await logAudit(
+        {
+          actor: auditActorFromSession(admin),
+          action: "AI_TIER_SET",
+          entity: { type: "User", id: user.id, label: user.name ?? user.email },
+          before: { premium_tier: user.premium_tier },
+          after: { premium_tier: tier },
+        },
+        tx,
+      );
+    });
+  } catch {
+    return { ok: false, error: "Gagal mengubah tier. Silakan coba lagi." };
+  }
+
+  revalidatePath(PAGE_PATH);
+  return { ok: true, message: `Tier ${user.name ?? user.email} sekarang ${tier}.` };
+}
+
+const overridesSchema = z.object({
+  userId: z.string().min(1),
+  chat: z.number().int().min(0).max(1000).nullable(),
+  summary: z.number().int().min(0).max(1000).nullable(),
+  webSearch: z.number().int().min(0).max(1000).nullable(),
+});
+
+export async function setUserAiLimitOverrides(input: {
+  userId: string;
+  chat: number | null;
+  summary: number | null;
+  webSearch: number | null;
+}): Promise<ActionResult> {
+  const admin = await requireAdmin();
+  const parsed = overridesSchema.safeParse(input);
+  if (!parsed.success) return { ok: false, error: zodFirstError(parsed.error) };
+  const { userId, chat, summary, webSearch } = parsed.data;
+  if (!isValidAiLimitOverride(chat) || !isValidAiLimitOverride(summary) || !isValidAiLimitOverride(webSearch)) {
+    return { ok: false, error: "Limit harus bilangan bulat 0–1000 atau kosong." };
+  }
+
+  const user = await prisma.user
+    .findUnique({
+      where: { id: userId },
+      select: {
+        id: true,
+        name: true,
+        email: true,
+        is_admin: true,
+        ai_chat_limit_override: true,
+        ai_summary_limit_override: true,
+        ai_web_search_limit_override: true,
+      },
+    })
+    .catch(() => null);
+  if (!user) return { ok: false, error: `User tidak ditemukan. ${SQL_HINT}` };
+  if (user.is_admin) return { ok: false, error: "User tidak ditemukan." };
+
+  try {
+    await prisma.$transaction(async (tx) => {
+      await tx.user.update({
+        where: { id: userId },
+        data: {
+          ai_chat_limit_override: chat,
+          ai_summary_limit_override: summary,
+          ai_web_search_limit_override: webSearch,
+        },
+      });
+      await logAudit(
+        {
+          actor: auditActorFromSession(admin),
+          action: "AI_LIMIT_SET",
+          entity: { type: "User", id: user.id, label: user.name ?? user.email },
+          before: {
+            ai_chat_limit_override: user.ai_chat_limit_override,
+            ai_summary_limit_override: user.ai_summary_limit_override,
+            ai_web_search_limit_override: user.ai_web_search_limit_override,
+          },
+          after: {
+            ai_chat_limit_override: chat,
+            ai_summary_limit_override: summary,
+            ai_web_search_limit_override: webSearch,
+          },
+        },
+        tx,
+      );
+    });
+  } catch {
+    return { ok: false, error: `Gagal menyimpan limit khusus. ${SQL_HINT}` };
+  }
+
+  revalidatePath(PAGE_PATH);
+  return { ok: true, message: "Limit khusus tersimpan." };
+}
+
+const globalSettingsSchema = z.object({
+  globalDailyLimit: z.number().int().min(1).max(AI_GLOBAL_LIMIT_MAX).nullable(),
+  webSearchGlobalLimit: z.number().int().min(1).max(AI_GLOBAL_LIMIT_MAX).nullable(),
+});
+
+export async function setAiGlobalSettings(input: {
+  globalDailyLimit: number | null;
+  webSearchGlobalLimit: number | null;
+}): Promise<ActionResult> {
+  const admin = await requireAdmin();
+  const parsed = globalSettingsSchema.safeParse(input);
+  if (!parsed.success) return { ok: false, error: zodFirstError(parsed.error) };
+  const { globalDailyLimit, webSearchGlobalLimit } = parsed.data;
+
+  const entries: { key: string; value: number | null }[] = [
+    { key: AI_SETTING_GLOBAL_DAILY_LIMIT, value: globalDailyLimit },
+    { key: AI_SETTING_WEBSEARCH_GLOBAL_LIMIT, value: webSearchGlobalLimit },
+  ];
+
+  try {
+    await prisma.$transaction(async (tx) => {
+      for (const entry of entries) {
+        if (entry.value === null) {
+          await tx.libAiSetting.deleteMany({ where: { key: entry.key } });
+        } else {
+          await tx.libAiSetting.upsert({
+            where: { key: entry.key },
+            create: { key: entry.key, value: String(entry.value) },
+            update: { value: String(entry.value) },
+          });
+        }
+      }
+      await logAudit(
+        {
+          actor: auditActorFromSession(admin),
+          action: "AI_GLOBAL_SETTINGS_SET",
+          entity: { type: "LibAiSetting", id: "global", label: "Pengaturan AI global" },
+          after: { global_daily_limit: globalDailyLimit, websearch_global_limit: webSearchGlobalLimit },
+        },
+        tx,
+      );
+    });
+  } catch {
+    return { ok: false, error: `Gagal menyimpan pengaturan global. ${SQL_HINT}` };
+  }
+
+  invalidateAiSettingsCache();
+  revalidatePath(PAGE_PATH);
+  return { ok: true, message: "Pengaturan global tersimpan." };
+}

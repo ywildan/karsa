@@ -8,6 +8,7 @@ import {
   BookOpenText,
   Bot,
   CalendarDays,
+  Crown,
   ChevronDown,
   GraduationCap,
   Landmark,
@@ -51,6 +52,7 @@ const NAV_GROUPS: { label: string; items: NavItem[] }[] = [
     items: [
       { href: "/admin/audit", label: "Audit log", icon: ScrollText },
       { href: "/admin/ai-usage", label: "Penggunaan AI", icon: Bot },
+      { href: "/admin/ai-premium", label: "Langganan AI", icon: Crown },
     ],
   },
 ];

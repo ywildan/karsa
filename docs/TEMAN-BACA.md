@@ -125,6 +125,18 @@ adapter tambahan. Tidak ada auto-retry dan redirect tidak diikuti.
   dashboard dan kartu ringkasan beranda admin punya toggle tampilan USD/IDR
   (cookie `karsa_ai_currency`). Konversi IDR memakai env `AI_USD_IDR_RATE`
   (bawaan 17900 bila belum diisi) dan hanya memengaruhi tampilan, bukan data.
+- **Dashboard Langganan AI**: halaman admin `/admin/ai-premium` (menu
+  Pengawasan → Langganan AI) mengelola langganan Teman Baca tanpa SQL/env
+  manual: ganti `premium_tier` per mahasiswa, limit khusus per user
+  (`ai_chat_limit_override`, `ai_summary_limit_override`,
+  `ai_web_search_limit_override` di `User`; kosong = ikut bawaan, 0 =
+  nonaktif), dan limit global (`LibAiSetting`: `global_daily_limit`,
+  `websearch_global_limit`). Urutan penentu limit: khusus per user >
+  pengaturan dashboard > env > bawaan kode (policy `lib/karsa-lib/ai-settings.ts`).
+  Konfigurasi provider (base URL, API key, model) SENGAJA tetap di env.
+  Database yang sudah berjalan perlu menjalankan `prisma/ai-premium-admin.sql`
+  sebelum halaman ini dipakai; tanpa itu limit mengikuti env dan halaman
+  menampilkan penanda untuk menjalankan SQL-nya.
 
 ## Kontrak endpoint
 
