@@ -194,17 +194,17 @@ class LibArticle {
 }
 
 class LibAiQuota {
-  const LibAiQuota({required this.remaining, required this.limit, required this.summaryRemaining,
+  const LibAiQuota({required this.tokenRemaining, required this.tokenLimit, required this.summaryRemaining,
     this.websearchTier = 'free', this.websearchLimit = 0, this.websearchRemaining = 0});
-  final int remaining;
-  final int limit;
+  final int tokenRemaining;
+  final int tokenLimit;
   final int summaryRemaining;
   final String websearchTier;
   final int websearchLimit;
   final int websearchRemaining;
   factory LibAiQuota.fromJson(Map<String, dynamic> json) => LibAiQuota(
-    remaining: (json['remaining'] as num?)?.toInt() ?? 0,
-    limit: (json['limit'] as num?)?.toInt() ?? 0,
+    tokenRemaining: (json['token_remaining'] as num?)?.toInt() ?? 0,
+    tokenLimit: (json['token_limit'] as num?)?.toInt() ?? 0,
     summaryRemaining: (json['summary_remaining'] as num?)?.toInt() ?? 0,
     websearchTier: json['websearch_tier'] as String? ?? 'free',
     websearchLimit: (json['websearch_limit'] as num?)?.toInt() ?? 0,

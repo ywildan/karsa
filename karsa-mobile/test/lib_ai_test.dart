@@ -25,7 +25,7 @@ class ArticleAiApi extends ApiClient {
   Future<LibAiState> libAiState(String articleId, String revision) async {
     stateCalls++;
     return LibAiState(enabled: enabled, revision: revision, turns: const [],
-      quota: const LibAiQuota(remaining: 5, limit: 5, summaryRemaining: 3));
+      quota: const LibAiQuota(tokenRemaining: 400000, tokenLimit: 400000, summaryRemaining: 3));
   }
   @override
   Future<Map<String, dynamic>> askLibAi(String articleId, {
@@ -80,13 +80,13 @@ void main() {
     expect(tester.widget<TextField>(question).enabled, isTrue);
     await tester.enterText(question, 'Pertanyaan selanjutnya');
     api.response.complete({'id': 'turn', 'question': 'Apa inti materi?', 'answer': 'Jawaban dari artikel.',
-      'sources': [1], 'quota': {'remaining': 4, 'limit': 5, 'summary_remaining': 3}});
+      'sources': [1], 'quota': {'token_remaining': 380000, 'token_limit': 400000, 'summary_remaining': 3}});
     await tester.pumpAndSettle();
     expect(tester.widget<TextField>(question).controller?.text, 'Pertanyaan selanjutnya');
     expect(api.providerCalls, 1);
     tester.view.viewInsets = const FakeViewPadding();
     await tester.pumpAndSettle();
-    expect(find.text('4 / 5 pertanyaan tersisa hari ini'), findsOneWidget);
+    expect(find.text('Sisa token bulan ini: 380.000'), findsOneWidget);
     expect(tester.takeException(), isNull);
   });
 }

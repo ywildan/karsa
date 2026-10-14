@@ -11,6 +11,17 @@ import 'common.dart';
 /// TODO: ganti dengan URL halaman plan yang sebenarnya (mis. di karsa-landing).
 const _planUrl = 'https://karsa-landing.vercel.app/paket';
 
+/// Format angka token dengan pemisah ribuan titik (380.000).
+String formatTokenCount(int value) {
+  final digits = value.toString();
+  final buffer = StringBuffer();
+  for (var i = 0; i < digits.length; i++) {
+    if (i > 0 && (digits.length - i) % 3 == 0) buffer.write('.');
+    buffer.write(digits[i]);
+  }
+  return buffer.toString();
+}
+
 class LibAiSheetResult {
   const LibAiSheetResult({this.source, this.reloadArticle = false});
   final int? source;
@@ -200,7 +211,7 @@ class _LibAiSheetState extends State<_LibAiSheet> {
   Future<void> _send() async {
     final draft = _question.text;
     final text = draft.trim();
-    if (_sending || !_enabled || text.isEmpty || (_quota?.remaining ?? 0) == 0) return;
+    if (_sending || !_enabled || text.isEmpty || (_quota?.tokenRemaining ?? 0) == 0) return;
     final useWebSearch = _webSearchArmed;
     _focus.requestFocus();
     setState(() { _sending = true; _pendingQuestion = text; _pendingWebSearch = useWebSearch; _webSearchArmed = false; _error = null; _failedQuestion = null; });
@@ -224,8 +235,9 @@ class _LibAiSheetState extends State<_LibAiSheet> {
       });
     } catch (error) {
       if (error is ApiException && error.code == 'AI_REQUEST_FAILED') _submission.complete();
-      final quotaError = error is ApiException && error.code == 'AI_QUOTA_EXCEEDED';
-      if (quotaError && useWebSearch) {
+      final errorCode = error is ApiException ? error.code : null;
+      final quotaError = errorCode == 'AI_QUOTA_EXCEEDED' || errorCode == 'AI_TOKEN_QUOTA_EXCEEDED';
+      if (errorCode == 'AI_QUOTA_EXCEEDED' && useWebSearch) {
         _showWebSearchQuotaDialog();
       } else {
         _handleError(error);
@@ -385,7 +397,7 @@ class _LibAiSheetState extends State<_LibAiSheet> {
       const SizedBox(height: 16),
       for (final example in ['Apa inti artikel ini?', 'Jelaskan konsep utama dengan bahasa sederhana.']) Padding(
         padding: const EdgeInsets.only(bottom: 8), child: OutlinedButton(
-          onPressed: (_quota?.remaining ?? 0) == 0 ? null : () { _question.text = example; _focus.requestFocus(); },
+          onPressed: (_quota?.tokenRemaining ?? 0) == 0 ? null : () { _question.text = example; _focus.requestFocus(); },
           child: Text(example),
         )),
     ],
@@ -429,7 +441,7 @@ class _LibAiSheetState extends State<_LibAiSheet> {
           opacity: keyboardOpen ? 0 : 1,
           child: IgnorePointer(
             ignoring: keyboardOpen,
-            child: Text('${_quota?.remaining ?? 0} / ${_quota?.limit ?? 0} pertanyaan tersisa hari ini',
+            child: Text('Sisa token bulan ini: ${formatTokenCount(_quota?.tokenRemaining ?? 0)}',
               style: const TextStyle(fontSize: KarsaType.caption, color: KarsaColors.muted)),
           ),
         ),
@@ -453,12 +465,12 @@ class _LibAiSheetState extends State<_LibAiSheet> {
           ),
           const SizedBox(width: 4),
           Expanded(child: TextField(controller: _question, focusNode: _focus,
-            enabled: (_quota?.remaining ?? 0) > 0, minLines: 1, maxLines: 3, maxLength: 600,
+            enabled: (_quota?.tokenRemaining ?? 0) > 0, minLines: 1, maxLines: 3, maxLength: 600,
             textInputAction: TextInputAction.newline,
             onEditingComplete: () {}, onSubmitted: (_) {},
             decoration: const InputDecoration(hintText: 'Tanya tentang materi…', counterText: ''))),
           const SizedBox(width: 8),
-          IconButton.filled(tooltip: 'Kirim pertanyaan', onPressed: _sending || (_quota?.remaining ?? 0) == 0 ? null : _send,
+          IconButton.filled(tooltip: 'Kirim pertanyaan', onPressed: _sending || (_quota?.tokenRemaining ?? 0) == 0 ? null : _send,
             icon: const Icon(Icons.arrow_upward_rounded)),
         ]),
         AnimatedOpacity(

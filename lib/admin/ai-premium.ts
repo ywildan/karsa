@@ -20,7 +20,9 @@ import {
   normalizeAiTier,
   resolveAiBaseUrl,
   resolveAiGlobalLimits,
+  resolveAiTokenLimit,
   resolveAiUserLimits,
+  tokenAllotmentFor,
   type AiTier,
   type AiUserLimitOverrides,
 } from "@/lib/karsa-lib/ai-settings";
@@ -29,7 +31,6 @@ import { prisma } from "@/lib/prisma";
 
 /** Bawaan parser env — hanya untuk tampilan bila AI belum aktif. */
 const FALLBACK_LIMITS = {
-  chatLimit: 5,
   summaryLimit: 3,
   globalLimit: 100,
   webSearchFreeLimit: 3,
@@ -52,6 +53,8 @@ export interface AiPremiumSettingsView {
   webSearchGlobalLimit: AiGlobalSettingView;
   /** Base URL provider yang sedang efektif + sumbernya. */
   baseUrl: { value: string; source: "dashboard" | "env" };
+  /** Jatah token bulanan per tier (dashboard menang atas bawaan kode). */
+  tokenAllotments: Record<AiTier, { value: number; source: "dashboard" | "default" }>;
 }
 
 export async function getAiPremiumSettingsView(): Promise<AiPremiumSettingsView> {
@@ -83,6 +86,11 @@ export async function getAiPremiumSettingsView(): Promise<AiPremiumSettingsView>
           value: dashboardBaseUrl ?? process.env.AI_BASE_URL ?? "https://api.openai.com/v1",
           source: dashboardBaseUrl ? ("dashboard" as const) : ("env" as const),
         },
+    tokenAllotments: {
+      free: tokenAllotmentFor("free", settings),
+      premium: tokenAllotmentFor("premium", settings),
+      plus: tokenAllotmentFor("plus", settings),
+    },
     globalDailyLimit: {
       value: resolved.globalLimit,
       source: settings[AI_SETTING_GLOBAL_DAILY_LIMIT] ? "dashboard" : "env",
@@ -103,8 +111,10 @@ export interface AiSubscriberRow {
   nim: string | null;
   tier: AiTier;
   overrides: AiUserLimitOverrides;
-  usageToday: { chat: number; summary: number; webSearch: number };
-  effective: { chatLimit: number; summaryLimit: number; webSearchLimit: number; webSearchPeriod: "day" | "month" };
+  usageToday: { summary: number; webSearch: number };
+  /** Token tercatat bulan WIB berjalan (chat + web search). */
+  tokenUsedMonth: number;
+  effective: { tokenLimit: number; summaryLimit: number; webSearchLimit: number; webSearchPeriod: "day" | "month" };
 }
 
 export async function listAiSubscribers(query: string): Promise<AiSubscriberRow[]> {
@@ -132,7 +142,7 @@ export async function listAiSubscribers(query: string): Promise<AiSubscriberRow[
       email: true,
       nim: true,
       premium_tier: true,
-      ai_chat_limit_override: true,
+      ai_token_limit_override: true,
       ai_summary_limit_override: true,
       ai_web_search_limit_override: true,
     },
@@ -141,11 +151,10 @@ export async function listAiSubscribers(query: string): Promise<AiSubscriberRow[
   if (users.length === 0) return [];
 
   const { day } = aiDay();
-  const { month } = aiMonth();
+  const { month, reset_at: monthEnd } = aiMonth();
   const pairs: { scope: string; day: string }[] = [];
   for (const user of users) {
     pairs.push(
-      { scope: `USER_CHAT:${user.id}`, day },
       { scope: `USER_SUMMARY:${user.id}`, day },
       normalizeAiTier(user.premium_tier) === "free"
         ? { scope: `USER_WEBSEARCH_FREE:${user.id}`, day: month }
@@ -157,10 +166,31 @@ export async function listAiSubscribers(query: string): Promise<AiSubscriberRow[
     .catch(() => []);
   const usedByScope = new Map(buckets.map((bucket) => [`${bucket.scope}|${bucket.day}`, bucket.used]));
 
+  // Pemakaian token bulan berjalan per user (satu groupBy untuk semua baris).
+  const settings = await getAiSettingValues();
+  const monthStart = new Date(`${month}-01T00:00:00+07:00`);
+  const tokenGroups = await prisma.libAiTurn
+    .groupBy({
+      by: ["user_id"],
+      where: {
+        user_id: { in: users.map((user) => user.id) },
+        status: { not: "PENDING" },
+        created_at: { gte: monthStart, lt: monthEnd },
+      },
+      _sum: { prompt_tokens: true, completion_tokens: true },
+    })
+    .catch(() => []);
+  const tokenUsedByUser = new Map(
+    tokenGroups.map((group) => [
+      group.user_id,
+      (group._sum.prompt_tokens ?? 0) + (group._sum.completion_tokens ?? 0),
+    ]),
+  );
+
   return users.map((user) => {
     const tier = normalizeAiTier(user.premium_tier);
     const overrides: AiUserLimitOverrides = {
-      chat: user.ai_chat_limit_override,
+      token: user.ai_token_limit_override,
       summary: user.ai_summary_limit_override,
       webSearch: user.ai_web_search_limit_override,
     };
@@ -175,12 +205,16 @@ export async function listAiSubscribers(query: string): Promise<AiSubscriberRow[
       tier,
       overrides,
       usageToday: {
-        chat: usedByScope.get(`USER_CHAT:${user.id}|${day}`) ?? 0,
         summary: usedByScope.get(`USER_SUMMARY:${user.id}|${day}`) ?? 0,
         webSearch: usedByScope.get(`${webScope}|${webDay}`) ?? 0,
       },
+      tokenUsedMonth: tokenUsedByUser.get(user.id) ?? 0,
       effective: {
-        chatLimit: effective.chatLimit,
+        tokenLimit: resolveAiTokenLimit({
+          tier: user.premium_tier,
+          tokenOverride: user.ai_token_limit_override,
+          settings,
+        }),
         summaryLimit: effective.summaryLimit,
         webSearchLimit: effective.webSearchLimit,
         webSearchPeriod: effective.webSearchPeriod,
