@@ -10,6 +10,7 @@ import { aiDay, aiMonth, aiRevision, canAccessAiArticle, requestAi, type AiConfi
 import { estimateAiCostNanoUsd, parseAiPriceToNano } from './ai-usage';
 import {
   resolveAiGlobalLimits,
+  resolveAiTokenLimit,
   resolveAiUserLimits,
   type AiUserLimitOverrides,
 } from './ai-settings';
@@ -131,15 +132,35 @@ const webSources = (value: Prisma.JsonValue | null): WebSource[] => Array.isArra
 /** Limit khusus per user dari snapshot aktor (NULL = ikut bawaan). */
 function actorOverrides(actor: MobileActor): AiUserLimitOverrides {
   return {
-    chat: actor.ai_chat_limit_override ?? null,
+    token: actor.ai_token_limit_override ?? null,
     summary: actor.ai_summary_limit_override ?? null,
     webSearch: actor.ai_web_search_limit_override ?? null,
   };
 }
 
+/**
+ * Token terpakai user pada bulan WIB berjalan: jumlah prompt+completion
+ * token `LibAiTurn` bukan PENDING (chat + web search). Pembuatan ringkasan
+ * TIDAK dihitung (cache bersama semua pembaca). Turn yang gagal di provider
+ * tidak punya token tercatat, jadi tidak memotong jatah.
+ */
+async function monthlyTokenUsage(userId: string): Promise<number> {
+  const { month, reset_at } = aiMonth();
+  const start = new Date(`${month}-01T00:00:00+07:00`);
+  const aggregate = await prisma.libAiTurn.aggregate({
+    where: {
+      user_id: userId,
+      status: { not: 'PENDING' },
+      created_at: { gte: start, lt: reset_at },
+    },
+    _sum: { prompt_tokens: true, completion_tokens: true },
+  });
+  return (aggregate._sum.prompt_tokens ?? 0) + (aggregate._sum.completion_tokens ?? 0);
+}
+
 async function quota(actor: MobileActor, config: AiConfig) {
   const { day, reset_at } = aiDay();
-  const { month } = aiMonth();
+  const { month, reset_at: token_reset_at } = aiMonth();
   const tier = normalizeTier(actor.premium_tier);
   const limits = resolveAiUserLimits({
     tier: actor.premium_tier,
@@ -149,12 +170,19 @@ async function quota(actor: MobileActor, config: AiConfig) {
   // Gratis: jendela bulanan (bucket bulanan). Premium/plus: harian.
   const webScope = limits.webSearchPeriod === 'month' ? `USER_WEBSEARCH_FREE:${actor.id}` : `USER_WEBSEARCH:${actor.id}`;
   const webDay = limits.webSearchPeriod === 'month' ? month : day;
-  const [chat, summary, web] = await Promise.all([
-    prisma.libAiUsageBucket.findUnique({ where: { scope_day: { scope: `USER_CHAT:${actor.id}`, day } } }),
+  const [summary, web, settings, tokenUsed] = await Promise.all([
     prisma.libAiUsageBucket.findUnique({ where: { scope_day: { scope: `USER_SUMMARY:${actor.id}`, day } } }),
     prisma.libAiUsageBucket.findUnique({ where: { scope_day: { scope: webScope, day: webDay } } }),
+    getAiSettingValues(),
+    monthlyTokenUsage(actor.id),
   ]);
-  return { limit: limits.chatLimit, remaining: Math.max(0, limits.chatLimit - (chat?.used ?? 0)),
+  const tokenLimit = resolveAiTokenLimit({
+    tier: actor.premium_tier,
+    tokenOverride: actor.ai_token_limit_override ?? null,
+    settings,
+  });
+  return { token_limit: tokenLimit, token_used: tokenUsed,
+    token_remaining: Math.max(0, tokenLimit - tokenUsed), token_reset_at,
     summary_limit: limits.summaryLimit, summary_remaining: Math.max(0, limits.summaryLimit - (summary?.used ?? 0)),
     websearch_tier: tier, websearch_limit: limits.webSearchLimit,
     websearch_remaining: Math.max(0, limits.webSearchLimit - (web?.used ?? 0)), reset_at };
@@ -179,11 +207,10 @@ async function reserve(tx: Prisma.TransactionClient, actor: MobileActor, config:
   });
   // Limit global: pengaturan dashboard (LibAiSetting) menang atas env.
   const globals = resolveAiGlobalLimits(await getAiSettingValues(), config);
-  let userScope: string, userDay: string, userLimit: number, globalScope = 'GLOBAL', globalLimit = globals.globalLimit;
+  let limits: [string, string, number][];
   if (kind === 'WEBSEARCH') {
     // Gratis: jendela bulanan; premium/plus: harian. Global untuk semua tier.
-    globalScope = 'GLOBAL_WEBSEARCH';
-    globalLimit = globals.webSearchGlobalLimit;
+    let userScope: string, userDay: string;
     if (resolved.webSearchPeriod === 'month') {
       userScope = `USER_WEBSEARCH_FREE:${actor.id}`;
       userDay = aiMonth().month;
@@ -191,13 +218,14 @@ async function reserve(tx: Prisma.TransactionClient, actor: MobileActor, config:
       userScope = `USER_WEBSEARCH:${actor.id}`;
       userDay = day;
     }
-    userLimit = resolved.webSearchLimit;
+    limits = [['GLOBAL_WEBSEARCH', day, globals.webSearchGlobalLimit], [userScope, userDay, resolved.webSearchLimit]];
+  } else if (kind === 'SUMMARY') {
+    limits = [['GLOBAL', day, globals.globalLimit], [`USER_SUMMARY:${actor.id}`, day, resolved.summaryLimit]];
   } else {
-    userScope = `USER_${kind}:${actor.id}`;
-    userDay = day;
-    userLimit = kind === 'CHAT' ? resolved.chatLimit : resolved.summaryLimit;
+    // CHAT: limit per user sekarang kuota token bulanan (dicek di
+    // askArticleAi sebelum reservasi); di sini hanya pagar global harian.
+    limits = [['GLOBAL', day, globals.globalLimit]];
   }
-  const limits: [string, string, number][] = [[globalScope, day, globalLimit], [userScope, userDay, userLimit]];
   for (const [scope, scopeDay, limit] of limits) {
     await tx.$executeRaw`INSERT INTO "LibAiUsageBucket" ("scope", "day", "used")
       VALUES (${scope}, ${scopeDay}, 0) ON CONFLICT ("scope", "day") DO NOTHING`;
@@ -326,6 +354,20 @@ export async function askArticleAi(actor: MobileActor, id: string, input: unknow
         latency_ms: Date.now() - startedAt } });
       return fail(502, 'AI_SEARCH_UNAVAILABLE', 'Pencarian web gagal. Coba lagi nanti.');
     }
+  }
+  // Kuota token bulanan per user: chat dan web search sama-sama memakan
+  // token model, jadi keduanya dicek ke jatah yang sama. Pengecekan memakai
+  // pemakaian tercatat; token request ini sendiri baru diketahui setelah
+  // jawaban datang, jadi kelebihan maksimal satu request terakhir.
+  const tokenLimit = resolveAiTokenLimit({
+    tier: actor.premium_tier,
+    tokenOverride: actor.ai_token_limit_override ?? null,
+    settings: await getAiSettingValues(),
+  });
+  if ((await monthlyTokenUsage(actor.id)) >= tokenLimit) {
+    await prisma.libAiTurn.update({ where: { id: turn.id }, data: { status: 'FAILED',
+      search_error: 'TOKEN_QUOTA_EXCEEDED', latency_ms: Date.now() - startedAt } });
+    return fail(429, 'AI_TOKEN_QUOTA_EXCEEDED', 'Kuota token AI bulan ini habis. Kuota diperbarui awal bulan depan.');
   }
   try {
     await transaction(tx => reserve(tx, actor, config, useWebSearch ? 'WEBSEARCH' : 'CHAT'));

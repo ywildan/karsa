@@ -34,6 +34,7 @@ export interface UserSnapshot {
   premium_tier: string;
   /** Limit khusus Teman Baca per user (NULL = ikut bawaan tier/env). */
   ai_chat_limit_override: number | null;
+  ai_token_limit_override: number | null;
   ai_summary_limit_override: number | null;
   ai_web_search_limit_override: number | null;
   kelas_id: string | null;
@@ -168,11 +169,13 @@ async function loadPengelolaScopes(row: SnapshotRow): Promise<PengelolaScopes> {
  */
 async function loadAiLimitOverrides(userId: string): Promise<{
   ai_chat_limit_override: number | null;
+  ai_token_limit_override: number | null;
   ai_summary_limit_override: number | null;
   ai_web_search_limit_override: number | null;
 }> {
   const none = {
     ai_chat_limit_override: null,
+    ai_token_limit_override: null,
     ai_summary_limit_override: null,
     ai_web_search_limit_override: null,
   };
@@ -181,12 +184,14 @@ async function loadAiLimitOverrides(userId: string): Promise<{
       where: { id: userId },
       select: {
         ai_chat_limit_override: true,
+        ai_token_limit_override: true,
         ai_summary_limit_override: true,
         ai_web_search_limit_override: true,
       },
     });
     return {
       ai_chat_limit_override: row?.ai_chat_limit_override ?? null,
+      ai_token_limit_override: row?.ai_token_limit_override ?? null,
       ai_summary_limit_override: row?.ai_summary_limit_override ?? null,
       ai_web_search_limit_override: row?.ai_web_search_limit_override ?? null,
     };
@@ -213,6 +218,7 @@ async function toSnapshot(row: SnapshotRow): Promise<UserSnapshot> {
     is_admin: row.is_admin,
     premium_tier: row.premium_tier,
     ai_chat_limit_override: aiOverrides.ai_chat_limit_override,
+    ai_token_limit_override: aiOverrides.ai_token_limit_override,
     ai_summary_limit_override: aiOverrides.ai_summary_limit_override,
     ai_web_search_limit_override: aiOverrides.ai_web_search_limit_override,
     kelas_id: row.kelas_id,

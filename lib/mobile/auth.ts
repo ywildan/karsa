@@ -56,6 +56,7 @@ export async function mobileUserPayload(userId: string) {
     is_admin: snapshot.is_admin,
     premium_tier: snapshot.premium_tier,
     ai_chat_limit_override: snapshot.ai_chat_limit_override,
+    ai_token_limit_override: snapshot.ai_token_limit_override,
     ai_summary_limit_override: snapshot.ai_summary_limit_override,
     ai_web_search_limit_override: snapshot.ai_web_search_limit_override,
     lib_profile: snapshot.libProfile,
