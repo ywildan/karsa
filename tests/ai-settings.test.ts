@@ -2,11 +2,13 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 
 import {
+  AI_SETTING_BASE_URL,
   AI_SETTING_GLOBAL_DAILY_LIMIT,
   AI_SETTING_WEBSEARCH_GLOBAL_LIMIT,
   isValidAiLimitOverride,
   normalizeAiTier,
   parseAiSettingLimit,
+  resolveAiBaseUrl,
   resolveAiGlobalLimits,
   resolveAiUserLimits,
 } from '../lib/karsa-lib/ai-settings';
@@ -59,6 +61,26 @@ test('dashboard settings win over env global limits', () => {
     CONFIG,
   );
   assert.equal(broken.globalLimit, 100);
+});
+
+test('dashboard base URL wins over env only when valid', () => {
+  const envConfig = { baseUrl: 'https://api.openai.com/v1' };
+  assert.deepEqual(
+    resolveAiBaseUrl({ [AI_SETTING_BASE_URL]: 'https://tunnel.trycloudflare.com/' }, envConfig),
+    { baseUrl: 'https://tunnel.trycloudflare.com', source: 'dashboard' },
+  );
+  assert.deepEqual(resolveAiBaseUrl({}, envConfig), {
+    baseUrl: 'https://api.openai.com/v1',
+    source: 'env',
+  });
+  // Nilai dashboard yang rusak diabaikan — env tetap jalan, AI tidak mati.
+  for (const bad of ['http://tunnel.trycloudflare.com', 'https://127.0.0.1/v1', 'https://localhost', 'asal-ketik']) {
+    assert.deepEqual(
+      resolveAiBaseUrl({ [AI_SETTING_BASE_URL]: bad }, envConfig),
+      { baseUrl: 'https://api.openai.com/v1', source: 'env' },
+      bad,
+    );
+  }
 });
 
 test('per-user overrides win over tier and env defaults', () => {

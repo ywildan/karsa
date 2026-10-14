@@ -683,8 +683,8 @@ model LibAiUsageBucket {
 
 /// Pengaturan Teman Baca yang bisa diedit admin dari dashboard Langganan AI
 /// (key-value; kunci dikenal: "global_daily_limit",
-/// "websearch_global_limit"). Baris yang tidak ada = ikut env. Konfigurasi
-/// provider (base URL, API key, model) SENGAJA tidak disimpan di sini.
+/// "websearch_global_limit", "base_url"). Baris yang tidak ada = ikut env.
+/// API key dan model SENGAJA tidak disimpan di sini (tetap env).
 model LibAiSetting {
   key        String   @id
   value      String

@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { aiConfig, aiDay, aiMonth, aiRevision, articleParagraphs, canAccessAiArticle, normalizeAiBreaks, parseAiAnswer, requestAi, AiProviderError } from '../lib/karsa-lib/ai-policy';
+import { aiConfig, aiDay, aiMonth, aiRevision, articleParagraphs, canAccessAiArticle, normalizeAiBreaks, parseAiAnswer, parseAiBaseUrl, requestAi, AiProviderError } from '../lib/karsa-lib/ai-policy';
 import { readAiJson } from '../lib/karsa-lib/ai-http';
 
 const env = { AI_ENABLED: 'true', AI_API_KEY: 'unit-test-not-a-real-key', AI_MODEL: 'test-model', AI_BASE_URL: 'https://ai.example.com/v1' };
@@ -15,6 +15,16 @@ test('feature is off unless explicitly enabled and fully configured', () => {
     assert.equal(aiConfig({ ...env, AI_BASE_URL }), null);
   }
   assert.equal(aiConfig({ ...env, AI_GLOBAL_DAILY_LIMIT: '0' }), null);
+});
+
+test('parseAiBaseUrl shares the exact env validation rules', () => {
+  assert.equal(parseAiBaseUrl('https://ai.example.com/v1'), 'https://ai.example.com/v1');
+  assert.equal(parseAiBaseUrl('https://ai.example.com/v1/'), 'https://ai.example.com/v1');
+  assert.equal(parseAiBaseUrl('  https://tunnel.trycloudflare.com  '), 'https://tunnel.trycloudflare.com');
+  for (const bad of ['http://ai.example.com', 'https://user:password@ai.example.com', 'https://127.0.0.1/v1', 'https://localhost/v1', 'https://ai.example.com/?key=secret', 'https://mesin.local/v1', 'bukan-url', '']) {
+    assert.equal(parseAiBaseUrl(bad), null, bad);
+  }
+  assert.equal(parseAiBaseUrl(undefined), null);
 });
 
 test('optional analytics prices are parsed but never disable the feature', () => {

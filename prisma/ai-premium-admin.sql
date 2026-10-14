@@ -26,8 +26,8 @@ BEGIN
 END $$;
 
 -- Pengaturan global yang bisa diedit dari dashboard (key-value).
--- Kunci dikenal: "global_daily_limit", "websearch_global_limit".
--- Konfigurasi provider (base URL, API key, model) TIDAK disimpan di sini.
+-- Kunci dikenal: "global_daily_limit", "websearch_global_limit", "base_url".
+-- API key dan model TIDAK disimpan di sini (tetap env).
 CREATE TABLE IF NOT EXISTS "LibAiSetting" (
   "key" TEXT NOT NULL,
   "value" TEXT NOT NULL,
