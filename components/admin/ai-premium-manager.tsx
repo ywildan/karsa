@@ -2,11 +2,12 @@
 
 import * as React from "react";
 import { useRouter } from "next/navigation";
-import { Crown, Search } from "lucide-react";
+import { ClipboardPaste, Crown, Search } from "lucide-react";
 import { toast } from "sonner";
 
 import {
   searchAiSubscribers,
+  setAiBaseUrl,
   setAiGlobalSettings,
   setUserAiLimitOverrides,
   setUserPremiumTier,
@@ -125,6 +126,135 @@ function GlobalSettingRow({
           </Button>
         ) : null}
       </div>
+    </div>
+  );
+}
+
+function BaseUrlSettingRow({
+  value,
+  source,
+}: {
+  value: string;
+  source: "dashboard" | "env";
+}) {
+  const router = useRouter();
+  const [raw, setRaw] = React.useState(source === "dashboard" ? value : "");
+  const [pending, setPending] = React.useState(false);
+  React.useEffect(() => {
+    setRaw(source === "dashboard" ? value : "");
+  }, [value, source]);
+
+  async function save(next: string | null): Promise<boolean> {
+    setPending(true);
+    const result = await setAiBaseUrl({ baseUrl: next });
+    setPending(false);
+    if (!result.ok) {
+      toast.error(result.error);
+      return false;
+    }
+    toast.success(result.message ?? "Base URL tersimpan.");
+    router.refresh();
+    return true;
+  }
+
+  /**
+   * One-click paste: ambil teks dari clipboard, isi kolomnya, dan langsung
+   * simpan. Validasi server tetap menjadi penjaga terakhir — teks clipboard
+   * yang bukan base URL valid akan ditolak tanpa mengubah apa pun.
+   */
+  async function pasteAndSave() {
+    let text = "";
+    try {
+      text = (await navigator.clipboard.readText()).trim();
+    } catch {
+      toast.error(
+        "Browser tidak memberi izin membaca clipboard. Tempel manual dengan Ctrl+V, lalu klik Simpan.",
+      );
+      return;
+    }
+    if (!text) {
+      toast.error("Clipboard kosong, tidak ada yang ditempel.");
+      return;
+    }
+    setRaw(text);
+    await save(text);
+  }
+
+  return (
+    <div className="border-b border-border py-4 last:border-b-0">
+      <div className="flex flex-wrap items-center gap-2">
+        <p className="text-sm font-semibold">Base URL provider</p>
+        <span
+          className={cn(
+            "rounded-full px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide",
+            source === "dashboard"
+              ? "bg-primary/10 text-primary"
+              : "bg-muted text-muted-foreground",
+          )}
+        >
+          {source === "dashboard" ? "Dari dashboard" : "Dari env"}
+        </span>
+      </div>
+      <p className="mt-1 text-xs leading-5 text-muted-foreground">
+        Alamat gateway AI (mis. URL tunnel sesi Kaggle). Sedang aktif:{" "}
+        <span className="break-all font-medium text-foreground">{value}</span>.
+        Alamat ini menentukan ke mana API key dari env dikirim, jadi wajib
+        HTTPS dan hanya boleh diubah admin.
+      </p>
+      <div className="mt-2 flex flex-col gap-2 sm:flex-row sm:items-center">
+        <Input
+          type="url"
+          inputMode="url"
+          value={raw}
+          onChange={(event) => setRaw(event.target.value)}
+          placeholder={source === "dashboard" ? value : `Ikut env: ${value}`}
+          className="w-full sm:max-w-md"
+          disabled={pending}
+          aria-label="Base URL provider AI"
+        />
+        <div className="flex gap-2">
+          <Button
+            type="button"
+            size="sm"
+            disabled={pending}
+            onClick={() => {
+              const trimmed = raw.trim();
+              if (!trimmed) {
+                toast.error("Isi base URL dulu, atau pakai tombol Tempel.");
+                return;
+              }
+              void save(trimmed);
+            }}
+          >
+            Simpan
+          </Button>
+          <Button
+            type="button"
+            size="sm"
+            variant="outline"
+            disabled={pending}
+            onClick={() => void pasteAndSave()}
+          >
+            <ClipboardPaste className="mr-1 h-4 w-4" aria-hidden />
+            Tempel
+          </Button>
+          {source === "dashboard" ? (
+            <Button
+              type="button"
+              size="sm"
+              variant="ghost"
+              disabled={pending}
+              onClick={() => void save(null)}
+            >
+              Ikut env
+            </Button>
+          ) : null}
+        </div>
+      </div>
+      <p className="mt-1 text-[11px] leading-4 text-muted-foreground">
+        Tombol Tempel mengambil URL dari clipboard dan langsung menyimpannya
+        dalam satu klik, pas untuk mengganti URL tunnel tiap sesi baru.
+      </p>
     </div>
   );
 }
@@ -367,6 +497,7 @@ export function AiPremiumManager({
             saveGlobal({ webSearchGlobalLimit: next }, { globalDailyLimit: rawGlobal, webSearchGlobalLimit: rawWebGlobal })
           }
         />
+        <BaseUrlSettingRow value={settings.baseUrl.value} source={settings.baseUrl.source} />
       </div>
 
       <div className="rounded-2xl border border-border bg-card px-4 py-4 sm:px-5">

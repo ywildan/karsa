@@ -12,11 +12,13 @@
 
 import "server-only";
 
-import { aiConfig, aiDay, aiMonth } from "@/lib/karsa-lib/ai-policy";
+import { aiConfig, aiDay, aiMonth, parseAiBaseUrl } from "@/lib/karsa-lib/ai-policy";
 import {
+  AI_SETTING_BASE_URL,
   AI_SETTING_GLOBAL_DAILY_LIMIT,
   AI_SETTING_WEBSEARCH_GLOBAL_LIMIT,
   normalizeAiTier,
+  resolveAiBaseUrl,
   resolveAiGlobalLimits,
   resolveAiUserLimits,
   type AiTier,
@@ -48,6 +50,8 @@ export interface AiPremiumSettingsView {
   settingsAvailable: boolean;
   globalDailyLimit: AiGlobalSettingView;
   webSearchGlobalLimit: AiGlobalSettingView;
+  /** Base URL provider yang sedang efektif + sumbernya. */
+  baseUrl: { value: string; source: "dashboard" | "env" };
 }
 
 export async function getAiPremiumSettingsView(): Promise<AiPremiumSettingsView> {
@@ -68,9 +72,17 @@ export async function getAiPremiumSettingsView(): Promise<AiPremiumSettingsView>
       .findUnique({ where: { scope_day: { scope: "GLOBAL_WEBSEARCH", day } } })
       .catch(() => null),
   ]);
+  const dashboardBaseUrl = parseAiBaseUrl(settings[AI_SETTING_BASE_URL]);
+  const resolvedBase = config ? resolveAiBaseUrl(settings, config) : null;
   return {
     aiEnabled: config !== null,
     settingsAvailable,
+    baseUrl: resolvedBase
+      ? { value: resolvedBase.baseUrl, source: resolvedBase.source }
+      : {
+          value: dashboardBaseUrl ?? process.env.AI_BASE_URL ?? "https://api.openai.com/v1",
+          source: dashboardBaseUrl ? ("dashboard" as const) : ("env" as const),
+        },
     globalDailyLimit: {
       value: resolved.globalLimit,
       source: settings[AI_SETTING_GLOBAL_DAILY_LIMIT] ? "dashboard" : "env",

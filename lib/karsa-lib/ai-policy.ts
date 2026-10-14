@@ -20,15 +20,33 @@ const number = (value: string | undefined, fallback: number, max: number) => {
   return parsed;
 };
 
+/**
+ * Validasi + normalisasi base URL provider AI. Dipakai bersama oleh
+ * `aiConfig` (jalur env) dan resolusi pengaturan dashboard (`ai-settings`),
+ * supaya kedua jalur tidak pernah berbeda aturan: wajib HTTPS, tanpa
+ * kredensial/query, hostname bukan IP literal/localhost/`.local`.
+ * Mengembalikan URL ternormalisasi (tanpa garis miring akhir) atau null.
+ */
+export function parseAiBaseUrl(value: string | undefined): string | null {
+  if (!value) return null;
+  try {
+    const url = new URL(value.trim());
+    if (url.protocol !== 'https:' || url.username || url.password || url.search || url.hash ||
+        isIP(url.hostname.replace(/^\[|\]$/g, '')) || url.hostname === 'localhost' ||
+        url.hostname.endsWith('.localhost') || url.hostname.endsWith('.local')) return null;
+    return url.toString().replace(/\/$/, '');
+  } catch {
+    return null;
+  }
+}
+
 export function aiConfig(env: Record<string, string | undefined> = process.env): AiConfig | null {
   if (env.AI_ENABLED !== 'true') return null;
   try {
     const key = env.AI_API_KEY?.trim(), model = env.AI_MODEL?.trim();
     if (!key || !model || /[\r\n]/.test(key) || model.length > 200) return null;
-    const url = new URL(env.AI_BASE_URL ?? 'https://api.openai.com/v1');
-    if (url.protocol !== 'https:' || url.username || url.password || url.search || url.hash ||
-        isIP(url.hostname.replace(/^\[|\]$/g, '')) || url.hostname === 'localhost' ||
-        url.hostname.endsWith('.localhost') || url.hostname.endsWith('.local')) return null;
+    const baseUrl = parseAiBaseUrl(env.AI_BASE_URL ?? 'https://api.openai.com/v1');
+    if (!baseUrl) return null;
     const tokenParameter = env.AI_TOKEN_PARAMETER ?? 'max_completion_tokens';
     if (tokenParameter !== 'max_tokens' && tokenParameter !== 'max_completion_tokens') return null;
     const price = (value: string | undefined) => {
@@ -36,7 +54,7 @@ export function aiConfig(env: Record<string, string | undefined> = process.env):
       return trimmed && /^\d+(?:\.\d{1,9})?$/.test(trimmed) ? trimmed : null;
     };
     return {
-      key, model, baseUrl: url.toString().replace(/\/$/, ''), tokenParameter,
+      key, model, baseUrl, tokenParameter,
       inputPricePerMillionUsd: price(env.AI_PRICE_INPUT_PER_MILLION_USD),
       outputPricePerMillionUsd: price(env.AI_PRICE_OUTPUT_PER_MILLION_USD),
       chatLimit: number(env.AI_USER_DAILY_LIMIT, 5, 100),

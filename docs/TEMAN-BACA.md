@@ -133,7 +133,13 @@ adapter tambahan. Tidak ada auto-retry dan redirect tidak diikuti.
   nonaktif), dan limit global (`LibAiSetting`: `global_daily_limit`,
   `websearch_global_limit`). Urutan penentu limit: khusus per user >
   pengaturan dashboard > env > bawaan kode (policy `lib/karsa-lib/ai-settings.ts`).
-  Konfigurasi provider (base URL, API key, model) SENGAJA tetap di env.
+  **Base URL provider** juga bisa diedit dari dashboard yang sama (kunci
+  `base_url`, dengan tombol Tempel satu klik dari clipboard) — ditambahkan
+  demi instance 9Router Kaggle yang URL tunnel-nya berganti tiap sesi;
+  nilainya divalidasi dengan aturan yang sama persis seperti env dan yang
+  tidak valid diabaikan (jatuh ke env). API key dan model SENGAJA tetap di
+  env. Catatan: `aiRevision` memasukkan baseUrl, jadi mengganti base URL
+  membuat cache ringkasan artikel dibuat ulang pada pembacaan berikutnya.
   Database yang sudah berjalan perlu menjalankan `prisma/ai-premium-admin.sql`
   sebelum halaman ini dipakai; tanpa itu limit mengikuti env dan halaman
   menampilkan penanda untuk menjalankan SQL-nya.

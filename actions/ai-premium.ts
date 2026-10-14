@@ -16,8 +16,10 @@ import { zodFirstError } from "@/lib/action-utils";
 import { listAiSubscribers, type AiSubscriberRow } from "@/lib/admin/ai-premium";
 import { auditActorFromSession, logAudit } from "@/lib/audit";
 import { requireAdmin } from "@/lib/auth-helpers";
+import { parseAiBaseUrl } from "@/lib/karsa-lib/ai-policy";
 import {
   AI_GLOBAL_LIMIT_MAX,
+  AI_SETTING_BASE_URL,
   AI_SETTING_GLOBAL_DAILY_LIMIT,
   AI_SETTING_WEBSEARCH_GLOBAL_LIMIT,
   isValidAiLimitOverride,
@@ -201,4 +203,72 @@ export async function setAiGlobalSettings(input: {
   invalidateAiSettingsCache();
   revalidatePath(PAGE_PATH);
   return { ok: true, message: "Pengaturan global tersimpan." };
+}
+
+const baseUrlSchema = z.object({
+  baseUrl: z.string().trim().min(1).max(500).nullable(),
+});
+
+/**
+ * Atur base URL provider AI dari dashboard (null = hapus override, ikut env).
+ * Divalidasi dengan aturan yang sama persis seperti jalur env
+ * (`parseAiBaseUrl`): wajib HTTPS, tanpa kredensial/query, bukan IP/localhost.
+ * Nilai yang tidak valid ditolak di sini — tidak pernah disimpan.
+ */
+export async function setAiBaseUrl(input: {
+  baseUrl: string | null;
+}): Promise<ActionResult> {
+  const admin = await requireAdmin();
+  const parsed = baseUrlSchema.safeParse(input);
+  if (!parsed.success) return { ok: false, error: zodFirstError(parsed.error) };
+
+  const normalized =
+    parsed.data.baseUrl === null ? null : parseAiBaseUrl(parsed.data.baseUrl);
+  if (parsed.data.baseUrl !== null && normalized === null) {
+    return {
+      ok: false,
+      error:
+        "Base URL tidak valid. Syaratnya: diawali https://, tanpa kredensial atau query string, dan bukan alamat IP/localhost.",
+    };
+  }
+
+  const current = await prisma.libAiSetting
+    .findUnique({ where: { key: AI_SETTING_BASE_URL }, select: { value: true } })
+    .catch(() => null);
+
+  try {
+    await prisma.$transaction(async (tx) => {
+      if (normalized === null) {
+        await tx.libAiSetting.deleteMany({ where: { key: AI_SETTING_BASE_URL } });
+      } else {
+        await tx.libAiSetting.upsert({
+          where: { key: AI_SETTING_BASE_URL },
+          create: { key: AI_SETTING_BASE_URL, value: normalized },
+          update: { value: normalized },
+        });
+      }
+      await logAudit(
+        {
+          actor: auditActorFromSession(admin),
+          action: "AI_GLOBAL_SETTINGS_SET",
+          entity: { type: "LibAiSetting", id: "global", label: "Pengaturan AI global" },
+          before: { base_url: current?.value ?? null },
+          after: { base_url: normalized },
+        },
+        tx,
+      );
+    });
+  } catch {
+    return { ok: false, error: `Gagal menyimpan base URL. ${SQL_HINT}` };
+  }
+
+  invalidateAiSettingsCache();
+  revalidatePath(PAGE_PATH);
+  return {
+    ok: true,
+    message:
+      normalized === null
+        ? "Base URL kembali mengikuti env."
+        : "Base URL tersimpan dan akan berlaku dalam beberapa detik.",
+  };
 }
