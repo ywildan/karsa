@@ -50,7 +50,7 @@ Web / Admin       ──HTTPS──▶ Server Actions + Route Handlers ──Pri
   - **Peran delegasi**: `PengelolaAssignment` (lingkup prodi/kelas, terikat semester).
   - **Grup kelas (mobile)**: `GroupMessage`, `GroupReport`, `GroupBlock`.
   - **Karsa Lib — konten (7)**: `LibProfile`, `LibAuthorRequest`, `LibAuthorAccess`, `LibArticle`, `LibArticleView`, `LibComment`, `LibReport`.
-  - **Karsa Lib — AI (5)**: `LibAiSummary`, `LibAiTurn`, `LibAiUsageBucket` (bucket kuota pemakaian), `LibAiSummaryGeneration` (event pembuatan ringkasan untuk analitik usage per pengguna di `/admin/ai-usage`; migrasinya `prisma/ai-usage-analytics.sql`), `LibAiSetting` (pengaturan global yang bisa diedit dari dashboard Langganan AI `/admin/ai-premium`; migrasinya `prisma/ai-premium-admin.sql`).
+  - **Karsa Lib — AI (5)**: `LibAiSummary`, `LibAiTurn`, `LibAiUsageBucket` (bucket kuota pemakaian), `LibAiSummaryGeneration` (event pembuatan ringkasan untuk analitik usage per pengguna di `/admin/ai-usage`; migrasinya `prisma/ai-usage-analytics.sql`). Keduanya kini juga mencatat kolom `provider` (`primary`/`fallback`; migrasinya `prisma/ai-fallback-provider.sql`) karena Teman Baca punya provider cadangan opsional dari env `AI_FALLBACK_*` yang melayani satu kali percobaan ulang saat provider utama gagal, `LibAiSetting` (pengaturan global yang bisa diedit dari dashboard Langganan AI `/admin/ai-premium`; migrasinya `prisma/ai-premium-admin.sql`).
   - **Audit**: `AuditLog`.
 - Kolom analitik pertumbuhan pengguna (`first_login_at` di `User` + index) ditambahkan lewat `prisma/user-growth.sql`; bukan model terpisah.
 - Aturan drift: `init.sql` adalah cermin `schema.prisma`; mengubah salah satu wajib mengubah keduanya.
