@@ -1,7 +1,7 @@
 "use client";
 
 import * as React from "react";
-import { ChevronDown } from "lucide-react";
+import { ArrowRight, ChevronDown } from "lucide-react";
 
 import {
   getAuditLog,
@@ -186,43 +186,161 @@ function shouldHideSnapshot(event: AuditLogRow): boolean {
   );
 }
 
-function formatSnapshotInline(value: AuditLogRow["before"]): string {
-  if (value === null) return "—";
-  if (typeof value !== "object") return String(value);
-  if (Array.isArray(value)) return value.join(", ");
+/** Nama field snapshot yang dikenal → label manusiawi untuk tabel perubahan. */
+const FIELD_LABELS: Record<string, string> = {
+  name: "Nama",
+  email: "Email",
+  nim: "NIM",
+  premium_tier: "Tier Langganan",
+  ai_chat_limit_override: "Limit Chat Khusus",
+  ai_summary_limit_override: "Limit Ringkasan Khusus",
+  ai_web_search_limit_override: "Limit Web Search Khusus",
+  global_daily_limit: "Limit Global Chat + Ringkasan",
+  websearch_global_limit: "Limit Global Web Search",
+  is_active: "Semester Aktif",
+  is_admin: "Admin",
+  poin: "Poin",
+  kategori: "Kategori",
+  pj_name: "Nama PJ",
+  scope_type: "Lingkup",
+  status: "Status",
+  decision_note: "Catatan Keputusan",
+  revoked_at: "Dicabut Pada",
+  semester_id: "Semester",
+  prodi_id: "Program Studi",
+  kelas_id: "Kelas",
+  matkul_id: "Mata Kuliah",
+};
 
-  const entries = Object.entries(value as Record<string, unknown>).filter(
-    ([, entryValue]) =>
-      entryValue !== null &&
-      entryValue !== undefined &&
-      entryValue !== "",
+function humanizeFieldKey(key: string): string {
+  return (
+    FIELD_LABELS[key] ??
+    key
+      .split("_")
+      .map((word) => word.charAt(0).toUpperCase() + word.slice(1))
+      .join(" ")
   );
-
-  if (entries.length === 0) return "—";
-
-  return entries
-    .map(([key, entryValue]) => {
-      const formattedValue = Array.isArray(entryValue)
-        ? entryValue.join(", ")
-        : String(entryValue);
-      return `${key}: ${formattedValue}`;
-    })
-    .join(" · ");
 }
 
-function Snapshot({
-  label,
-  value,
+function formatSnapshotValue(value: unknown): string {
+  if (value === null || value === undefined || value === "") return "—";
+  if (typeof value === "boolean") return value ? "Ya" : "Tidak";
+  if (Array.isArray(value)) return value.length > 0 ? value.map((item) => formatSnapshotValue(item)).join(", ") : "—";
+  if (typeof value === "object") {
+    const entries = Object.entries(value as Record<string, unknown>).filter(
+      ([, entryValue]) => entryValue !== null && entryValue !== undefined && entryValue !== "",
+    );
+    return entries.length > 0
+      ? entries.map(([key, entryValue]) => `${humanizeFieldKey(key)}: ${formatSnapshotValue(entryValue)}`).join(" · ")
+      : "—";
+  }
+  return String(value);
+}
+
+interface SnapshotChange {
+  key: string;
+  beforeText: string;
+  afterText: string;
+  changed: boolean;
+}
+
+/**
+ * Gabungkan snapshot sebelum/sesudah menjadi daftar perubahan per field.
+ * Field yang hanya ada di satu sisi diperlakukan sebagai dibuat/dihapus
+ * (sisi lain tampil "—"). Nilai kosong di dalam objek diabaikan, kecuali
+ * bila field yang sama terisi di sisi seberang (artinya dikosongkan).
+ */
+function snapshotChanges(
+  before: AuditLogRow["before"],
+  after: AuditLogRow["after"],
+): SnapshotChange[] {
+  const beforeObj =
+    before && typeof before === "object" && !Array.isArray(before)
+      ? (before as Record<string, unknown>)
+      : null;
+  const afterObj =
+    after && typeof after === "object" && !Array.isArray(after)
+      ? (after as Record<string, unknown>)
+      : null;
+
+  if (!beforeObj && !afterObj) {
+    // Snapshot non-objek (langka): tampilkan sebagai satu baris nilai.
+    if (before === null && after === null) return [];
+    return [
+      {
+        key: "value",
+        beforeText: formatSnapshotValue(before),
+        afterText: formatSnapshotValue(after),
+        changed: JSON.stringify(before) !== JSON.stringify(after),
+      },
+    ];
+  }
+
+  const keys = [
+    ...Object.keys(beforeObj ?? {}),
+    ...Object.keys(afterObj ?? {}).filter((key) => !(key in (beforeObj ?? {}))),
+  ];
+
+  return keys
+    .map((key) => {
+      const beforeValue = beforeObj?.[key];
+      const afterValue = afterObj?.[key];
+      const beforeEmpty = beforeValue === null || beforeValue === undefined || beforeValue === "";
+      const afterEmpty = afterValue === null || afterValue === undefined || afterValue === "";
+      if (beforeEmpty && afterEmpty) return null;
+      return {
+        key,
+        beforeText: formatSnapshotValue(beforeValue),
+        afterText: formatSnapshotValue(afterValue),
+        changed: JSON.stringify(beforeValue ?? null) !== JSON.stringify(afterValue ?? null),
+      } satisfies SnapshotChange;
+    })
+    .filter((change): change is SnapshotChange => change !== null);
+}
+
+/**
+ * Tabel perubahan terstruktur: satu baris per field, nilai sebelum dan
+ * sesudah berjejer dengan panah di antaranya. Menggantikan tampilan mentah
+ * "key: value · key: value" untuk SEMUA jenis log yang memakai snapshot.
+ */
+function SnapshotChanges({
+  before,
+  after,
 }: {
-  label: string;
-  value: AuditLogRow["before"];
+  before: AuditLogRow["before"];
+  after: AuditLogRow["after"];
 }) {
-  if (value === null) return null;
+  const changes = snapshotChanges(before, after);
+  if (changes.length === 0) return null;
 
   return (
-    <p className="text-xs text-muted-foreground">
-      <strong>{label}:</strong> {formatSnapshotInline(value)}
-    </p>
+    <div className="mt-3 overflow-hidden rounded-xl border border-border">
+      <dl>
+        {changes.map((change) => (
+          <div
+            key={change.key}
+            className="grid grid-cols-1 gap-1 border-b border-border px-3 py-2 last:border-b-0 sm:grid-cols-[160px_1fr] sm:gap-3"
+          >
+            <dt className="text-xs font-medium text-muted-foreground">
+              {humanizeFieldKey(change.key)}
+            </dt>
+            <dd className="flex min-w-0 flex-wrap items-center gap-x-2 gap-y-1 text-sm">
+              {change.changed ? (
+                <>
+                  <span className="break-words text-muted-foreground line-through decoration-muted-foreground/50">
+                    {change.beforeText}
+                  </span>
+                  <ArrowRight className="size-3.5 shrink-0 text-muted-foreground" aria-hidden />
+                  <span className="break-words font-medium">{change.afterText}</span>
+                </>
+              ) : (
+                <span className="break-words text-muted-foreground">{change.afterText}</span>
+              )}
+            </dd>
+          </div>
+        ))}
+      </dl>
+    </div>
   );
 }
 
@@ -321,10 +439,7 @@ function AuditEventCard({ event }: { event: AuditLogRow }) {
             ) : null}
 
             {showGenericSnapshots ? (
-              <div className="mt-3 grid gap-3 md:grid-cols-2">
-                <Snapshot label="Sebelum" value={event.before} />
-                <Snapshot label="Sesudah" value={event.after} />
-              </div>
+              <SnapshotChanges before={event.before} after={event.after} />
             ) : null}
           </div>
         </div>
