@@ -52,6 +52,10 @@ model User {
   ai_chat_limit_override       Int?
   ai_summary_limit_override    Int?
   ai_web_search_limit_override Int?
+  /// Jatah token AI bulanan khusus per user (dashboard Langganan AI).
+  /// NULL = ikut jatah tier; 0 = jatah habis. Rentang 0–100.000.000
+  /// ditegakkan CHECK di SQL. Menggantikan peran ai_chat_limit_override.
+  ai_token_limit_override      Int?
   kelas_id      String?
   first_login_at DateTime?
   created_at    DateTime  @default(now())

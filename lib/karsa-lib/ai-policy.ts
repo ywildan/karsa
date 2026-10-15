@@ -19,7 +19,7 @@ export type AiFallbackConfig = {
 };
 
 export type AiConfig = {
-  key: string; baseUrl: string; model: string; chatLimit: number;
+  key: string; baseUrl: string; model: string;
   summaryLimit: number; globalLimit: number; maxTokens: number;
   timeoutMs: number; tokenParameter: 'max_tokens' | 'max_completion_tokens';
   /** Harga opsional untuk analitik biaya (USD per 1 juta token). */
@@ -97,7 +97,6 @@ export function aiConfig(env: Record<string, string | undefined> = process.env):
       key, model, baseUrl, tokenParameter, fallback,
       inputPricePerMillionUsd: price(env.AI_PRICE_INPUT_PER_MILLION_USD),
       outputPricePerMillionUsd: price(env.AI_PRICE_OUTPUT_PER_MILLION_USD),
-      chatLimit: number(env.AI_USER_DAILY_LIMIT, 5, 100),
       summaryLimit: number(env.AI_USER_SUMMARY_DAILY_LIMIT, 3, 50),
       globalLimit: number(env.AI_GLOBAL_DAILY_LIMIT, 100, 10000),
       maxTokens: number(env.AI_MAX_OUTPUT_TOKENS, 900, 2000),

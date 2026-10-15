@@ -1282,6 +1282,7 @@ BEGIN;
 ALTER TABLE "User" ADD COLUMN IF NOT EXISTS "ai_chat_limit_override" INTEGER;
 ALTER TABLE "User" ADD COLUMN IF NOT EXISTS "ai_summary_limit_override" INTEGER;
 ALTER TABLE "User" ADD COLUMN IF NOT EXISTS "ai_web_search_limit_override" INTEGER;
+ALTER TABLE "User" ADD COLUMN IF NOT EXISTS "ai_token_limit_override" INTEGER;
 DO $$
 BEGIN
   IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'User_ai_chat_limit_override_check') THEN
@@ -1291,6 +1292,10 @@ BEGIN
   IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'User_ai_summary_limit_override_check') THEN
     ALTER TABLE "User" ADD CONSTRAINT "User_ai_summary_limit_override_check"
       CHECK ("ai_summary_limit_override" IS NULL OR ("ai_summary_limit_override" >= 0 AND "ai_summary_limit_override" <= 1000));
+  END IF;
+  IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'user_ai_token_limit_override_range') THEN
+    ALTER TABLE "User" ADD CONSTRAINT "user_ai_token_limit_override_range"
+      CHECK ("ai_token_limit_override" IS NULL OR ("ai_token_limit_override" >= 0 AND "ai_token_limit_override" <= 100000000));
   END IF;
   IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'User_ai_web_search_limit_override_check') THEN
     ALTER TABLE "User" ADD CONSTRAINT "User_ai_web_search_limit_override_check"

@@ -19,9 +19,14 @@ export default async function AiPremiumPage() {
       <div>
         <h1 className="text-2xl font-semibold">Langganan AI</h1>
         <p className="mt-1 max-w-3xl text-sm leading-6 text-muted-foreground">
-          Kelola tier langganan Teman Baca per mahasiswa, limit request khusus,
-          limit global AI, dan base URL provider. API key dan model tetap
-          diatur lewat env server.
+          Kelola tier langganan Teman Baca per mahasiswa, jatah token bulanan
+          per tier dan per mahasiswa, limit request khusus, limit global AI,
+          dan base URL provider. API key dan model tetap diatur lewat env
+          server. Kolom jatah token per mahasiswa memerlukan{" "}
+          <code className="rounded bg-muted px-1.5 py-0.5 text-xs">
+            prisma/ai-token-quota.sql
+          </code>{" "}
+          dijalankan sekali di Supabase SQL Editor.
         </p>
       </div>
 

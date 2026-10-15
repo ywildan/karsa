@@ -44,7 +44,6 @@ AI_API_KEY=key-milik-pengelola
 AI_BASE_URL=https://penyedia.example.com/v1
 AI_MODEL=nama-model-dari-penyedia
 AI_TOKEN_PARAMETER=max_completion_tokens
-AI_USER_DAILY_LIMIT=5
 AI_USER_SUMMARY_DAILY_LIMIT=3
 AI_GLOBAL_DAILY_LIMIT=100
 AI_MAX_OUTPUT_TOKENS=900
@@ -75,8 +74,16 @@ adapter tambahan. Tidak ada auto-retry dan redirect tidak diikuti.
 
 ## Kuota & biaya
 
-- Chat: 5 permintaan/pengguna/hari; ringkasan baru: 3/hari. Ringkasan dari
-  cache tidak memakai kuota dan tidak memanggil provider.
+- Chat: **kuota token bulanan per tier** — free 400.000, premium 3.000.000,
+  plus 10.000.000 token (input + output tercatat di `LibAiTurn`, bulan WIB).
+  Ketiga angka bisa diedit dari dashboard Langganan AI (`LibAiSetting`),
+  dan per user bisa ditimpa `User.ai_token_limit_override`
+  (`prisma/ai-token-quota.sql`). Web search ikut memakan jatah token yang
+  sama. Request yang gagal di provider tidak memotong jatah (tokennya tidak
+  tercatat); pengecekan dilakukan sebelum request, jadi kelebihan maksimal
+  satu request terakhir. Ringkasan baru: 3/hari, dan pembuatan ringkasan
+  TIDAK dihitung ke jatah token pemicu (cache bersama semua pembaca);
+  ringkasan dari cache tidak memakai kuota dan tidak memanggil provider.
 - Semua request baru ke provider juga memakai counter global 100/hari
   (reservasi atomik di PostgreSQL).
 - **Web search** (ikon globe): kuota terpisah per tier (`User.premium_tier`,

@@ -20,12 +20,12 @@ const oldEnv = { ...process.env };
 const question = (request_id = randomUUID()) => ({ revision, question: 'Apa inti artikel?', request_id });
 const data = (result: Awaited<ReturnType<typeof getArticleAiState>>) => {
   if (!result.ok) throw new Error(result.code);
-  return result.data as { enabled: boolean; messages: unknown[]; quota: { remaining: number }; answer?: string };
+  return result.data as { enabled: boolean; messages: unknown[]; quota: { token_limit: number; token_used: number; token_remaining: number }; answer?: string };
 };
 
 before(async () => {
   process.env.AI_ENABLED = 'true'; process.env.AI_API_KEY = 'test-only'; process.env.AI_MODEL = 'test-only';
-  process.env.AI_BASE_URL = 'https://ai.example.com/v1'; process.env.AI_USER_DAILY_LIMIT = '5';
+  process.env.AI_BASE_URL = 'https://ai.example.com/v1';
   process.env.AI_GLOBAL_DAILY_LIMIT = '100';
   programId = (await prisma.prodi.create({ data: { name: `${prefix}_prodi` } })).id;
   otherProgramId = (await prisma.prodi.create({ data: { name: `${prefix}_other` } })).id;
@@ -48,7 +48,8 @@ beforeEach(async () => {
   await prisma.libAiUsageBucket.deleteMany(); // Database test khusus, guard di atas wajib.
   await prisma.libArticle.update({ where: { id: articleId }, data: { status: 'PUBLISHED', body: 'Catatan transaksi.\n\nDebit dan kredit.' } });
   globalThis.fetch = async () => { calls++; await new Promise(resolve => setTimeout(resolve, 30));
-    return Response.json({ choices: [{ message: { content: '{"answer":"Jawaban dari artikel","sources":[1]}' } }] }); };
+    return Response.json({ choices: [{ message: { content: '{"answer":"Jawaban dari artikel","sources":[1]}' } }],
+      usage: { prompt_tokens: 100, completion_tokens: 50 } }); };
 });
 
 after(async () => {
@@ -78,7 +79,9 @@ test('summary generation has one lease and cache is shared without charging read
   assert.equal((await summarizeArticle(peer, articleId, { revision })).ok, true);
   assert.equal(calls, 1);
   const chat = data(await getArticleAiState(peer, articleId));
-  assert.equal(chat.quota.remaining, 5);
+  // Ringkasan tidak memotong jatah token siapa pun (cache bersama).
+  assert.equal(chat.quota.token_used, 0);
+  assert.equal(chat.quota.token_remaining, 400_000);
 });
 
 test('same question retry does not call AI or consume quota again; histories stay private', async () => {
@@ -87,7 +90,9 @@ test('same question retry does not call AI or consume quota again; histories sta
   assert.ok(results.some(result => result.ok));
   assert.equal((await askArticleAi(actor, articleId, input)).ok, true);
   assert.equal(calls, 1);
-  assert.equal(data(await getArticleAiState(actor, articleId)).quota.remaining, 4);
+  // Satu chat selesai memakai tepat 150 token dari mock provider (100+50).
+  assert.equal(data(await getArticleAiState(actor, articleId)).quota.token_used, 150);
+  assert.equal(data(await getArticleAiState(actor, articleId)).quota.token_remaining, 399_850);
   assert.equal(data(await getArticleAiState(peer, articleId)).messages.length, 0);
   const reused = await askArticleAi(actor, articleId, { ...input, question: 'Pertanyaan berbeda' });
   assert.ok(!reused.ok && reused.code === 'AI_REQUEST_REUSED');
@@ -100,13 +105,23 @@ test('global daily limit is enforced atomically for simultaneous callers', async
   assert.ok(results.some(result => !result.ok && result.status === 429));
 });
 
-test('user quota rejection does not consume the global counter', async () => {
-  for (let index = 0; index < 5; index++) assert.equal((await askArticleAi(actor, articleId, question())).ok, true);
-  const rejected = await askArticleAi(actor, articleId, question());
-  assert.ok(!rejected.ok && rejected.status === 429);
-  assert.equal(calls, 5);
-  assert.equal(data(await getArticleAiState(actor, articleId)).quota.remaining, 0);
-  assert.equal((await prisma.libAiUsageBucket.findFirstOrThrow({ where: { scope: 'GLOBAL' } })).used, 5);
+test('token quota rejection does not consume the global counter', async () => {
+  await prisma.user.update({ where: { id: actor.id }, data: { ai_token_limit_override: 100 } });
+  const payload = await mobileUserPayload(actor.id);
+  assert.ok(payload);
+  const limitedActor: MobileActor = { ...payload, session_id: 'test-session' };
+  try {
+    // Chat pertama lolos (jatah 100 belum terpakai) dan memakai 150 token.
+    assert.equal((await askArticleAi(limitedActor, articleId, question())).ok, true);
+    const rejected = await askArticleAi(limitedActor, articleId, question());
+    assert.ok(!rejected.ok && rejected.status === 429 && rejected.code === 'AI_TOKEN_QUOTA_EXCEEDED');
+    assert.equal(calls, 1);
+    assert.equal(data(await getArticleAiState(limitedActor, articleId)).quota.token_remaining, 0);
+    // Penolakan token terjadi sebelum reservasi: counter global tidak ikut naik.
+    assert.equal((await prisma.libAiUsageBucket.findFirstOrThrow({ where: { scope: 'GLOBAL' } })).used, 1);
+  } finally {
+    await prisma.user.update({ where: { id: actor.id }, data: { ai_token_limit_override: null } });
+  }
 });
 
 test('uncached summary quota is bounded across article edits', async () => {

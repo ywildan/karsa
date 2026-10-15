@@ -21,8 +21,13 @@ import {
   AI_GLOBAL_LIMIT_MAX,
   AI_SETTING_BASE_URL,
   AI_SETTING_GLOBAL_DAILY_LIMIT,
+  AI_SETTING_TOKEN_FREE_MONTHLY,
+  AI_SETTING_TOKEN_PLUS_MONTHLY,
+  AI_SETTING_TOKEN_PREMIUM_MONTHLY,
   AI_SETTING_WEBSEARCH_GLOBAL_LIMIT,
+  AI_TOKEN_LIMIT_MAX,
   isValidAiLimitOverride,
+  isValidAiTokenOverride,
 } from "@/lib/karsa-lib/ai-settings";
 import { invalidateAiSettingsCache } from "@/lib/karsa-lib/ai-settings-store";
 import { prisma } from "@/lib/prisma";
@@ -81,23 +86,23 @@ export async function setUserPremiumTier(input: {
 
 const overridesSchema = z.object({
   userId: z.string().min(1),
-  chat: z.number().int().min(0).max(1000).nullable(),
+  token: z.number().int().min(0).max(AI_TOKEN_LIMIT_MAX).nullable(),
   summary: z.number().int().min(0).max(1000).nullable(),
   webSearch: z.number().int().min(0).max(1000).nullable(),
 });
 
 export async function setUserAiLimitOverrides(input: {
   userId: string;
-  chat: number | null;
+  token: number | null;
   summary: number | null;
   webSearch: number | null;
 }): Promise<ActionResult> {
   const admin = await requireAdmin();
   const parsed = overridesSchema.safeParse(input);
   if (!parsed.success) return { ok: false, error: zodFirstError(parsed.error) };
-  const { userId, chat, summary, webSearch } = parsed.data;
-  if (!isValidAiLimitOverride(chat) || !isValidAiLimitOverride(summary) || !isValidAiLimitOverride(webSearch)) {
-    return { ok: false, error: "Limit harus bilangan bulat 0–1000 atau kosong." };
+  const { userId, token, summary, webSearch } = parsed.data;
+  if (!isValidAiTokenOverride(token) || !isValidAiLimitOverride(summary) || !isValidAiLimitOverride(webSearch)) {
+    return { ok: false, error: "Limit tidak valid. Jatah token 0–100.000.000, limit lain 0–1000, atau kosong." };
   }
 
   const user = await prisma.user
@@ -108,7 +113,7 @@ export async function setUserAiLimitOverrides(input: {
         name: true,
         email: true,
         is_admin: true,
-        ai_chat_limit_override: true,
+        ai_token_limit_override: true,
         ai_summary_limit_override: true,
         ai_web_search_limit_override: true,
       },
@@ -122,7 +127,7 @@ export async function setUserAiLimitOverrides(input: {
       await tx.user.update({
         where: { id: userId },
         data: {
-          ai_chat_limit_override: chat,
+          ai_token_limit_override: token,
           ai_summary_limit_override: summary,
           ai_web_search_limit_override: webSearch,
         },
@@ -133,12 +138,12 @@ export async function setUserAiLimitOverrides(input: {
           action: "AI_LIMIT_SET",
           entity: { type: "User", id: user.id, label: user.name ?? user.email },
           before: {
-            ai_chat_limit_override: user.ai_chat_limit_override,
+            ai_token_limit_override: user.ai_token_limit_override,
             ai_summary_limit_override: user.ai_summary_limit_override,
             ai_web_search_limit_override: user.ai_web_search_limit_override,
           },
           after: {
-            ai_chat_limit_override: chat,
+            ai_token_limit_override: token,
             ai_summary_limit_override: summary,
             ai_web_search_limit_override: webSearch,
           },
@@ -271,4 +276,63 @@ export async function setAiBaseUrl(input: {
         ? "Base URL kembali mengikuti env."
         : "Base URL tersimpan dan akan berlaku dalam beberapa detik.",
   };
+}
+
+const tokenAllotmentsSchema = z.object({
+  free: z.number().int().min(0).max(AI_TOKEN_LIMIT_MAX).nullable(),
+  premium: z.number().int().min(0).max(AI_TOKEN_LIMIT_MAX).nullable(),
+  plus: z.number().int().min(0).max(AI_TOKEN_LIMIT_MAX).nullable(),
+});
+
+/**
+ * Atur jatah token bulanan per tier dari dashboard (null per tier = hapus
+ * override tier itu, kembali ke bawaan kode). Disimpan sebagai baris
+ * `LibAiSetting`; perubahan tercatat audit `AI_GLOBAL_SETTINGS_SET`.
+ */
+export async function setAiTokenAllotments(input: {
+  free: number | null;
+  premium: number | null;
+  plus: number | null;
+}): Promise<ActionResult> {
+  const admin = await requireAdmin();
+  const parsed = tokenAllotmentsSchema.safeParse(input);
+  if (!parsed.success) return { ok: false, error: zodFirstError(parsed.error) };
+  const { free, premium, plus } = parsed.data;
+
+  const entries: { key: string; value: number | null }[] = [
+    { key: AI_SETTING_TOKEN_FREE_MONTHLY, value: free },
+    { key: AI_SETTING_TOKEN_PREMIUM_MONTHLY, value: premium },
+    { key: AI_SETTING_TOKEN_PLUS_MONTHLY, value: plus },
+  ];
+
+  try {
+    await prisma.$transaction(async (tx) => {
+      for (const entry of entries) {
+        if (entry.value === null) {
+          await tx.libAiSetting.deleteMany({ where: { key: entry.key } });
+        } else {
+          await tx.libAiSetting.upsert({
+            where: { key: entry.key },
+            create: { key: entry.key, value: String(entry.value) },
+            update: { value: String(entry.value) },
+          });
+        }
+      }
+      await logAudit(
+        {
+          actor: auditActorFromSession(admin),
+          action: "AI_GLOBAL_SETTINGS_SET",
+          entity: { type: "LibAiSetting", id: "global", label: "Pengaturan AI global" },
+          after: { token_free_monthly: free, token_premium_monthly: premium, token_plus_monthly: plus },
+        },
+        tx,
+      );
+    });
+  } catch {
+    return { ok: false, error: `Gagal menyimpan jatah token. ${SQL_HINT}` };
+  }
+
+  invalidateAiSettingsCache();
+  revalidatePath(PAGE_PATH);
+  return { ok: true, message: "Jatah token per tier tersimpan." };
 }
