@@ -4,6 +4,7 @@ import Link from "next/link";
 import { BookOpen, Smartphone, Zap } from "lucide-react";
 
 import { Button } from "@/components/button";
+import { LandingMenu } from "@/components/landing-menu";
 import { ThemeToggle } from "@/components/theme-toggle";
 import { THEME_COOKIE, themeFromCookieValue } from "@/lib/theme";
 
@@ -32,7 +33,8 @@ export default async function HomePage() {
         className="pointer-events-none absolute -top-40 left-1/2 h-80 w-[36rem] -translate-x-1/2 rounded-full bg-primary/10 blur-3xl"
       />
 
-      <div className="absolute right-4 top-4 z-10">
+      <div className="absolute right-4 top-4 z-20 flex items-center gap-2">
+        <LandingMenu />
         <ThemeToggle initialDark={isDark} />
       </div>
 
