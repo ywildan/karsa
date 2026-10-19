@@ -4,10 +4,14 @@ import Link from "next/link";
 import { ArrowLeft, Smartphone } from "lucide-react";
 
 import { Button } from "@/components/button";
+import { SikarsaShowcaseMock } from "@/components/marketing/product-mock";
 import { SiteFooter } from "@/components/marketing/site-footer";
 import { SiteNav } from "@/components/marketing/site-nav";
 import {
+  AudienceSection,
+  CapabilitiesSection,
   FactsSection,
+  FaqSection,
   FeaturesSection,
   IdeaSection,
   ProblemSection,
@@ -15,7 +19,9 @@ import {
   SecuritySection,
   StepsSection,
 } from "@/components/marketing/sikarsa-sections";
+import { marketingSerif } from "@/lib/marketing-font";
 import { ANDROID_DOWNLOAD_URL } from "@/lib/marketing-links";
+import { cn } from "@/lib/utils";
 import { THEME_COOKIE, themeFromCookieValue } from "@/lib/theme";
 
 /**
@@ -38,7 +44,7 @@ export default async function SikarsaProductPage() {
     themeFromCookieValue((await cookies()).get(THEME_COOKIE)?.value) === "dark";
 
   return (
-    <div className="relative flex min-h-dvh flex-col overflow-hidden">
+    <div className="relative flex min-h-dvh flex-col overflow-x-clip">
       <div
         aria-hidden
         className="pointer-events-none absolute -top-40 left-1/2 h-80 w-[36rem] -translate-x-1/2 rounded-full bg-primary/10 blur-3xl"
@@ -48,23 +54,28 @@ export default async function SikarsaProductPage() {
 
       <main className="relative flex-1">
         {/* Hero produk */}
-        <section className="mx-auto w-full max-w-3xl px-6 pb-16 pt-14 text-center animate-slide-up sm:pt-20">
+        <section className="mx-auto w-full max-w-4xl px-6 pb-10 pt-16 text-center animate-slide-up sm:pt-24">
           <span className="inline-flex items-center rounded-full border border-border bg-card px-3 py-1 text-xs font-medium text-muted-foreground">
             Produk Karsa · Universitas Tidar
           </span>
 
-          <h1 className="mt-6 text-4xl font-semibold tracking-tight sm:text-5xl">
-            Setiap karsa, satu poin.
+          <h1
+            className={cn(
+              marketingSerif.className,
+              "mt-7 text-5xl leading-[1.05] tracking-tight sm:text-6xl lg:text-7xl",
+            )}
+          >
+            Setiap karsa, <span className="italic text-primary">satu poin</span>.
           </h1>
 
-          <p className="mt-6 text-balance text-sm leading-relaxed text-muted-foreground sm:text-base">
+          <p className="mx-auto mt-6 max-w-2xl text-balance text-base leading-relaxed text-muted-foreground sm:text-lg">
             SiKarsa adalah aplikasi pencatatan poin keaktifan mahasiswa
             Universitas Tidar per mata kuliah per kelas. PJ mencatat poin dari
             HP saat perkuliahan berjalan, dan mahasiswa memantau rapor
             poinnya secara live, tanpa rekap manual di akhir semester.
           </p>
 
-          <div className="mt-8 flex flex-col items-center justify-center gap-3 sm:flex-row">
+          <div className="mt-9 flex flex-col items-center justify-center gap-3 sm:flex-row">
             <Button asChild size="lg" className="w-full sm:w-auto">
               <Link href="/login">Masuk dengan Google</Link>
             </Button>
@@ -79,32 +90,45 @@ export default async function SikarsaProductPage() {
           </div>
 
           <p className="mt-6 text-xs text-muted-foreground">
-            Khusus mahasiswa UNTIDAR — login dengan email{" "}
+            Web & Android · Khusus akun{" "}
             <span className="font-medium text-foreground">@students.untidar.ac.id</span>
           </p>
+        </section>
+
+        {/* Visual produk */}
+        <section className="mx-auto w-full max-w-6xl px-4 pb-16 sm:px-6 sm:pb-28 lg:px-8">
+          <SikarsaShowcaseMock />
         </section>
 
         <ProblemSection />
         <IdeaSection />
         <StepsSection />
+        <CapabilitiesSection />
+        <AudienceSection />
         <FeaturesSection />
         <FactsSection />
         <SecuritySection />
         <RoadmapSection />
+        <FaqSection />
 
         {/* CTA penutup */}
-        <section className="mx-auto w-full max-w-6xl px-4 pb-20 sm:px-6 lg:px-8">
-          <div className="rounded-3xl border border-border bg-card p-8 text-center shadow-soft sm:p-12">
-            <h2 className="mx-auto max-w-2xl text-3xl font-semibold tracking-tight">
+        <section className="border-t border-border">
+          <div className="mx-auto w-full max-w-4xl px-6 py-16 text-center sm:py-24">
+            <h2
+              className={cn(
+                marketingSerif.className,
+                "text-4xl leading-tight sm:text-5xl lg:text-6xl",
+              )}
+            >
               Dirancang untuk lingkungan UNTIDAR.{" "}
-              <span className="text-primary">Siap untuk uji coba terbatas.</span>
+              <span className="italic text-primary">Siap untuk uji coba terbatas.</span>
             </h2>
-            <p className="mx-auto mt-4 max-w-xl text-sm leading-relaxed text-muted-foreground sm:text-base">
+            <p className="mx-auto mt-5 max-w-xl text-balance leading-relaxed text-muted-foreground sm:text-lg">
               Jelajahi versi yang berjalan saat ini dengan akun Google
               UNTIDAR-mu, atau unduh aplikasi Android-nya untuk mencatat poin
               langsung dari kelas.
             </p>
-            <div className="mt-8 flex flex-col items-center justify-center gap-3 sm:flex-row">
+            <div className="mt-9 flex flex-col items-center justify-center gap-3 sm:flex-row">
               <Button asChild size="lg" className="w-full sm:w-auto">
                 <Link href="/login">Masuk dengan Google</Link>
               </Button>
@@ -117,7 +141,7 @@ export default async function SikarsaProductPage() {
                 </Button>
               ) : null}
             </div>
-            <p className="mt-8">
+            <p className="mt-10">
               <Link
                 href="/"
                 className="inline-flex items-center gap-1.5 text-sm text-muted-foreground underline-offset-4 transition-colors hover:text-foreground hover:underline"

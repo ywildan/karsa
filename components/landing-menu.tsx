@@ -18,6 +18,10 @@ import {
   ExternalLink,
   FileText,
   GraduationCap,
+  HelpCircle,
+  LayoutGrid,
+  ListChecks,
+  LockKeyhole,
   Menu,
   ShieldCheck,
   Smartphone,
@@ -40,6 +44,10 @@ const EXTERNAL_ITEMS: MenuItem[] = [
 
 const INTERNAL_ITEMS: MenuItem[] = [
   { label: "SiKarsa", href: "/product/sikarsa", icon: GraduationCap },
+  { label: "Cara Kerja", href: "/product/sikarsa#cara-kerja", icon: ListChecks },
+  { label: "Fitur", href: "/product/sikarsa#fitur", icon: LayoutGrid },
+  { label: "Keamanan", href: "/product/sikarsa#keamanan", icon: LockKeyhole },
+  { label: "FAQ", href: "/product/sikarsa#faq", icon: HelpCircle },
   { label: "Kebijakan Privasi", href: "/kebijakan-privasi", icon: ShieldCheck },
   { label: "Syarat Penggunaan", href: "/syarat-penggunaan", icon: FileText },
 ];
