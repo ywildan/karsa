@@ -7,11 +7,9 @@
  * toggle tema. Bukan sidebar: panel melayang di bawah tombol dan menutup
  * saat klik di luar, tombol Escape, atau setelah item dipilih.
  *
- * Item eksternal hanya dirender bila URL-nya sudah diisi, supaya tidak
- * pernah ada tautan mati yang terbit. Isi kedua konstanta di bawah ini
- * setelah alamat publiknya tersedia:
- *  · ANDROID_DOWNLOAD_URL — halaman publik SiKarsa di Uptodown.
- *  · LANDING_PAGE_URL — alamat publik karsa-landing.
+ * Item eksternal ("Unduh Android") hanya dirender bila URL-nya di
+ * `lib/marketing-links.ts` sudah diisi, supaya tidak pernah ada tautan
+ * mati yang terbit.
  */
 import * as React from "react";
 import Link from "next/link";
@@ -19,17 +17,15 @@ import {
   ChevronDown,
   ExternalLink,
   FileText,
-  Globe,
+  GraduationCap,
   Menu,
   ShieldCheck,
   Smartphone,
   type LucideIcon,
 } from "lucide-react";
 
+import { ANDROID_DOWNLOAD_URL } from "@/lib/marketing-links";
 import { cn } from "@/lib/utils";
-
-const ANDROID_DOWNLOAD_URL = "";
-const LANDING_PAGE_URL = "";
 
 type MenuItem = {
   label: string;
@@ -40,10 +36,10 @@ type MenuItem = {
 
 const EXTERNAL_ITEMS: MenuItem[] = [
   { label: "Unduh Android", href: ANDROID_DOWNLOAD_URL, icon: Smartphone, external: true },
-  { label: "Landing Page", href: LANDING_PAGE_URL, icon: Globe, external: true },
 ];
 
 const INTERNAL_ITEMS: MenuItem[] = [
+  { label: "SiKarsa", href: "/product/sikarsa", icon: GraduationCap },
   { label: "Kebijakan Privasi", href: "/kebijakan-privasi", icon: ShieldCheck },
   { label: "Syarat Penggunaan", href: "/syarat-penggunaan", icon: FileText },
 ];
@@ -71,8 +67,9 @@ export function LandingMenu() {
   }, [open ]);
 
   const items = [
+    INTERNAL_ITEMS[0],
     ...EXTERNAL_ITEMS.filter((item) => item.href.trim().length > 0),
-    ...INTERNAL_ITEMS,
+    ...INTERNAL_ITEMS.slice(1),
   ];
 
   return (
