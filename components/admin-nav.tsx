@@ -14,6 +14,7 @@ import {
   Landmark,
   Layers,
   LayoutDashboard,
+  Library,
   ScrollText,
   TableProperties,
   UserCog,
@@ -33,6 +34,7 @@ const NAV_GROUPS: { label: string; items: NavItem[] }[] = [
     label: "Operasional",
     items: [
       { href: "/admin/karsalib", label: "Karsa Lib", icon: BookOpenText },
+      { href: "/admin/materi", label: "Materi publik", icon: Library },
       { href: "/admin/rekap", label: "Rekap poin", icon: TableProperties },
       { href: "/admin/pengelola", label: "Pengelola", icon: UserCog },
     ],
