@@ -132,9 +132,9 @@ export function DaftarMateriPublik({ daftar }: { daftar: MateriPublik[] }) {
     <>
       {/* Filter diletakkan di tengah dan langsung bisa dipakai: prodi tidak
           menunggu fakultas dipilih. */}
-      <div className="mx-auto mt-10 w-full max-w-3xl rounded-2xl border border-border bg-card p-5">
+      <div className="mx-auto mt-10 w-full max-w-full rounded-2xl border border-border bg-card p-4 sm:w-fit">
         <div className="flex flex-col items-center gap-4 sm:flex-row sm:items-end sm:justify-center">
-          <div className="grid w-full gap-1.5 sm:w-60">
+          <div className="grid w-full gap-1.5 sm:w-56">
             <label
               htmlFor="pilih-fakultas"
               className="text-center text-[11px] font-bold uppercase tracking-[0.14em] text-muted-foreground"
@@ -160,7 +160,7 @@ export function DaftarMateriPublik({ daftar }: { daftar: MateriPublik[] }) {
             </select>
           </div>
 
-          <div className="grid w-full gap-1.5 sm:w-72">
+          <div className="grid w-full gap-1.5 sm:w-64">
             <label
               htmlFor="pilih-prodi"
               className="text-center text-[11px] font-bold uppercase tracking-[0.14em] text-muted-foreground"
