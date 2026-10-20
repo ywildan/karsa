@@ -132,95 +132,103 @@ export function DaftarMateriPublik({ daftar }: { daftar: MateriPublik[] }) {
     <>
       {/* Filter diletakkan di tengah dan langsung bisa dipakai: prodi tidak
           menunggu fakultas dipilih. */}
-      <div className="mx-auto mt-10 w-full max-w-full rounded-2xl border border-border bg-card p-4 sm:w-fit">
-        <div className="flex flex-col items-center gap-4 sm:flex-row sm:items-end sm:justify-center">
-          <div className="grid w-full gap-1.5 sm:w-56">
-            <label
-              htmlFor="pilih-fakultas"
-              className="text-center text-[11px] font-bold uppercase tracking-[0.14em] text-muted-foreground"
-            >
-              Fakultas
-            </label>
-            <select
-              id="pilih-fakultas"
-              value={fakultas}
-              onChange={(event) => ubahFakultas(event.target.value)}
-              className={SELECT_KELAS}
-            >
-              <option value="semua">Semua fakultas</option>
-              {adaUmum && (
-                <option value="umum">Umum — berlaku semua fakultas</option>
-              )}
-              {daftarFakultas.map((nama) => (
-                <option key={nama} value={nama}>
-                  {nama} (
-                  {daftar.filter((materi) => materi.fakultas === nama).length})
-                </option>
-              ))}
-            </select>
+      {/* Kaca: pendar hangat tipis di belakang supaya efek blur punya sesuatu
+          untuk diolah, lalu panel semi-transparan dengan backdrop blur. */}
+      <div className="relative mx-auto mt-10 w-full max-w-full sm:w-fit">
+        <div
+          aria-hidden="true"
+          className="pointer-events-none absolute inset-x-6 -top-3 -bottom-3 rounded-[28px] bg-primary/20 blur-2xl"
+        />
+        <div className="relative rounded-2xl border border-border bg-card/60 p-4 shadow-[0_18px_50px_-28px_rgba(0,0,0,0.45)] backdrop-blur-xl backdrop-saturate-150">
+          <div className="flex flex-col items-center gap-4 sm:flex-row sm:items-end sm:justify-center">
+            <div className="grid w-full gap-1.5 sm:w-56">
+              <label
+                htmlFor="pilih-fakultas"
+                className="text-center text-[11px] font-bold uppercase tracking-[0.14em] text-muted-foreground"
+              >
+                Fakultas
+              </label>
+              <select
+                id="pilih-fakultas"
+                value={fakultas}
+                onChange={(event) => ubahFakultas(event.target.value)}
+                className={SELECT_KELAS}
+              >
+                <option value="semua">Semua fakultas</option>
+                {adaUmum && (
+                  <option value="umum">Umum — berlaku semua fakultas</option>
+                )}
+                {daftarFakultas.map((nama) => (
+                  <option key={nama} value={nama}>
+                    {nama} (
+                    {daftar.filter((materi) => materi.fakultas === nama).length})
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            <div className="grid w-full gap-1.5 sm:w-64">
+              <label
+                htmlFor="pilih-prodi"
+                className="text-center text-[11px] font-bold uppercase tracking-[0.14em] text-muted-foreground"
+              >
+                Program studi
+              </label>
+              <select
+                id="pilih-prodi"
+                value={prodi}
+                onChange={(event) => ubahProdi(event.target.value)}
+                disabled={fakultas === "umum"}
+                className={SELECT_KELAS}
+              >
+                <option value="semua">Semua prodi</option>
+                {fakultas === "semua" ? (
+                  <>
+                    <option value="lintas">Lintas prodi — tingkat fakultas</option>
+                    {semuaProdi.map((item) => (
+                      <option key={item.prodi} value={item.prodi}>
+                        {item.prodi} — {item.fakultas}
+                      </option>
+                    ))}
+                  </>
+                ) : (
+                  <>
+                    {daftarProdi.length > 0 && (
+                      <option value="lintas">Lintas prodi</option>
+                    )}
+                    {daftarProdi.map((nama) => (
+                      <option key={nama} value={nama}>
+                        {nama}
+                      </option>
+                    ))}
+                  </>
+                )}
+              </select>
+            </div>
+
+            {/* Jumlah materi sengaja tidak ditampilkan lagi di sini: angka yang
+                sama sudah ada di judul tiap fakultas/prodi. Disisakan sebagai
+                live region tak terlihat supaya pembaca layar tetap mendapat
+                umpan balik saat filter berubah. */}
+            <p className="sr-only" aria-live="polite">
+              {menyaring
+                ? `${tersaring.length} dari ${daftar.length} materi ditampilkan`
+                : `${daftar.length} materi ditampilkan`}
+            </p>
           </div>
 
-          <div className="grid w-full gap-1.5 sm:w-64">
-            <label
-              htmlFor="pilih-prodi"
-              className="text-center text-[11px] font-bold uppercase tracking-[0.14em] text-muted-foreground"
-            >
-              Program studi
-            </label>
-            <select
-              id="pilih-prodi"
-              value={prodi}
-              onChange={(event) => ubahProdi(event.target.value)}
-              disabled={fakultas === "umum"}
-              className={SELECT_KELAS}
-            >
-              <option value="semua">Semua prodi</option>
-              {fakultas === "semua" ? (
-                <>
-                  <option value="lintas">Lintas prodi — tingkat fakultas</option>
-                  {semuaProdi.map((item) => (
-                    <option key={item.prodi} value={item.prodi}>
-                      {item.prodi} — {item.fakultas}
-                    </option>
-                  ))}
-                </>
-              ) : (
-                <>
-                  {daftarProdi.length > 0 && (
-                    <option value="lintas">Lintas prodi</option>
-                  )}
-                  {daftarProdi.map((nama) => (
-                    <option key={nama} value={nama}>
-                      {nama}
-                    </option>
-                  ))}
-                </>
-              )}
-            </select>
-          </div>
-
-          {/* Jumlah materi sengaja tidak ditampilkan lagi di sini: angka yang
-              sama sudah ada di judul tiap fakultas/prodi. Disisakan sebagai
-              live region tak terlihat supaya pembaca layar tetap mendapat
-              umpan balik saat filter berubah. */}
-          <p className="sr-only" aria-live="polite">
-            {menyaring
-              ? `${tersaring.length} dari ${daftar.length} materi ditampilkan`
-              : `${daftar.length} materi ditampilkan`}
-          </p>
+          {menyaring && (
+            <div className="mt-4 text-center">
+              <button
+                type="button"
+                onClick={reset}
+                className="text-sm font-semibold text-primary underline-offset-4 hover:underline"
+              >
+                Tampilkan semua materi
+              </button>
+            </div>
+          )}
         </div>
-
-        {menyaring && (
-          <div className="mt-4 text-center">
-            <button
-              type="button"
-              onClick={reset}
-              className="text-sm font-semibold text-primary underline-offset-4 hover:underline"
-            >
-              Tampilkan semua materi
-            </button>
-          </div>
-        )}
       </div>
 
       {tersaring.length === 0 ? (
