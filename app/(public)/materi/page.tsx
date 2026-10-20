@@ -1,16 +1,11 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 
-import { MateriCard } from "@/components/landing/materi-card";
 import { SiteFooter } from "@/components/landing/site-footer";
 import { SiteHeader } from "@/components/landing/site-header";
 import { getMateriTerbit } from "@/lib/materi-query";
-import {
-  kelompokkanMateri,
-  jumlahMateri,
-  type KelompokFakultas,
-  type MateriPublik,
-} from "@/lib/materi";
+
+import { DaftarMateriPublik } from "./_components/daftar-materi-publik";
 
 /**
  * SiKarsa — app/(public)/materi/page.tsx
@@ -19,8 +14,8 @@ import {
  *
  * Hierarki tampilan mengikuti struktur akademik:
  *   Umum (semua fakultas) → Fakultas → (Lintas prodi) → Prodi
- * Pengelompokan memakai `kelompokkanMateri` yang sama dengan tabel admin,
- * supaya urutan di dua tempat itu tidak pernah berbeda.
+ * Penyaringan fakultas/prodi ada di komponen klien `DaftarMateriPublik`; halaman
+ * ini tetap server component (dan tetap statis) supaya metadata & SEO utuh.
  */
 export const metadata: Metadata = {
   title: "Materi & kisi-kisi ujian",
@@ -39,8 +34,7 @@ export const metadata: Metadata = {
 
 export default async function MateriIndexPage() {
   const { daftar } = await getMateriTerbit();
-  const kelompok = kelompokkanMateri(daftar);
-  const total = jumlahMateri(kelompok);
+  const total = daftar.length;
 
   return (
     <div className="flex min-h-dvh flex-col bg-background">
@@ -65,57 +59,7 @@ export default async function MateriIndexPage() {
             akan muncul di sini setelah diterbitkan.
           </p>
         ) : (
-          <div className="mt-12 flex flex-col gap-14">
-            {kelompok.umum.length > 0 && (
-              <SeksiUmum daftar={kelompok.umum} />
-            )}
-
-            {kelompok.fakultas.map((fakultas) => (
-              <section
-                key={fakultas.nama}
-                aria-labelledby={`fakultas-${buatId(fakultas.nama)}`}
-              >
-                <div className="flex flex-wrap items-baseline justify-between gap-3 border-t-2 border-foreground/80 pt-4">
-                  <h2
-                    id={`fakultas-${buatId(fakultas.nama)}`}
-                    className="text-xl font-bold tracking-tight sm:text-2xl"
-                  >
-                    {fakultas.nama}
-                  </h2>
-                  <p className="text-xs uppercase tracking-[0.14em] text-muted-foreground">
-                    {jumlahFakultas(fakultas)} materi
-                  </p>
-                </div>
-
-                <div className="mt-6 flex flex-col gap-8">
-                  {fakultas.lintasProdi.length > 0 && (
-                    <div>
-                      <h3 className="text-xs font-bold uppercase tracking-[0.16em] text-muted-foreground">
-                        Lintas prodi
-                      </h3>
-                      <div className="mt-3">
-                        <DaftarKartu daftar={fakultas.lintasProdi} />
-                      </div>
-                    </div>
-                  )}
-
-                  {fakultas.prodi.map((prodi) => (
-                    <div key={prodi.nama}>
-                      <h3 className="flex flex-wrap items-baseline gap-x-2 text-sm font-semibold tracking-tight">
-                        {prodi.nama}
-                        <span className="text-xs font-normal uppercase tracking-[0.12em] text-muted-foreground">
-                          {prodi.materi.length} materi
-                        </span>
-                      </h3>
-                      <div className="mt-3">
-                        <DaftarKartu daftar={prodi.materi} />
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              </section>
-            ))}
-          </div>
+          <DaftarMateriPublik daftar={daftar} />
         )}
 
         <div className="mt-14 rounded-xl border border-dashed border-border bg-secondary/40 p-5 sm:p-6">
@@ -155,52 +99,5 @@ export default async function MateriIndexPage() {
 
       <SiteFooter />
     </div>
-  );
-}
-
-/** "Fakultas Teknik" → "fakultas-teknik" (untuk id anchor). */
-function buatId(nama: string): string {
-  return nama
-    .toLowerCase()
-    .replace(/[^a-z0-9]+/g, "-")
-    .replace(/^-+|-+$/g, "");
-}
-
-function jumlahFakultas(fakultas: KelompokFakultas): number {
-  return (
-    fakultas.lintasProdi.length +
-    fakultas.prodi.reduce((total, prodi) => total + prodi.materi.length, 0)
-  );
-}
-
-function SeksiUmum({ daftar }: { daftar: MateriPublik[] }) {
-  return (
-    <section aria-labelledby="seksi-umum">
-      <div className="border-t-2 border-foreground/80 pt-4">
-        <h2 id="seksi-umum" className="text-xl font-bold tracking-tight sm:text-2xl">
-          Umum
-        </h2>
-        <p className="mt-1 text-sm text-muted-foreground">
-          Berlaku untuk semua fakultas
-        </p>
-      </div>
-      <div className="mt-5">
-        <DaftarKartu daftar={daftar} />
-      </div>
-    </section>
-  );
-}
-
-function DaftarKartu({ daftar }: { daftar: MateriPublik[] }) {
-  return (
-    <ul
-      className="grid gap-4 sm:grid-cols-2 sm:[&>li:last-child:nth-child(odd)]:col-span-2"
-    >
-      {daftar.map((materi) => (
-        <li key={materi.slug} className="flex">
-          <MateriCard materi={materi} />
-        </li>
-      ))}
-    </ul>
   );
 }
