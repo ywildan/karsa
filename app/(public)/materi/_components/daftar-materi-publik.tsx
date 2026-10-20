@@ -137,7 +137,7 @@ export function DaftarMateriPublik({ daftar }: { daftar: MateriPublik[] }) {
           <div className="grid w-full gap-1.5 sm:w-60">
             <label
               htmlFor="pilih-fakultas"
-              className="text-center text-[11px] font-bold uppercase tracking-[0.14em] text-muted-foreground sm:text-left"
+              className="text-center text-[11px] font-bold uppercase tracking-[0.14em] text-muted-foreground"
             >
               Fakultas
             </label>
@@ -163,7 +163,7 @@ export function DaftarMateriPublik({ daftar }: { daftar: MateriPublik[] }) {
           <div className="grid w-full gap-1.5 sm:w-72">
             <label
               htmlFor="pilih-prodi"
-              className="text-center text-[11px] font-bold uppercase tracking-[0.14em] text-muted-foreground sm:text-left"
+              className="text-center text-[11px] font-bold uppercase tracking-[0.14em] text-muted-foreground"
             >
               Program studi
             </label>
@@ -199,13 +199,14 @@ export function DaftarMateriPublik({ daftar }: { daftar: MateriPublik[] }) {
             </select>
           </div>
 
-          <p
-            className="text-center text-sm text-muted-foreground sm:pb-3 sm:text-left"
-            aria-live="polite"
-          >
+          {/* Jumlah materi sengaja tidak ditampilkan lagi di sini: angka yang
+              sama sudah ada di judul tiap fakultas/prodi. Disisakan sebagai
+              live region tak terlihat supaya pembaca layar tetap mendapat
+              umpan balik saat filter berubah. */}
+          <p className="sr-only" aria-live="polite">
             {menyaring
-              ? `${tersaring.length} dari ${daftar.length} materi`
-              : `${daftar.length} materi`}
+              ? `${tersaring.length} dari ${daftar.length} materi ditampilkan`
+              : `${daftar.length} materi ditampilkan`}
           </p>
         </div>
 
