@@ -1,0 +1,1041 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>PAPARAN UTS — Budaya &amp; Karakter TIDAR (Sub-CPMK 1–2)</title>
+<style>
+  :root{
+    --bg:#0a0d12; --bg2:#0e131b; --surface:#111822; --surface2:#151d29;
+    --border:#1f2b3a; --border2:#2b3a4d;
+    --text:#e7eef7; --muted:#a3b4c9; --dim:#7e90a7;
+    --teal:#4cc9b0; --teal-d:#1d6b5d; --amber:#f2b544; --red:#ff7a7a; --violet:#a78bfa; --blue:#5aa9ff;
+    --shadow:0 10px 30px rgba(0,0,0,.45);
+    --r:14px;
+  }
+  *{box-sizing:border-box;margin:0;padding:0}
+  html{scroll-behavior:smooth; scroll-padding-top:80px}
+  body{
+    background:
+      radial-gradient(1100px 600px at 12% -8%, rgba(76,201,176,.10), transparent 60%),
+      radial-gradient(900px 500px at 92% 4%, rgba(90,169,255,.08), transparent 55%),
+      var(--bg);
+    color:var(--text);
+    font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Inter,Roboto,"Helvetica Neue",Arial,sans-serif;
+    font-size:16px; line-height:1.72; -webkit-font-smoothing:antialiased;
+  }
+  ::selection{background:rgba(76,201,176,.28)}
+
+  /* ---------- PROGRESS ---------- */
+  #bar{position:fixed;top:0;left:0;height:3px;width:0;background:linear-gradient(90deg,var(--teal),var(--amber));z-index:999;transition:width .1s linear}
+
+  /* ---------- LAYOUT ---------- */
+  .wrap{display:grid;grid-template-columns:272px minmax(0,1fr);gap:0;max-width:1360px;margin:0 auto}
+  aside{
+    position:sticky;top:0;height:100vh;overflow-y:auto;padding:26px 18px 60px 26px;
+    border-right:1px solid var(--border);background:rgba(10,13,18,.72);backdrop-filter:blur(8px);
+  }
+  aside::-webkit-scrollbar{width:8px}
+  aside::-webkit-scrollbar-thumb{background:var(--border2);border-radius:9px}
+  .brand{display:flex;gap:11px;align-items:center;margin-bottom:22px}
+  .brand .mark{
+    width:38px;height:38px;border-radius:11px;flex:0 0 auto;
+    background:linear-gradient(145deg,#1d6b5d,#0f3d36);border:1px solid #2b7f6f;
+    display:grid;place-items:center;font-weight:800;font-size:13px;letter-spacing:.5px;color:#c9fff2;
+    box-shadow:0 6px 16px rgba(29,107,93,.35)
+  }
+  .brand b{font-size:14.5px;line-height:1.3;letter-spacing:.2px}
+  .brand span{display:block;font-size:11.5px;color:var(--dim);font-weight:500;letter-spacing:.4px;text-transform:uppercase}
+  nav a{
+    display:block;color:var(--muted);text-decoration:none;font-size:13.6px;
+    padding:7px 11px;border-radius:9px;border-left:2px solid transparent;transition:.16s;
+  }
+  nav a:hover{color:var(--text);background:var(--surface)}
+  nav a.on{color:#b9fff0;background:rgba(76,201,176,.14);border-left:3px solid var(--teal);padding-left:9px;font-weight:700}
+  nav a small{color:var(--dim);font-variant-numeric:tabular-nums;margin-right:7px;font-size:11px}
+
+  main{padding:56px 46px 120px;max-width:960px}
+  @media(max-width:1000px){
+    .wrap{grid-template-columns:1fr}
+    aside{position:static;height:auto;border-right:0;border-bottom:1px solid var(--border);padding:18px 20px}
+    aside nav{display:flex;flex-wrap:wrap;gap:6px}
+    aside nav a{border-left:0;border:1px solid var(--border);font-size:12.5px}
+    aside nav a.on{border-color:var(--teal)}
+    main{padding:34px 20px 90px}
+  }
+
+  /* ---------- TYPE ---------- */
+  .eyebrow{font-size:11.5px;letter-spacing:2.4px;text-transform:uppercase;color:var(--teal);font-weight:700}
+  h1{font-size:clamp(28px,4.4vw,44px);line-height:1.13;letter-spacing:-1.1px;margin:12px 0 14px;font-weight:800}
+  h1 .thin{color:var(--dim);font-weight:300}
+  h2{
+    font-size:clamp(21px,2.6vw,28px);line-height:1.25;letter-spacing:-.5px;font-weight:750;
+    margin:0 0 6px;display:flex;align-items:baseline;gap:12px;flex-wrap:wrap;
+  }
+  h2 .n{
+    font-size:12px;font-weight:800;color:#062a24;background:var(--teal);
+    border-radius:7px;padding:3px 9px;letter-spacing:.5px;transform:translateY(-3px)
+  }
+  h3{font-size:18px;font-weight:700;margin:26px 0 8px;letter-spacing:-.2px;color:#f0f6fd}
+  h3::before{content:"";display:inline-block;width:5px;height:5px;border-radius:50%;background:var(--teal);margin-right:10px;vertical-align:middle}
+  h4{font-size:15px;font-weight:700;margin:16px 0 5px;color:#dce7f4}
+  p{margin:10px 0;color:#cfdbe9}
+  p.lead{font-size:17.5px;color:#b9c8da;line-height:1.7}
+  strong{color:#fff;font-weight:650}
+  em{color:#d8e6f6}
+  ul,ol{margin:10px 0 10px 20px;color:#cfdbe9}
+  li{margin:6px 0}
+  li::marker{color:var(--teal)}
+  a{color:var(--blue)}
+  section{padding:44px 0 8px;border-top:1px solid var(--border)}
+  section:first-of-type{border-top:0;padding-top:10px}
+  .sub{color:var(--dim);font-size:13.5px;margin-bottom:18px}
+
+  /* ---------- COMPONENTS ---------- */
+  .card{background:linear-gradient(180deg,var(--surface),var(--bg2));border:1px solid var(--border);border-radius:var(--r);padding:18px 20px;margin:14px 0}
+  .grid{display:grid;gap:12px}
+  .g2{grid-template-columns:repeat(auto-fit,minmax(250px,1fr))}
+  .g3{grid-template-columns:repeat(auto-fit,minmax(190px,1fr))}
+
+  .pill{display:inline-flex;align-items:center;gap:6px;font-size:11.5px;font-weight:700;letter-spacing:.4px;
+    padding:3px 10px;border-radius:999px;border:1px solid #33455b;color:#bccbdd;background:var(--surface);}
+  .pill.teal{color:#9ff5e3;border-color:#24695c;background:rgba(76,201,176,.10)}
+  .pill.amber{color:#ffd98a;border-color:#6b5320;background:rgba(242,181,68,.10)}
+  .pill.red{color:#ffb3b3;border-color:#6e2f2f;background:rgba(255,122,122,.10)}
+  .pill.violet{color:#d3c4ff;border-color:#4d3f7a;background:rgba(167,139,250,.12)}
+
+  .callout{border-radius:12px;padding:14px 16px 14px 46px;position:relative;margin:14px 0;font-size:14.6px;line-height:1.68}
+  .callout a{color:#8fe9d6;text-decoration-color:rgba(143,233,214,.5)}
+  .callout::before{position:absolute;left:15px;top:12px;font-size:16px}
+  .callout b{display:block;font-size:12px;letter-spacing:1.2px;text-transform:uppercase;margin-bottom:3px}
+  .c-def{background:rgba(90,169,255,.07);border:1px solid #23415e}
+  .c-def::before{content:"■";color:#5aa9ff;font-size:11px;top:15px}
+  .c-def b{color:#8cc4ff}
+  .c-quote{background:rgba(167,139,250,.07);border:1px solid #3b3260}
+  .c-quote::before{content:"❝";color:#a78bfa;top:8px}
+  .c-quote b{color:#c3aeff}
+  .c-quote .src{display:block;font-size:12.5px;color:var(--dim);margin-top:6px;font-style:normal}
+  .c-tip{background:rgba(242,181,68,.07);border:1px solid #5c4a1e}
+  .c-tip::before{content:"★";color:var(--amber)}
+  .c-tip b{color:#ffd98a}
+  .c-warn{background:rgba(255,122,122,.06);border:1px solid #5c2b2b}
+  .c-warn::before{content:"!";color:var(--red);font-weight:900;left:19px}
+  .c-warn b{color:#ffb3b3}
+
+  table{width:100%;border-collapse:collapse;margin:14px 0;font-size:14.2px}
+  th,td{padding:10px 12px;text-align:left;vertical-align:top;border-bottom:1px solid var(--border);hyphens:none}
+  tbody tr:nth-child(even){background:rgba(255,255,255,.018)}
+  thead th{background:var(--surface2);color:#b9cbe0;font-size:11.5px;letter-spacing:1px;text-transform:uppercase;font-weight:700;border-bottom:1px solid var(--border2)}
+  tbody tr:hover{background:rgba(76,201,176,.035)}
+  td:first-child{color:#fff;font-weight:600}
+  .tbl-scroll{overflow-x:auto;border:1px solid var(--border);border-radius:12px}
+  .tbl-scroll table{margin:0}
+  .tbl-scroll th,.tbl-scroll td{border-bottom:1px solid var(--border)}
+  .tbl-scroll tbody tr:last-child td{border-bottom:0}
+
+  details{background:var(--surface);border:1px solid var(--border);border-radius:12px;margin:12px 0;overflow:hidden}
+  details[open]{border-color:var(--border2)}
+  summary{cursor:pointer;padding:12px 16px;font-weight:650;font-size:14.6px;color:#dbe7f5;list-style:none;display:flex;align-items:center;gap:10px;transition:.15s}
+  summary::-webkit-details-marker{display:none}
+  summary::before{content:"+";color:var(--teal);font-weight:800;width:14px;font-size:16px;line-height:1}
+  details[open] summary::before{content:"–"}
+  summary:hover{background:var(--surface2)}
+  details .body{padding:0 16px 16px;font-size:14.6px;color:#c8d6e6;border-top:1px solid var(--border)}
+
+  .kpi{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:10px;margin:18px 0}
+  .kpi div{background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:12px 14px;min-height:78px;display:flex;flex-direction:column;justify-content:center}
+  .kpi .v{font-size:22px;font-weight:800;color:var(--teal);letter-spacing:-.5px;line-height:1.2}
+  .kpi .k{font-size:11.5px;color:var(--dim);text-transform:uppercase;letter-spacing:1px;margin-top:2px}
+
+  .flow{display:flex;flex-wrap:wrap;align-items:center;gap:22px;margin:14px 0 14px 2px;font-size:13.5px}
+  .flow span{position:relative;background:var(--surface);border:1px solid var(--border2);border-radius:9px;padding:6px 11px;color:#d7e4f2}
+  .flow span:not(:last-child)::after{content:"→";position:absolute;right:-18px;top:50%;transform:translateY(-50%);color:var(--teal);font-weight:800}
+  .flow i{display:none}
+
+  .num{display:flex;gap:13px;margin:12px 0}
+  .num .b{flex:0 0 auto;width:26px;height:26px;border-radius:8px;background:rgba(76,201,176,.12);border:1px solid #24695c;color:var(--teal);font-size:12.5px;font-weight:800;display:grid;place-items:center;margin-top:2px}
+  .num div p{margin:0}
+
+  .cards{display:grid;grid-template-columns:repeat(auto-fit,minmax(215px,1fr));gap:11px;margin:16px 0}
+  .flip{perspective:900px;height:150px;cursor:pointer}
+  .flip .in{position:relative;width:100%;height:100%;transform-style:preserve-3d;transition:transform .5s cubic-bezier(.4,.2,.2,1)}
+  .flip.f .in{transform:rotateY(180deg)}
+  .flip .fa,.flip .ba{position:absolute;inset:0;backface-visibility:hidden;border-radius:12px;padding:13px 15px;display:flex;flex-direction:column;justify-content:center;border:1px solid var(--border)}
+  .flip .fa{background:linear-gradient(160deg,#131b26,#0d131b)}
+  .flip .fa .q{font-size:11px;color:var(--teal);letter-spacing:1.2px;text-transform:uppercase;font-weight:700;margin-bottom:5px}
+  .flip .fa .t{font-size:14.5px;font-weight:650;color:#eef5fd;line-height:1.45}
+  .flip .ba{transform:rotateY(180deg);background:linear-gradient(160deg,#13302c,#0e1a18);border-color:#24695c;font-size:13px;color:#c9f3e9;line-height:1.5}
+
+  .tag{display:inline-block;font-size:11px;font-weight:700;padding:1px 8px;border-radius:6px;background:rgba(76,201,176,.12);color:#8fe9d6;border:1px solid #24695c;margin-right:5px}
+  .tag.a{background:rgba(242,181,68,.12);color:#ffd98a;border-color:#6b5320}
+  .tag.v{background:rgba(167,139,250,.12);color:#d3c4ff;border-color:#4d3f7a}
+
+  .hero{border:1px solid var(--border);border-radius:18px;padding:26px 26px 22px;background:linear-gradient(165deg,rgba(29,107,93,.18),rgba(17,24,34,.9) 45%,rgba(14,19,27,.95));box-shadow:var(--shadow);margin-bottom:6px}
+  .meta{display:flex;flex-wrap:wrap;gap:8px;margin-top:16px}
+  .foot{margin-top:60px;padding-top:18px;border-top:1px solid var(--border);color:var(--dim);font-size:12.5px}
+  .twocol{columns:2;column-gap:26px}
+  @media(max-width:720px){.twocol{columns:1}}
+  .twocol li{break-inside:avoid}
+  kbd{background:var(--surface2);border:1px solid var(--border2);border-bottom-width:2px;border-radius:5px;padding:0 5px;font-size:12px;font-family:ui-monospace,monospace;color:#c7d6e8}
+  @media print{
+    aside,#bar{display:none} main{padding:0;max-width:none}
+    body{background:#fff;color:#111} .card,.hero,details{border-color:#ccc}
+  }
+</style>
+</head>
+<body>
+<div id="bar"></div>
+
+<div class="wrap">
+<aside>
+  <div class="brand">
+    <div class="mark">TDR</div>
+    <b>Budaya &amp; Karakter TIDAR<span>Paparan UTS · 2026</span></b>
+  </div>
+  <nav id="nav">
+    <a href="#peta"><small>00</small>Peta Ujian</a>
+    <a href="#manusia"><small>01</small>Manusia Makhluk Budaya</a>
+    <a href="#pembudayaan"><small>02</small>Pembudayaan</a>
+    <a href="#cipta"><small>03</small>Cipta · Rasa · Karsa</a>
+    <a href="#konsep"><small>04</small>Budaya vs Kebudayaan</a>
+    <a href="#karakter"><small>05</small>9 Karakteristik</a>
+    <a href="#wujud"><small>06</small>3 Wujud Kebudayaan</a>
+    <a href="#fungsi"><small>07</small>9 Fungsi</a>
+    <a href="#teori"><small>08</small>8 Teori</a>
+    <a href="#unsur"><small>09</small>7 Unsur Universal</a>
+    <a href="#relasi"><small>10</small>Relasi Antarunsur</a>
+    <a href="#tokoh"><small>11</small>Tokoh &amp; Kutipan</a>
+    <a href="#glosarium"><small>12</small>Glosarium</a>
+    <a href="#tidar"><small>13</small>Jembatan Nilai TIDAR</a>
+    <a href="#latihan"><small>14</small>Latihan &amp; Rubrik</a>
+    <a href="#hafalan"><small>15</small>Kartu Hafalan</a>
+    <a href="#checklist"><small>16</small>Checklist Malam Ini</a>
+  </nav>
+</aside>
+
+<main>
+<nav aria-label="Kembali ke SiKarsa" style="margin:0 0 20px"><a href="/materi" style="display:inline-flex;align-items:center;gap:6px;font-size:12px;line-height:1;letter-spacing:.02em;color:#7e90a7;text-decoration:none;border:1px solid #1f2b3a;border-radius:999px;padding:8px 13px;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Inter,Roboto,sans-serif">&larr; SiKarsa &middot; Materi</a></nav>
+
+
+<!-- ============ HERO ============ -->
+<header class="hero">
+  <div class="eyebrow">Paparan Persiapan Ujian Tengah Semester</div>
+  <h1>Budaya &amp; Karakter TIDAR<br><span class="thin">Sub-CPMK 1–2 · Pertemuan 8</span></h1>
+  <p class="lead">Rangkuman menyeluruh Bab I (Pengantar Kebudayaan) dan Bab II (Unsur-Unsur Kebudayaan), disusun ulang menjadi paparan yang runut, disertai tabel tokoh, kartu hafalan, dan pola jawaban studi kasus.</p>
+  <div class="meta">
+    <span class="pill teal">UTS · Midterm Examination</span>
+    <span class="pill amber">Bobot 20</span>
+    <span class="pill violet">Sub-CPMK 1–2</span>
+    <span class="pill">Sumber: Modul hal. 8–80</span>
+    <span class="pill">Disusun 20 Okt 2026</span>
+  </div>
+</header>
+
+<!-- ============ 00 PETA ============ -->
+<section id="peta">
+  <h2><span class="n">00</span>Peta Ujian: Apa yang Diukur?</h2>
+  <p class="sub">Dasar penetapan cakupan: baris RPS pertemuan ke-8 yang ditandai pada gambar.</p>
+
+  <div class="card">
+    <p style="margin-top:0"><strong>Bukti dari gambar (baris tabel RPS):</strong></p>
+    <div class="tbl-scroll">
+      <table>
+        <thead><tr><th style="width:70px">Ke-</th><th style="width:110px">Kegiatan</th><th>Uraian Capaian</th></tr></thead>
+        <tbody>
+          <tr><td>8</td><td>UTS</td><td><em><strong>Midterm Examination</strong></em> mengukur penguasaan <strong>Sub-CPMK 1–2</strong> (Bobot: 20)<br><span style="color:var(--dim);font-size:13px">Assessing LLO 1–2 (Weight: 20)</span></td></tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  <div class="callout c-tip">
+    <b>Kesimpulan cakupan</b>
+    Berkas modul yang Anda berikan berisi tepat <strong>dua bab</strong> — Bab I (hal. 8–48) dan Bab II (hal. 49–80) — dan berhenti di halaman 80. Karena UTS mengukur <strong>dua Sub-CPMK</strong>, pemetaan yang paling konsisten adalah: <strong>Sub-CPMK 1 = Bab I (konsep dasar kebudayaan)</strong> dan <strong>Sub-CPMK 2 = Bab II (tujuh unsur kebudayaan universal)</strong>. Paparan ini menuntaskan keduanya.
+  </div>
+
+  <div class="callout c-warn">
+    <b>Catatan jujur soal batas materi</b>
+    Bab III–XI (etika &amp; moral, kearifan lokal, nilai TIDAR, kepemimpinan) <strong>tidak disertakan</strong> dalam berkas modul ini, sehingga kecil kemungkinan menjadi materi utama UTS. Namun kuis 7 soal yang ada di berkas yang sama memakai pola “konsep → studi kasus → bukti perilaku” dan sempat menyinggung nilai TIDAR. Karena itu saya tambahkan <a href="#tidar">Bagian 13</a> sebagai jembatan aplikatif — bukan materi utama.
+  </div>
+
+  <div class="kpi">
+    <div><div class="v">2</div><div class="k">Bab diujikan</div></div>
+    <div><div class="v">8</div><div class="k">Teori kebudayaan</div></div>
+    <div><div class="v">9</div><div class="k">Karakteristik budaya</div></div>
+    <div><div class="v">7</div><div class="k">Unsur universal</div></div>
+  </div>
+
+  <h3>Bobot dan bentuk soal yang paling mungkin</h3>
+  <p>UTS berbobot <strong>20</strong> dari nilai akhir, jadi skalanya lebih kecil daripada tugas/kuis. Berdasarkan pola kuis pada berkas yang sama, soal UTS hampir pasti berbentuk <strong>studi kasus dengan sub-pertanyaan a–d</strong>, bukan pilihan ganda. Empat jenis perintah yang berulang:</p>
+  <div class="tbl-scroll">
+    <table>
+      <thead><tr><th style="width:120px">Kata kerja</th><th>Yang diminta</th><th style="width:190px">Kesalahan umum</th></tr></thead>
+      <tbody>
+        <tr><td>Jelaskan</td><td>Definisi + ciri + contoh singkat</td><td>Hanya menulis satu kalimat definisi</td></tr>
+        <tr><td>Analisis</td><td>Sebab–akibat, kaitkan dua konsep atau lebih</td><td>Menjawab “apa”, bukan “mengapa”</td></tr>
+        <tr><td>Bedakan</td><td>Sebutkan minimal dua sumbu pembeda</td><td>Menulis dua definisi tanpa pembanding</td></tr>
+        <tr><td>Bukti perilaku</td><td>Sesuatu yang bisa diperiksa orang lain</td><td>Menulis niat (“akan lebih disiplin”)</td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <div class="callout c-tip">
+    <b>Rumus menjawab 4 lapis (pakai untuk semua soal)</b>
+    <strong>KONSEP</strong> (sebut istilah &amp; tokohnya) → <strong>ANALISIS</strong> (hubungkan ke kasus) → <strong>CONTOH</strong> (konkret, lokal, kampus) → <strong>BUKTI</strong> (artefak/aktivitas yang dapat diperiksa: logbook, tangkapan layar, jadwal, dokumentasi, presensi).
+    <br><span style="color:var(--dim);font-size:13px">Lapis BUKTI inilah yang paling sering dilupakan mahasiswa — dan paling mudah diberi nilai oleh dosen.</span>
+  </div>
+</section>
+
+<!-- ============ 01 MANUSIA ============ -->
+<section id="manusia">
+  <h2><span class="n">01</span>Manusia sebagai Makhluk Berbudaya</h2>
+  <p class="sub">Bab I · subbab 1.1.1 — dasar filosofis seluruh mata kuliah ini.</p>
+
+  <p>Manusia unik bukan karena berpikir rasional saja, tetapi karena mampu <strong>menciptakan, memaknai, mengembangkan, dan mewariskan</strong> kebudayaan. Tiga sebutan untuk manusia:</p>
+
+  <div class="cards">
+    <div class="card" style="margin:0"><span class="tag">Homo sapiens</span><p style="margin:6px 0 0;font-size:14px">Makhluk yang berpikir — memiliki akal untuk memahami dan menjelaskan dunia.</p></div>
+    <div class="card" style="margin:0"><span class="tag">Homo socius</span><p style="margin:6px 0 0;font-size:14px">Makhluk sosial — tidak dapat memenuhi kebutuhan hidupnya sendiri.</p></div>
+    <div class="card" style="margin:0"><span class="tag">Homo culturalis</span><p style="margin:6px 0 0;font-size:14px">Makhluk berbudaya — menciptakan simbol, nilai, dan peradaban.</p></div>
+  </div>
+
+  <p>Menurut <strong>Koentjaraningrat (2015)</strong>, manusia menjadi makhluk berbudaya karena memiliki <strong>kemampuan belajar</strong> yang memungkinkan unsur kebudayaan diwariskan antargenerasi. Jadi kebudayaan bukan warisan biologis/genetik, melainkan hasil belajar.</p>
+
+  <h3>Enam pandangan yang wajib bisa dibedakan</h3>
+  <div class="tbl-scroll">
+    <table>
+      <thead><tr><th style="width:170px">Tokoh</th><th>Inti pandangan</th><th style="width:190px">Kata kunci</th></tr></thead>
+      <tbody>
+        <tr><td>E. B. Tylor (1871)</td><td>Kebudayaan adalah <em>complex whole</em>: pengetahuan, kepercayaan, seni, moral, hukum, adat, dan kebiasaan yang diperoleh sebagai anggota masyarakat.</td><td>keseluruhan kompleks · dipelajari</td></tr>
+        <tr><td>Clifford Geertz (1973)</td><td>Manusia tersangkut dalam jaringan makna yang ia tenun sendiri; kebudayaan adalah jaringan itu.</td><td>webs of significance · simbol</td></tr>
+        <tr><td>Bronislaw Malinowski (1944)</td><td>Kebudayaan adalah perangkat instrumental untuk menghadapi masalah konkret di lingkungannya.</td><td>fungsi · kebutuhan</td></tr>
+        <tr><td>Franz Boas (1940)</td><td>Setiap masyarakat punya sejarah budaya unik; tidak boleh dinilai dengan ukuran budaya lain.</td><td>relativisme budaya</td></tr>
+        <tr><td>Ki Hadjar Dewantara (1994)</td><td>Kebudayaan adalah buah budi manusia dalam hidup bermasyarakat.</td><td>budi · cipta-rasa-karsa</td></tr>
+        <tr><td>Koentjaraningrat (2015)</td><td>Kebudayaan adalah keseluruhan sistem gagasan, tindakan, dan hasil karya manusia yang dijadikan milik diri dengan belajar.</td><td>gagasan–tindakan–karya</td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <details>
+    <summary>Pendalaman: mengapa manusia butuh simbol? (jawaban siap pakai)</summary>
+    <div class="body">
+      <p>Makhluk lain bertindak berdasarkan <strong>insting</strong>; manusia bertindak berdasarkan <strong>makna</strong>. Simbol (bahasa, ritual, pakaian adat, motif batik, lambang negara) memungkinkan manusia:</p>
+      <div class="num"><div class="b">1</div><div><p><strong>Menyimpan pengetahuan</strong> di luar tubuh — tulisan, prasasti, arsip.</p></div></div>
+      <div class="num"><div class="b">2</div><div><p><strong>Menyampaikan gagasan</strong> kepada orang yang belum pernah mengalami peristiwanya.</p></div></div>
+      <div class="num"><div class="b">3</div><div><p><strong>Membangun identitas sosial</strong> — siapa “kita” dan siapa “mereka”.</p></div></div>
+      <div class="num"><div class="b">4</div><div><p><strong>Melakukan refleksi</strong>, mengevaluasi, lalu memperbaiki budaya itu sendiri (dasar inovasi).</p></div></div>
+      <p style="margin-bottom:0">Ditambah temuan evolusi budaya mutakhir (Laland, 2023): perkembangan manusia didorong <em>social learning</em>, imitasi, inovasi, dan akumulasi pengetahuan antargenerasi — bukan genetik semata.</p>
+    </div>
+  </details>
+</section>
+
+<!-- ============ 02 PEMBUDAYAAN ============ -->
+<section id="pembudayaan">
+  <h2><span class="n">02</span>Proses Pembudayaan (Enculturation)</h2>
+  <p class="sub">Bab I · subbab 1.1.2 — jembatan menuju soal-soal bertema disiplin &amp; karakter.</p>
+
+  <div class="callout c-def">
+    <b>Definisi kunci</b>
+    <strong>Pembudayaan (enculturation)</strong> adalah proses ketika individu mempelajari isi tradisional suatu kebudayaan serta mengasimilasi praktik dan nilai-nilainya. — <strong>Melville J. Herskovits (1948)</strong>
+  </div>
+
+  <p>Bayi lahir <strong>tanpa</strong> bahasa, adat, nilai, dan norma. Semuanya diperoleh lewat belajar sepanjang hayat. Karena itu pembudayaan bersifat <strong>sepanjang hayat</strong> (life-long), bukan berhenti di masa kanak.</p>
+
+  <h3>Empat agen pembudayaan (urut dari yang paling awal)</h3>
+  <div class="tbl-scroll">
+    <table>
+      <thead><tr><th style="width:150px">Agen</th><th>Peran</th><th style="width:230px">Contoh nyata</th></tr></thead>
+      <tbody>
+        <tr><td>Keluarga</td><td>Agen <strong>pertama dan paling penting</strong>; fondasi identitas budaya sebelum masuk lingkungan lebih luas.</td><td>Bahasa ibu, tata krama, cara makan, cara berpakaian, penghormatan kepada orang tua.</td></tr>
+        <tr><td>Masyarakat</td><td>Pembelajaran alami melalui keterlibatan langsung, bukan teori.</td><td>Gotong royong, upacara adat, permainan tradisional, praktik keagamaan, aktivitas ekonomi.</td></tr>
+        <tr><td>Lembaga pendidikan</td><td>Agen <strong>formal</strong>: transfer ilmu + penanaman nilai kebangsaan, toleransi, disiplin.</td><td>Pancasila, bahasa Indonesia, kearifan lokal, aturan akademik.</td></tr>
+        <tr><td>Media digital</td><td>Agen <strong>baru</strong> yang sangat berpengaruh pada generasi muda.</td><td>Media sosial, konten daring, gaya hidup global — mempercepat difusi sekaligus mengancam identitas lokal.</td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <div class="callout c-tip">
+    <b>Cara memakainya di soal kasus</b>
+    Kalau soal bercerita tentang mahasiswa yang menunda tugas, mudah terdistraksi, dan menyimpulkan “saya tidak berbakat”, jangan langsung menghakimi. Rangkai begini: perilaku itu adalah <strong>hasil pembudayaan</strong> (kebiasaan yang dipelajari, bukan bakat bawaan) → karena dipelajari, ia bisa <strong>dipelajari ulang</strong> lewat disiplin dan lingkungan yang tepat.
+  </div>
+
+  <p>Malinowski menambahkan bahwa pewarisan budaya tidak bisa dilepas dari <strong>fungsinya</strong>: suatu unsur budaya dipertahankan karena terbukti membantu manusia beradaptasi. Bahasa, kekerabatan, agama, teknologi diwariskan karena berfungsi — bukan karena sekadar tradisi.</p>
+</section>
+
+<!-- ============ 03 CIPTA RASA KARSA ============ -->
+<section id="cipta">
+  <h2><span class="n">03</span>Budaya sebagai Hasil Cipta, Rasa, dan Karsa</h2>
+  <p class="sub">Bab I · subbab 1.1.3 — perspektif khas Indonesia (Ki Hadjar Dewantara).</p>
+
+  <div class="cards">
+    <div class="card" style="margin:0">
+      <span class="tag">Cipta</span>
+      <p style="margin:6px 0 0;font-size:14px"><strong>Akal / berpikir.</strong> Melahirkan ilmu pengetahuan, teknologi, bahasa, inovasi. <br><span style="color:var(--dim)">Contoh: sistem irigasi Subak, kalender musim tanam.</span></p>
+    </div>
+    <div class="card" style="margin:0">
+      <span class="tag a">Rasa</span>
+      <p style="margin:6px 0 0;font-size:14px"><strong>Penghayatan nilai &amp; keindahan.</strong> Melahirkan seni, sastra, empati, solidaritas. <br><span style="color:var(--dim)">Contoh: batik, wayang, toleransi, kepedulian.</span></p>
+    </div>
+    <div class="card" style="margin:0">
+      <span class="tag v">Karsa</span>
+      <p style="margin:6px 0 0;font-size:14px"><strong>Kehendak / tindakan.</strong> Mewujudkan gagasan menjadi nyata. <br><span style="color:var(--dim)">Contoh: mendirikan sekolah, menyusun hukum, membangun candi.</span></p>
+    </div>
+  </div>
+
+  <p>Ketiganya <strong>integral</strong>, tidak berurutan kaku: karya budaya lahir dari pikiran (cipta), diperkaya penghayatan (rasa), lalu diwujudkan lewat tindakan (karsa). Contoh ampuh: <strong>Candi Borobudur</strong> — sekaligus bukti teknologi (cipta), kedalaman religius &amp; estetika (rasa), dan kemampuan organisasi sosial tingkat tinggi (karsa).</p>
+
+  <div class="callout c-quote">
+    <b>Kutipan</b>
+    “Kebudayaan adalah buah budi manusia dalam hidup bermasyarakat.”
+    <span class="src">— Ki Hadjar Dewantara (1994)</span>
+  </div>
+
+  <div class="callout c-tip">
+    <b>Jebakan soal</b>
+    Jangan menyamakan <em>cipta-rasa-karsa</em> dengan <em>tiga wujud kebudayaan</em>. Cipta-rasa-karsa = <strong>daya/ kemampuan</strong> manusia (sumber). Tiga wujud = <strong>bentuk hasilnya</strong> (gagasan, aktivitas, artefak). Kalau soal minta “wujud”, jangan jawab cipta-rasa-karsa.
+  </div>
+</section>
+
+<!-- ============ 04 KONSEP ============ -->
+<section id="konsep">
+  <h2><span class="n">04</span>Budaya vs Kebudayaan: Asal-Usul &amp; Definisi</h2>
+  <p class="sub">Bab I · subbab 1.2 — bagian yang paling sering ditanyakan sebagai soal “bedakan”.</p>
+
+  <h3>Dua akar kata</h3>
+  <div class="grid g2">
+    <div class="card" style="margin:0">
+      <span class="pill teal">Tradisi Timur</span>
+      <p style="margin:8px 0 0"><strong>Sanskerta: buddhayah</strong> → bentuk jamak dari <strong>buddhi</strong> = akal, budi, kemampuan berpikir. Jadi budaya = hal-hal yang berhubungan dengan budi/akal.</p>
+    </div>
+    <div class="card" style="margin:0">
+      <span class="pill amber">Tradisi Barat</span>
+      <p style="margin:8px 0 0"><strong>Latin: colere</strong> = mengolah, memelihara, membudidayakan tanah (<em>to cultivate</em>). Maknanya meluas: mengembangkan manusia lewat pendidikan, ilmu, seni, moral.</p>
+    </div>
+  </div>
+  <p style="margin-top:14px">Raymond Williams (1983) bahkan menyebut <em>culture</em> sebagai “salah satu dari dua atau tiga kata paling rumit dalam bahasa Inggris” — karena maknanya sangat luas dan dipakai di banyak disiplin.</p>
+
+  <h3>Tabel pembeda: budaya vs kebudayaan</h3>
+  <div class="tbl-scroll">
+    <table>
+      <thead><tr><th style="width:130px">Aspek</th><th>Budaya</th><th>Kebudayaan</th></tr></thead>
+      <tbody>
+        <tr><td>Hakikat</td><td><strong>Potensi / daya</strong> dari budi</td><td><strong>Aktualisasi</strong> dari potensi itu</td></tr>
+        <tr><td>Sifat</td><td>Melekat pada manusia (kemampuan)</td><td>Hasil nyata di kehidupan sosial</td></tr>
+        <tr><td>Contoh</td><td>Kemampuan berpikir kreatif, menghargai keindahan, bekerja sama</td><td>Batik, keris, gamelan, wayang, rumah adat, hukum adat, gotong royong</td></tr>
+        <tr><td>Analogi</td><td>Bakat memasak</td><td>Masakan yang tersaji</td></tr>
+        <tr><td>Hubungan</td><td colspan="2">Budaya adalah <strong>sumber</strong>; kebudayaan adalah <strong>bukti konkret</strong>. Keduanya tidak dapat dipisahkan.</td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <div class="callout c-warn">
+    <b>Perhatikan</b>
+    Dalam literatur ilmiah Indonesia, “budaya” sering dipakai sebagai <strong>bentuk singkat</strong> dari “kebudayaan” tanpa mengubah makna. Jadi saat membaca soal, lihat konteksnya — jangan otomatis menganggap keduanya selalu dibedakan.
+  </div>
+
+  <details>
+    <summary>Peta definisi menurut ahli (hafalkan pasangan tokoh–kata kuncinya)</summary>
+    <div class="body">
+      <div class="tbl-scroll">
+        <table>
+          <thead><tr><th style="width:180px">Tokoh</th><th>Penekanan definisi</th></tr></thead>
+          <tbody>
+            <tr><td>Tylor (1871)</td><td>Keseluruhan kompleks yang dipelajari sebagai anggota masyarakat</td></tr>
+            <tr><td>Malinowski (1944)</td><td>Fungsi praktis — perangkat untuk memenuhi kebutuhan</td></tr>
+            <tr><td>Geertz (1973)</td><td>Sistem makna &amp; simbol (jaringan makna)</td></tr>
+            <tr><td>Koentjaraningrat (2015)</td><td>Integrasi gagasan + tindakan + artefak, diperoleh dengan belajar</td></tr>
+            <tr><td>Ki Hadjar Dewantara (1994)</td><td>Hasil olah budi (cipta-rasa-karsa) dalam hidup bersama</td></tr>
+          </tbody>
+        </table>
+      </div>
+      <p style="margin-bottom:0">Kesimpulan yang bisa dipakai menutup jawaban: definisi-definisi itu <strong>saling melengkapi</strong>, bukan saling meniadakan — kebudayaan memang fenomena multidimensional.</p>
+    </div>
+  </details>
+</section>
+
+<!-- ============ 05 KARAKTERISTIK ============ -->
+<section id="karakter">
+  <h2><span class="n">05</span>Sembilan Karakteristik Kebudayaan</h2>
+  <p class="sub">Bab I · subbab 1.3 — sering keluar sebagai soal “sebutkan dan jelaskan”.</p>
+
+  <div class="tbl-scroll">
+    <table>
+      <thead><tr><th style="width:40px">#</th><th style="width:175px">Karakteristik</th><th>Makna</th><th style="width:238px">Bukti/contoh</th></tr></thead>
+      <tbody>
+        <tr><td>1</td><td>Dipelajari <span style="color:var(--dim)">(learned)</span></td><td>Tidak dibawa sejak lahir; diperoleh lewat enculturation &amp; sosialisasi.</td><td>Anak belajar bahasa ibu dari keluarga.</td></tr>
+        <tr><td>2</td><td>Diwariskan <span style="color:var(--dim)">(transmitted)</span></td><td>Diteruskan antargenerasi, formal &amp; informal; bukan sekadar memindah informasi, tetapi menginternalisasi nilai.</td><td>Resep jamu, adat pernikahan, tradisi lisan.</td></tr>
+        <tr><td>3</td><td>Dimiliki bersama <span style="color:var(--dim)">(shared)</span></td><td>Milik kelompok, bukan individu; makna lahir dari kesepakatan.</td><td>Bahasa &amp; simbol dipahami bersama.</td></tr>
+        <tr><td>4</td><td>Bersifat simbolik</td><td>Menggunakan simbol bermakna: bahasa, pakaian adat, motif batik, arsitektur, lambang negara.</td><td>Motif batik parang = kepemimpinan.</td></tr>
+        <tr><td>5</td><td>Adaptif</td><td>Berkembang sebagai respons terhadap lingkungan alam &amp; sosial.</td><td>Nelayan pesisir vs petani pegunungan.</td></tr>
+        <tr><td>6</td><td>Dinamis</td><td>Tidak ada budaya yang benar-benar tetap; berubah lewat inovasi, difusi, akulturasi, asimilasi, modernisasi, globalisasi.</td><td>Bahasa gaul digital, e‑commerce.</td></tr>
+        <tr><td>7</td><td>Terintegrasi</td><td>Unsur-unsurnya satu sistem; perubahan satu unsur memengaruhi yang lain.</td><td>Teknologi digital mengubah pendidikan, ekonomi, pola kerja.</td></tr>
+        <tr><td>8</td><td>Normatif</td><td>Mengandung nilai (baik-buruk) dan norma (aturan bertindak).</td><td>Gotong royong, musyawarah, toleransi.</td></tr>
+        <tr><td>9</td><td>Akumulatif</td><td>Setiap generasi membangun di atas pengetahuan generasi sebelumnya.</td><td>Ilmu berkembang bertahap, tidak dari nol.</td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <div class="callout c-tip">
+    <b>Hafalan 9 kata</b>
+    <strong>D-D-D-S-A-D-T-N-A</strong> → <em>Dipelajari, Diwariskan, Dimiliki bersama, Simbolik, Adaptif, Dinamis, Terintegrasi, Normatif, Akumulatif.</em>
+    <br>Beda tipis yang sering tertukar: <strong>“dipelajari”</strong> = proses individu memperoleh; <strong>“diwariskan”</strong> = proses antar-generasi meneruskan.
+  </div>
+</section>
+
+<!-- ============ 06 WUJUD ============ -->
+<section id="wujud">
+  <h2><span class="n">06</span>Tiga Wujud Kebudayaan</h2>
+  <p class="sub">Bab I · subbab 1.4 — paling sering dipakai untuk soal analisis (bobot besar).</p>
+
+  <p>Menurut <strong>Koentjaraningrat</strong>, kebudayaan berwujud tiga lapis: dari yang paling abstrak (gagasan) sampai paling konkret (benda).</p>
+
+  <div class="tbl-scroll">
+    <table>
+      <thead><tr><th style="width:40px">#</th><th style="width:185px">Wujud</th><th>Sifat &amp; isi</th><th style="width:215px">Contoh</th></tr></thead>
+      <tbody>
+        <tr>
+          <td>1</td>
+          <td><strong>Ideal</strong><br><span style="color:var(--dim);font-size:12.5px">sistem gagasan</span></td>
+          <td><strong>Abstrak</strong>, berada di alam pikiran. Berisi nilai, norma, keyakinan, pengetahuan, aturan, pandangan hidup. Tidak terlihat, tetapi paling menentukan perilaku.</td>
+          <td>Nilai kejujuran, Pancasila, semangat gotong royong, adat sopan santun.</td>
+        </tr>
+        <tr>
+          <td>2</td>
+          <td><strong>Aktivitas</strong><br><span style="color:var(--dim);font-size:12.5px">sistem sosial</span></td>
+          <td><strong>Dapat diamati</strong>: pola tindakan, interaksi, dan hubungan yang berulang dan mapan. Menjadi penghubung gagasan → karya.</td>
+          <td>Kerja bakti, musyawarah desa, kenduri, upacara adat, kuliah, praktikum.</td>
+        </tr>
+        <tr>
+          <td>3</td>
+          <td><strong>Artefak</strong><br><span style="color:var(--dim);font-size:12.5px">kebudayaan material</span></td>
+          <td><strong>Konkret</strong>: dapat dilihat, diraba, digunakan, didokumentasikan. Mengandung fungsi praktis + makna simbolik.</td>
+          <td>Rumah Gadang, Tongkonan, Honai, Joglo, Lopo; batik, keris, gamelan, perahu pinisi; komputer, ponsel, robot, AI.</td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+
+  <h3>Contoh rantai lengkap (hafalkan satu, pakai berkali-kali)</h3>
+  <div class="flow">
+    <span>Nilai gotong royong <em>(ideal)</em></span><i>→</i>
+    <span>Kerja bakti membangun jalan desa <em>(aktivitas)</em></span><i>→</i>
+    <span>Jalan desa, balai pertemuan, saluran irigasi <em>(artefak)</em></span>
+  </div>
+
+  <p>Rantai ini bisa Anda tukar isinya sesuai soal. Contoh versi akademik: <em>nilai kejujuran (ideal) → kebiasaan mencatat sumber &amp; mengutip dengan benar (aktivitas) → daftar pustaka dan lembar bimbingan (artefak)</em>. Versi organisasi: <em>nilai Tangguh (ideal) → pembagian tugas &amp; evaluasi rutin (aktivitas) → notulen rapat dan laporan program (artefak)</em>.</p>
+
+  <div class="callout c-quote">
+    <b>Tiga kutipan pendukung</b>
+    Koentjaraningrat: “Wujud kebudayaan yang ketiga adalah benda-benda hasil karya manusia.”<br>
+    Geertz: benda budaya tidak hanya bernilai guna, tetapi mengandung makna (keris = kehormatan, kepemimpinan, identitas).<br>
+    Malinowski: artefak lahir sebagai respons terhadap tantangan lingkungan dan kebutuhan hidup.
+  </div>
+
+  <details>
+    <summary>Pendalaman: mengapa artefak disebut “bukti peradaban”?</summary>
+    <div class="body">
+      <p>Setiap artefak menyimpan informasi tentang <strong>tingkat pengetahuan, teknologi, organisasi sosial, kepercayaan, dan kondisi lingkungan</strong> masyarakat pembuatnya. Rumah adat bukan hanya tempat tinggal, tetapi juga cermin sistem kekerabatan, nilai religius, dan kemampuan mengelola sumber daya alam.</p>
+      <p style="margin-bottom:0">Karena itu artefak punya <strong>nilai edukatif</strong>: candi, prasasti, naskah kuno, dan koleksi museum adalah sumber informasi utama untuk memahami perjalanan peradaban — dan dasar argumen mengapa pelestarian artefak = mempertahankan identitas, bukan sekadar merawat benda lama.</p>
+    </div>
+  </details>
+</section>
+
+<!-- ============ 07 FUNGSI ============ -->
+<section id="fungsi">
+  <h2><span class="n">07</span>Sembilan Fungsi Kebudayaan</h2>
+  <p class="sub">Bab I · subbab 1.5 — cocok untuk soal “mengapa kebudayaan penting”.</p>
+
+  <div class="cards">
+    <div class="card" style="margin:0"><strong>1. Pedoman hidup</strong><p style="margin:5px 0 0;font-size:14px"><em>Guiding system</em> — acuan benar/salah, baik/buruk, pantas/tidak.</p></div>
+    <div class="card" style="margin:0"><strong>2. Identitas sosial</strong><p style="margin:5px 0 0;font-size:14px">Rasa memiliki (<em>sense of belonging</em>), solidaritas, jati diri di tengah globalisasi.</p></div>
+    <div class="card" style="margin:0"><strong>3. Sarana adaptasi</strong><p style="margin:5px 0 0;font-size:14px">Bentuk rumah, pertanian, pakaian, organisasi menyesuaikan lingkungan.</p></div>
+    <div class="card" style="margin:0"><strong>4. Pengendalian sosial</strong><p style="margin:5px 0 0;font-size:14px">Norma, hukum adat, sanksi (teguran, pengucilan, hukuman) menjaga keteraturan.</p></div>
+    <div class="card" style="margin:0"><strong>5. Media komunikasi</strong><p style="margin:5px 0 0;font-size:14px">Bahasa, simbol, ritual, seni, arsitektur sebagai penyampai makna.</p></div>
+    <div class="card" style="margin:0"><strong>6. Pewarisan pengetahuan &amp; nilai</strong><p style="margin:5px 0 0;font-size:14px">Transmisi pengalaman &amp; keterampilan antargenerasi.</p></div>
+    <div class="card" style="margin:0"><strong>7. Pendorong kreativitas</strong><p style="margin:5px 0 0;font-size:14px">Inovasi tidak lahir dari ruang kosong, tetapi dari pengetahuan yang diwariskan.</p></div>
+    <div class="card" style="margin:0"><strong>8. Modal sosial</strong><p style="margin:5px 0 0;font-size:14px">Kepercayaan, kerja sama, gotong royong memperkuat pembangunan.</p></div>
+    <div class="card" style="margin:0"><strong>9. Filter budaya global</strong><p style="margin:5px 0 0;font-size:14px">Menyaring pengaruh luar agar adaptif tanpa kehilangan identitas.</p></div>
+  </div>
+
+  <div class="callout c-tip">
+    <b>Kalimat penutup yang aman</b>
+    “Seluruh fungsi tersebut saling berkaitan sehingga kebudayaan menjadi fondasi kehidupan masyarakat yang teratur, harmonis, adaptif, dan berkelanjutan — karena itu pelestarian budaya bukan sekadar menjaga masa lalu, tetapi membangun masa depan.”
+  </div>
+</section>
+
+<!-- ============ 08 TEORI ============ -->
+<section id="teori">
+  <h2><span class="n">08</span>Delapan Teori Kebudayaan</h2>
+  <p class="sub">Bab I · subbab 1.6 — materi paling padat; kuasai lewat tabel ini.</p>
+
+  <div class="tbl-scroll">
+    <table>
+      <thead><tr><th style="width:40px">#</th><th style="width:150px">Teori</th><th style="width:150px">Tokoh</th><th>Inti gagasan</th><th style="width:200px">Kritik</th></tr></thead>
+      <tbody>
+        <tr>
+          <td>1</td><td>Evolusionisme</td><td>Tylor (1871); L. H. Morgan</td>
+          <td>Budaya berkembang <strong>bertahap</strong> dari sederhana → kompleks; semua masyarakat melewati tahap yang relatif sama. Morgan: <em>savagery → barbarism → civilization</em>.</td>
+          <td>Menganggap semua lewat jalur sama; menjadikan budaya Barat ukuran kemajuan.</td>
+        </tr>
+        <tr>
+          <td>2</td><td>Difusionisme</td><td>Ratzel; Graebner; Elliot Smith</td>
+          <td>Perubahan budaya terjadi karena <strong>penyebaran unsur</strong> antarmasyarakat (perdagangan, migrasi, perang, kolonisasi). Graebner: <em>Kulturkreis</em> (lingkaran budaya); Smith: <em>Heliolithic</em> (asal Mesir Kuno).</td>
+          <td>Terlalu menekankan pengaruh luar; mengabaikan kreativitas lokal.</td>
+        </tr>
+        <tr>
+          <td>3</td><td>Fungsionalisme</td><td>Malinowski (1944)</td>
+          <td>Setiap unsur budaya punya <strong>fungsi</strong> memenuhi kebutuhan biologis, psikologis, sosial. Budaya = perangkat instrumental. Menegaskan pentingnya <em>fieldwork</em>.</td>
+          <td>Terlalu menekankan keseimbangan; lemah menjelaskan konflik &amp; kekuasaan.</td>
+        </tr>
+        <tr>
+          <td>4</td><td>Struktural-fungsional</td><td>Radcliffe-Brown (1952)</td>
+          <td>Fungsi = <strong>kontribusi</strong> suatu aktivitas/lembaga terhadap <em>kelangsungan struktur</em> masyarakat. Fokus pada keseimbangan sistem sosial secara keseluruhan.</td>
+          <td>Mengabaikan konflik, perubahan, ketimpangan kekuasaan.</td>
+        </tr>
+        <tr>
+          <td>5</td><td>Strukturalisme</td><td>Lévi-Strauss (1963)</td>
+          <td>Di balik keragaman budaya ada <strong>struktur berpikir universal</strong> berupa pasangan oposisi: baik–buruk, laki–perempuan, alam–budaya. Analisis bertujuan menemukan cara mitos bekerja di pikiran tanpa disadari.</td>
+          <td>Ahistoris; mengabaikan perubahan sosial &amp; peran individu.</td>
+        </tr>
+        <tr>
+          <td>6</td><td>Antropologi interpretatif</td><td>Geertz (1973)</td>
+          <td>Budaya = <strong>sistem makna</strong>. Peneliti harus menafsirkan makna di balik simbol; metode <em>thick description</em> (deskripsi mendalam).</td>
+          <td>Terlalu pada interpretasi; kurang memperhatikan ekonomi, politik, struktur.</td>
+        </tr>
+        <tr>
+          <td>7</td><td>Materialisme budaya</td><td>Marvin Harris (1979)</td>
+          <td>Kondisi <strong>material</strong> menentukan budaya. Tiga lapis: <em>infrastruktur</em> (teknologi, lingkungan, produksi) → <em>struktur</em> (organisasi sosial-politik) → <em>superstruktur</em> (nilai, agama, seni, ideologi); infrastruktur paling menentukan.</td>
+          <td>Terlalu deterministik material; mengabaikan makna simbolik &amp; kreativitas.</td>
+        </tr>
+        <tr>
+          <td>8</td><td>Perspektif kontemporer</td><td>Stuart Hall (1997); UNESCO (2001)</td>
+          <td>Budaya bersifat <strong>dinamis &amp; hibrid</strong>: hasil negosiasi tradisi lokal dengan arus global. Isu: multikulturalisme, identitas, budaya populer, budaya digital. Hall: representasi = produksi makna lewat bahasa. UNESCO: keberagaman budaya sama pentingnya dengan keanekaragaman hayati.</td>
+          <td>—</td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+
+  <div class="callout c-tip">
+    <b>Cara cepat membedakan 4 teori yang mirip</b>
+    <strong>Evolusionisme</strong> = <em>kapan</em> (tahapan waktu). <strong>Difusionisme</strong> = <em>dari mana</em> (asal &amp; penyebaran). <strong>Fungsionalisme</strong> = <em>untuk apa</em> (kebutuhan individu). <strong>Struktural-fungsional</strong> = <em>untuk siapa sistem</em> (kestabilan struktur masyarakat). <strong>Strukturalisme</strong> = <em>pola pikir apa</em> di baliknya. <strong>Interpretatif</strong> = <em>makna apa</em>. <strong>Materialisme</strong> = <em>materi apa</em> yang mendorongnya.
+  </div>
+
+  <details>
+    <summary>Pendalaman: contoh penerapan di Indonesia (siap dipakai sebagai ilustrasi)</summary>
+    <div class="body">
+      <ul style="margin-bottom:0">
+        <li><strong>Difusionisme</strong> → masuknya Hindu-Buddha, Islam, dan pengaruh Barat yang berakulturasi dengan budaya lokal (mis. arsitektur masjid dengan atap tumpang).</li>
+        <li><strong>Fungsionalisme</strong> → gotong royong, upacara adat, sistem kekerabatan berfungsi menjaga solidaritas.</li>
+        <li><strong>Struktural-fungsional</strong> → lembaga adat dan musyawarah desa menjaga kohesi sosial.</li>
+        <li><strong>Strukturalisme</strong> → mitos dan simbol dalam tradisi Jawa (oposisi alus–kasar, lair–batin).</li>
+        <li><strong>Interpretatif</strong> → memaknai ritual kenduri, bukan hanya mendeskripsikan urutannya.</li>
+        <li><strong>Materialisme budaya</strong> → perubahan pola pertanian dan pemanfaatan sumber daya alam.</li>
+      </ul>
+    </div>
+  </details>
+</section>
+
+<!-- ============ 09 UNSUR ============ -->
+<section id="unsur">
+  <h2><span class="n">09</span>Tujuh Unsur Kebudayaan Universal</h2>
+  <p class="sub">Bab II · Koentjaraningrat (2015) — inti Sub-CPMK 2. Harus hafal urutannya.</p>
+
+  <div class="flow">
+    <span>1. Bahasa</span><i>→</i><span>2. Sistem pengetahuan</span><i>→</i><span>3. Organisasi sosial</span><i>→</i><span>4. Peralatan hidup &amp; teknologi</span><i>→</i><span>5. Mata pencaharian</span><i>→</i><span>6. Religi</span><i>→</i><span>7. Kesenian</span>
+  </div>
+
+  <p>Disebut <strong>universal</strong> karena ditemukan pada <em>semua</em> masyarakat, baik sederhana maupun modern — hanya bentuk, fungsi, dan cara pengembangannya yang berbeda. Perbedaan itu dipengaruhi letak geografis, sejarah, lingkungan, dan dinamika sosial.</p>
+
+  <h3>2.1 Bahasa</h3>
+  <p><strong>Pengertian:</strong> sistem lambang bunyi yang digunakan manusia untuk berkomunikasi, menyampaikan gagasan, mengekspresikan perasaan, dan membangun hubungan sosial. Koentjaraningrat: “sistem perlambangan manusia yang lisan maupun tertulis untuk berkomunikasi.”</p>
+  <p><strong>Fungsi:</strong> alat komunikasi, sarana pendidikan, media penyebaran ilmu, pembentuk identitas, wahana pelestarian tradisi (cerita rakyat, hukum adat, mantra, sastra lisan), dan sarana integrasi sosial.</p>
+  <div class="callout c-quote">
+    <b>Kutipan Sapir (1921)</b>
+    “Language is a purely human and non-instinctive method of communicating ideas, emotions, and desires by means of voluntarily produced symbols.” · “Language is a guide to social reality.” · “Language does not exist apart from culture.”
+  </div>
+  <p><strong>Bahasa sebagai identitas:</strong> hilangnya satu bahasa bukan hanya hilangnya alat komunikasi, tetapi juga pengetahuan lokal, cerita rakyat, tradisi lisan, dan nilai yang diwariskan. Di Indonesia: bahasa Indonesia = pemersatu; bahasa daerah = penanda identitas &amp; kearifan lokal.</p>
+
+  <h3>2.2 Sistem Pengetahuan</h3>
+  <p><strong>Pengertian:</strong> keseluruhan pengetahuan masyarakat tentang alam, tumbuhan, hewan, ruang, waktu, dan kehidupan sosial, yang diperoleh dari pengalaman dan proses belajar. Mencakup pengetahuan modern <em>dan</em> tradisional.</p>
+  <p><strong>Kearifan lokal</strong> = nilai, pengetahuan, dan praktik masyarakat untuk mengelola sumber daya alam, menjaga hubungan sosial, dan keseimbangan hidup. Contoh: <strong>Subak</strong> (Bali, irigasi), <strong>Sasi</strong> (Maluku, pemanfaatan sumber daya berkelanjutan), jamu/ramuan tradisional, kalender musim.</p>
+  <p>Francis Bacon (1620): <em>“Knowledge itself is power.”</em> Pengetahuan tradisional adalah akumulasi empiris yang teruji ratusan tahun — karena itu integrasinya dengan ilmu modern menghasilkan inovasi sekaligus menjaga identitas.</p>
+
+  <h3>2.3 Organisasi Sosial</h3>
+  <p><strong>Pengertian:</strong> sistem hubungan antarmanusia yang diatur melalui kelompok dan lembaga sosial: keluarga, kekerabatan, kelompok adat, organisasi keagamaan, lembaga pendidikan, hingga pemerintahan.</p>
+  <p><strong>Keluarga</strong> = organisasi sosial paling mendasar dan agen sosialisasi pertama (bahasa, nilai, norma, adat). <strong>Sistem kekerabatan</strong> Indonesia: patrilineal, matrilineal, bilateral — memengaruhi hak waris, pola tempat tinggal, kepemimpinan keluarga, dan upacara adat.</p>
+  <p><strong>Fungsi:</strong> (1) mengatur hubungan antarindividu → ketertiban; (2) sarana kerja sama mencapai tujuan bersama; (3) media sosialisasi nilai &amp; norma; (4) wadah penyelesaian konflik dan pengambilan keputusan.</p>
+
+  <h3>2.4 Sistem Peralatan Hidup dan Teknologi</h3>
+  <p><strong>Pengertian:</strong> alat, perlengkapan, dan teknik yang digunakan manusia untuk memenuhi kebutuhan hidup — dari peralatan tradisional sampai teknologi digital.</p>
+  <p><strong>Perkembangan:</strong> peralatan tradisional (berburu, pertanian, rumah adat) → revolusi industri → listrik, komputer, internet → Revolusi Industri 4.0 &amp; Society 5.0: <strong>IoT, AI, cloud computing, big data</strong>.</p>
+  <p><strong>Contoh Indonesia:</strong> irigasi Subak, rumah panggung, perahu Pinisi, teknik pengolahan hasil pertanian &amp; kerajinan. Semuanya bernilai fungsional sekaligus budaya, sosial, dan ekologis.</p>
+  <div class="callout c-warn">
+    <b>Sisi gelap teknologi</b>
+    Teknologi baru mengubah pola hidup dan komunikasi; sebagian tradisi ditinggalkan karena dianggap tidak praktis, sementara budaya populer global mudah memengaruhi gaya hidup. Karena itu diperlukan <strong>literasi digital</strong> dan kemampuan menyaring agar nilai lokal tidak terkikis.
+  </div>
+
+  <h3>2.5 Sistem Mata Pencaharian Hidup</h3>
+  <p><strong>Pengertian:</strong> cara masyarakat memperoleh dan memenuhi kebutuhan hidup melalui aktivitas ekonomi, sesuai kondisi lingkungan, sumber daya, dan tingkat teknologi.</p>
+  <p><strong>Perkembangan:</strong> berburu &amp; meramu → bercocok tanam &amp; beternak → pertanian, perikanan, perkebunan, perdagangan, kerajinan, industri → sektor jasa, informasi, dan ekonomi digital (pengembang perangkat lunak, analis data, kreator konten, desainer, e‑commerce).</p>
+  <p><strong>Bukan sekadar ekonomi:</strong> mata pencaharian membentuk pola hidup dan identitas — upacara panen, sedekah laut, ritual membuka lahan, pasar tradisional adalah bukti bahwa ekonomi terikat budaya.</p>
+
+  <h3>2.6 Sistem Religi</h3>
+  <p><strong>Pengertian:</strong> sistem kepercayaan, nilai, ritual, dan praktik keagamaan yang mengatur hubungan manusia dengan Tuhan/kekuatan adikodrati.</p>
+  <p><strong>Lima komponen:</strong> kepercayaan (<em>belief</em>), ritual, simbol (tempat ibadah, kitab suci, pakaian, benda sakral), pengalaman keagamaan, dan komunitas/lembaga keagamaan.</p>
+  <p><strong>Fungsi:</strong> pedoman moral (membedakan baik–buruk), memperkuat solidaritas sosial, dan menjadi perekat masyarakat majemuk. Selaras dengan sila pertama Pancasila; keberagaman agama dikelola dengan toleransi dan kerja sama.</p>
+
+  <h3>2.7 Kesenian</h3>
+  <p><strong>Pengertian:</strong> media ekspresi gagasan, perasaan, nilai, dan pengalaman hidup melalui karya bernilai estetika; lahir dari kemampuan manusia mengekspresikan rasa keindahan.</p>
+  <p><strong>Bentuk:</strong> seni rupa, musik, tari, teater, sastra, dan kriya.</p>
+  <p><strong>Fungsi:</strong> hiburan, media pendidikan, alat komunikasi, pelestarian budaya, media upacara adat/keagamaan, penguatan identitas, dan (era ekonomi kreatif) sumber nilai ekonomi.</p>
+  <p><strong>Contoh Indonesia:</strong> wayang kulit (Jawa), tari Saman (Aceh), angklung (Jawa Barat), batik, tenun ikat (Nusa Tenggara), ukiran Jepara, Reog Ponorogo.</p>
+
+  <details>
+    <summary>Tabel rangkuman 7 unsur: pengertian · fungsi · contoh (versi hafalan cepat)</summary>
+    <div class="body">
+      <div class="tbl-scroll">
+        <table>
+          <thead><tr><th style="width:135px">Unsur</th><th>Fungsi utama</th><th style="width:180px">Contoh</th></tr></thead>
+          <tbody>
+            <tr><td>Bahasa</td><td>Komunikasi, pewarisan budaya, identitas</td><td>Bahasa Indonesia, bahasa daerah, pantun</td></tr>
+            <tr><td>Sistem pengetahuan</td><td>Memahami lingkungan, memecahkan masalah, inovasi</td><td>Pertanian, pengobatan tradisional, kalender musim</td></tr>
+            <tr><td>Organisasi sosial</td><td>Mengatur kehidupan sosial, peran, kerja sama, sosialisasi</td><td>Keluarga, kekerabatan, sekolah, pemerintah</td></tr>
+            <tr><td>Peralatan &amp; teknologi</td><td>Mempermudah aktivitas, produktivitas, adaptasi</td><td>Alat pertanian, rumah adat, komputer, internet</td></tr>
+            <tr><td>Mata pencaharian</td><td>Memenuhi kebutuhan ekonomi, kesejahteraan</td><td>Bertani, nelayan, berdagang, ekonomi digital</td></tr>
+            <tr><td>Religi</td><td>Pedoman moral, karakter, solidaritas</td><td>Ibadah, hari besar, upacara adat</td></tr>
+            <tr><td>Kesenian</td><td>Ekspresi, hiburan, pendidikan, identitas</td><td>Tari, musik, batik, wayang, sastra</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </details>
+</section>
+
+<!-- ============ 10 RELASI ============ -->
+<section id="relasi">
+  <h2><span class="n">10</span>Hubungan Antarunsur</h2>
+  <p class="sub">Bab II · subbab 2.10 — jawaban untuk soal “mengapa kebudayaan itu satu sistem”.</p>
+
+  <p>Tujuh unsur itu <strong>tidak berdiri sendiri</strong>. Perubahan satu unsur berdampak pada unsur lain, langsung maupun tidak langsung.</p>
+
+  <div class="tbl-scroll">
+    <table>
+      <thead><tr><th style="width:150px">Unsur</th><th>Peran dalam jaringan</th></tr></thead>
+      <tbody>
+        <tr><td>Bahasa</td><td><strong>Sentral</strong> — media komunikasi, penyebaran pengetahuan, dan pewarisan nilai. Tanpa bahasa, pewarisan budaya terhambat.</td></tr>
+        <tr><td>Sistem pengetahuan</td><td><strong>Landasan</strong> — dasar menciptakan teknologi, mengembangkan ekonomi, membangun organisasi, dan menghasilkan seni.</td></tr>
+        <tr><td>Organisasi sosial</td><td><strong>Wadah</strong> — mengatur pembagian tugas, menyelesaikan konflik, menanamkan nilai &amp; etika.</td></tr>
+        <tr><td>Teknologi</td><td><strong>Akselerator</strong> — mengubah cara berinteraksi, bekerja, belajar, beragama, dan berkarya.</td></tr>
+        <tr><td>Mata pencaharian</td><td><strong>Penopang ekonomi</strong> — memengaruhi kesejahteraan, pola hubungan sosial, gaya hidup, dan nilai.</td></tr>
+        <tr><td>Religi</td><td><strong>Pengarah moral</strong> — landasan etika kerja, hubungan sosial, pemanfaatan teknologi, pelestarian lingkungan.</td></tr>
+        <tr><td>Kesenian</td><td><strong>Cermin</strong> — merefleksikan seluruh unsur sekaligus mendokumentasikan kehidupan budaya suatu masa.</td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <div class="callout c-tip">
+    <b>Contoh payung: gotong royong</b>
+    Satu praktik memuat tujuh unsur sekaligus: <strong>bahasa</strong> (musyawarah), <strong>organisasi sosial</strong> (pembagian kerja), <strong>pengetahuan lokal</strong> (teknik kerja), <strong>teknologi</strong> (alat sesuai kebutuhan), <strong>mata pencaharian</strong> (latar kegiatan), <strong>religi</strong> (semangat kebersamaan), dan <strong>kesenian</strong> (pertunjukan/tradisi pengiring). Inilah bukti paling kuat bahwa kebudayaan adalah sistem.
+  </div>
+
+  <div class="callout c-warn">
+    <b>Tantangan era digital</b>
+    Globalisasi mempercepat pertukaran budaya dan memperluas akses ilmu, tetapi juga berisiko melunturkan nilai lokal bila masyarakat tidak mampu menyaring. Kuncinya: <strong>keseimbangan antara keterbukaan pada inovasi dan komitmen melestarikan identitas</strong>.
+  </div>
+</section>
+
+<!-- ============ 11 TOKOH ============ -->
+<section id="tokoh">
+  <h2><span class="n">11</span>Tabel Tokoh &amp; Kutipan Kunci</h2>
+  <p class="sub">Hafalkan pasangan tokoh–kata kunci. Menyebut tokoh yang tepat menaikkan kualitas jawaban secara signifikan.</p>
+
+  <div class="tbl-scroll">
+    <table>
+      <thead><tr><th style="width:185px">Tokoh</th><th style="width:110px">Karya/Tahun</th><th>Kata kunci</th></tr></thead>
+      <tbody>
+        <tr><td>E. B. Tylor</td><td>1871</td><td><em>complex whole</em>; definisi klasik; kebudayaan dipelajari</td></tr>
+        <tr><td>Lewis H. Morgan</td><td>—</td><td><em>savagery – barbarism – civilization</em></td></tr>
+        <tr><td>Bronislaw Malinowski</td><td>1944</td><td>kebudayaan = perangkat instrumental; fungsi; <em>fieldwork</em></td></tr>
+        <tr><td>Franz Boas</td><td>1940</td><td>relativisme budaya; sejarah unik tiap masyarakat</td></tr>
+        <tr><td>Clifford Geertz</td><td>1973</td><td><em>webs of significance</em>; <em>thick description</em>; sistem makna</td></tr>
+        <tr><td>A. R. Radcliffe-Brown</td><td>1952</td><td>fungsi = kontribusi pada kelangsungan struktur</td></tr>
+        <tr><td>Claude Lévi-Strauss</td><td>1963</td><td>struktur universal; oposisi biner</td></tr>
+        <tr><td>Marvin Harris</td><td>1979</td><td>infrastruktur – struktur – superstruktur</td></tr>
+        <tr><td>Melville J. Herskovits</td><td>1948</td><td><em>enculturation</em></td></tr>
+        <tr><td>Edward Sapir</td><td>1921</td><td>bahasa = simbol ideas, emotions, desires; <em>guide to social reality</em></td></tr>
+        <tr><td>Francis Bacon</td><td>1620</td><td><em>knowledge itself is power</em></td></tr>
+        <tr><td>Raymond Williams</td><td>1983</td><td><em>culture</em> = salah satu kata paling rumit</td></tr>
+        <tr><td>Stuart Hall</td><td>1997</td><td>representasi = produksi makna lewat bahasa</td></tr>
+        <tr><td>UNESCO</td><td>2001</td><td>keberagaman budaya setara keanekaragaman hayati</td></tr>
+        <tr><td>Koentjaraningrat</td><td>2015</td><td>7 unsur universal; 3 wujud; definisi Indonesia paling sering dikutip</td></tr>
+        <tr><td>Ki Hadjar Dewantara</td><td>1994</td><td>kebudayaan = buah budi manusia</td></tr>
+        <tr><td>Fritz Graebner</td><td>1911</td><td><em>Kulturkreis</em></td></tr>
+        <tr><td>Grafton Elliot Smith</td><td>—</td><td><em>Heliolithic Theory</em> (asal Mesir Kuno)</td></tr>
+      </tbody>
+    </table>
+  </div>
+</section>
+
+<!-- ============ 12 GLOSARIUM ============ -->
+<section id="glosarium">
+  <h2><span class="n">12</span>Glosarium Istilah</h2>
+  <p class="sub">Tulis istilah dengan tepat — nilai tambahan yang murah.</p>
+
+  <div class="twocol">
+    <ul>
+      <li><strong>Buddhayah</strong> — jamak dari <em>buddhi</em> (akal/budi); akar kata budaya.</li>
+      <li><strong>Colere</strong> — mengolah/membudidayakan; akar kata <em>culture</em>.</li>
+      <li><strong>Enculturation</strong> — pembudayaan; proses individu menyerap budaya masyarakatnya.</li>
+      <li><strong>Social learning</strong> — belajar dari orang lain; mekanisme utama pewarisan budaya.</li>
+      <li><strong>Relativisme budaya</strong> — budaya dinilai menurut konteksnya sendiri.</li>
+      <li><strong>Difusi</strong> — penyebaran unsur budaya antarmasyarakat.</li>
+      <li><strong>Akulturasi</strong> — perpaduan dua budaya tanpa menghilangkan identitas asalnya.</li>
+      <li><strong>Asimilasi</strong> — peleburan budaya hingga ciri asal memudar.</li>
+      <li><strong>Kulturkreis</strong> — “lingkaran budaya”; pusat penyebaran budaya (Graebner).</li>
+      <li><strong>Thick description</strong> — deskripsi mendalam yang mengungkap makna (Geertz).</li>
+      <li><strong>Oposisi biner</strong> — pasangan berlawanan sebagai dasar struktur berpikir (Lévi-Strauss).</li>
+      <li><strong>Infrastruktur/struktur/superstruktur</strong> — tiga lapis materialisme budaya (Harris).</li>
+      <li><strong>Kearifan lokal</strong> — nilai &amp; praktik masyarakat dalam mengelola hidup dan lingkungan.</li>
+      <li><strong>Subak</strong> — sistem irigasi kolektif Bali berbasis adat dan agama.</li>
+      <li><strong>Sasi</strong> — larangan adat Maluku untuk pemanfaatan sumber daya berkelanjutan.</li>
+      <li><strong>Artefak</strong> — benda hasil karya manusia; wujud material kebudayaan.</li>
+      <li><strong>Modal sosial</strong> — kepercayaan, jaringan, dan norma yang memudahkan kerja sama.</li>
+      <li><strong>Sensor budaya</strong> — fungsi kebudayaan menyaring pengaruh global.</li>
+    </ul>
+  </div>
+</section>
+
+<!-- ============ 13 TIDAR ============ -->
+<section id="tidar">
+  <h2><span class="n">13</span>Jembatan: Nilai TIDAR untuk Soal Aplikasi</h2>
+  <p class="sub">Bukan bagian Bab I–II. Disertakan karena soal gaya kuis sering meminta menghubungkan konsep dengan nilai TIDAR.</p>
+
+  <div class="callout c-warn">
+    <b>Batas kejujuran</b>
+    Rincian resmi nilai TIDAR ada di Bab IX modul, yang <strong>tidak disertakan</strong> dalam berkas ini. Uraian di bawah adalah inti umum yang aman dipakai; bila dosen menuntut rumusan resmi, cocokkan dengan Bab IX.
+  </div>
+
+  <div class="cards">
+    <div class="card" style="margin:0"><strong style="color:var(--teal)">Tangguh</strong><p style="margin:5px 0 0;font-size:14px">Tahan menghadapi tekanan dan kegagalan; bangkit, bukan menyerah. <em>Kata kunci: resiliensi, ketekunan.</em></p></div>
+    <div class="card" style="margin:0"><strong style="color:var(--teal)">Integratif</strong><p style="margin:5px 0 0;font-size:14px">Menyatukan pengetahuan, sikap, dan tindakan secara utuh dan konsisten; integritas. <em>Kata kunci: kejujuran, keutuhan diri.</em></p></div>
+    <div class="card" style="margin:0"><strong style="color:var(--teal)">Dedikatif</strong><p style="margin:5px 0 0;font-size:14px">Berkomitmen dan bersungguh-sungguh pada tugas serta pengabdian. <em>Kata kunci: tanggung jawab, pengabdian.</em></p></div>
+    <div class="card" style="margin:0"><strong style="color:var(--teal)">Aktif</strong><p style="margin:5px 0 0;font-size:14px">Berinisiatif, terlibat, dan menggerakkan perubahan. <em>Kata kunci: inisiatif, partisipasi.</em></p></div>
+    <div class="card" style="margin:0"><strong style="color:var(--teal)">Responsif</strong><p style="margin:5px 0 0;font-size:14px">Peka terhadap kebutuhan sekitar dan cepat memberi respons yang tepat. <em>Kata kunci: kepedulian, kepekaan.</em></p></div>
+  </div>
+
+  <p style="margin-top:14px">Nilai-nilai ini adalah <strong>satu sistem</strong>, bukan slogan terpisah. Contoh sinergi: mahasiswa yang memimpin kerja bakti desa menunjukkan <strong>Aktif</strong> (berinisiatif), <strong>Responsif</strong> (melihat kebutuhan warga), <strong>Dedikatif</strong> (konsisten sampai selesai), <strong>Integratif</strong> (tidak memanipulasi laporan), dan <strong>Tangguh</strong> (tetap jalan saat cuaca buruk). Bukti perilakunya: undangan rapat, daftar hadir, dokumentasi, dan laporan kegiatan.</p>
+
+  <details>
+    <summary>Kalau soal meminta “ketangguhan tanpa integritas” — ini kerangkanya</summary>
+    <div class="body">
+      <p>Tangguh tanpa Integratif melahirkan <strong>ketangguhan yang salah arah</strong>: pantang menyerah mengejar target, tetapi dengan cara membengkokkan aturan — memalsukan data, menyalin tugas, atau menutupi kegagalan. Hasilnya tampak berhasil jangka pendek, tetapi merusak kepercayaan, integritas akademik, dan pada akhirnya kompetensi itu sendiri. Ketangguhan sejati butuh kompas nilai agar daya tahan tidak berubah menjadi pembenaran segala cara.</p>
+      <p style="margin-bottom:0">Contoh konkret yang bisa dipakai: kelompok riset kelas kekurangan 24 responden lalu berencana mengisi kuesioner sendiri. Itu ketangguhan semu — target tercapai, tetapi data tidak sah dan kesimpulan penelitian menjadi bohong.</p>
+    </div>
+  </details>
+</section>
+
+<!-- ============ 14 LATIHAN ============ -->
+<section id="latihan">
+  <h2><span class="n">14</span>Latihan Bergaya UTS &amp; Rubrik</h2>
+  <p class="sub">Tiga soal ini meniru pola kuis 7 soal: studi kasus + sub-pertanyaan a–d.</p>
+
+  <div class="card">
+    <span class="pill amber">Soal 1 · wujud kebudayaan</span>
+    <p style="margin:12px 0 6px"><strong>Kasus.</strong> Sebuah kelas menyelenggarakan “Jumat Bersih” di kampus. Sebelum kegiatan, kelas menyepakati nilai kebersamaan dan tanggung jawab. Saat pelaksanaan, mereka membagi area dan jadwal. Setelah selesai, tersisa dokumentasi, jadwal piket, dan tempat sampah terpisah yang mereka buat.</p>
+    <p style="margin:6px 0"><strong>Pertanyaan:</strong> (a) uraikan tiga wujud kebudayaan pada kasus tersebut; (b) jelaskan keterkaitan ketiganya; (c) tunjukkan bagaimana nilai <em>Tangguh</em> atau <em>Integratif</em> tampak; (d) sebutkan dua bukti yang dapat diperiksa.</p>
+    <details style="margin-bottom:0">
+      <summary>Kerangka jawaban</summary>
+      <div class="body">
+        <p><strong>(a)</strong> Ideal: kesepakatan nilai kebersamaan &amp; tanggung jawab. Aktivitas: pembagian area, jadwal, pelaksanaan Jumat Bersih. Artefak: dokumentasi, jadwal piket, tempat sampah terpisah.</p>
+        <p><strong>(b)</strong> Nilai (ideal) menjadi dasar tindakan (aktivitas), dan tindakan menghasilkan benda (artefak). Sebaliknya, artefak memperkuat nilai karena mengingatkan dan melembagakan kebiasaan — jadi hubungan dua arah, bukan satu arah.</p>
+        <p><strong>(c)</strong> Tangguh: tetap melaksanakan meski jadwal padat/cuaca panas dan menyelesaikan area yang tersisa. Integratif: kesepakatan yang dibuat benar-benar dijalankan, tidak ada anggota yang hanya “foto lalu pulang”.</p>
+        <p style="margin-bottom:0"><strong>(d)</strong> Jadwal piket bertanda tangan dan dokumentasi foto sebelum–sesudah; atau notulen kesepakatan kelas + daftar hadir.</p>
+      </div>
+    </details>
+  </div>
+
+  <div class="card">
+    <span class="pill amber">Soal 2 · pembudayaan &amp; disiplin</span>
+    <p style="margin:12px 0 6px"><strong>Kasus.</strong> Raka memahami materi dengan baik, tetapi menunda tugas, mudah terdistraksi media sosial, sering terlambat, dan baru belajar menjelang ujian. Ia lalu menyimpulkan bahwa dirinya “tidak berbakat belajar”.</p>
+    <p style="margin:6px 0"><strong>Pertanyaan:</strong> (a) mengapa kesimpulan Raka keliru ditinjau dari konsep pembudayaan? (b) jelaskan peran agen pembudayaan dalam kasus ini; (c) susun rencana 7 hari yang terukur; (d) kaitkan dengan dua nilai TIDAR.</p>
+    <details style="margin-bottom:0">
+      <summary>Kerangka jawaban</summary>
+      <div class="body">
+        <p><strong>(a)</strong> Kebudayaan dan kebiasaan bersifat <em>dipelajari</em> (learned behavior), bukan bawaan biologis. Menunda dan terdistraksi adalah pola yang terbentuk dari pengulangan, sehingga dapat dipelajari ulang. Menyebutnya “tidak berbakat” adalah kekeliruan atribusi: menempatkan penyebab pada faktor tetap (bakat) padahal penyebabnya pada perilaku yang bisa diubah.</p>
+        <p><strong>(b)</strong> Keluarga (kebiasaan belajar di rumah), masyarakat/pertemanan (norma “belajar mendekati ujian”), lembaga pendidikan (tenggat &amp; aturan akademik), dan media digital (sumber distraksi paling kuat). Pola Raka adalah hasil interaksi keempat agen itu.</p>
+        <p><strong>(c)</strong> Contoh terukur: H1 audit waktu 3 hari &amp; pasang pembatas aplikasi (target: ≤1 jam medsos/hari, bukti: tangkapan layar <em>screen time</em>); H2–H4 belajar 45 menit × 2 sesi dengan <em>timer</em> (bukti: log belajar); H5 mengerjakan tugas 1 hari sebelum tenggat (bukti: riwayat unggahan); H6 evaluasi &amp; perbaiki; H7 susun jadwal minggu berikutnya (bukti: jadwal tertulis).</p>
+        <p style="margin-bottom:0"><strong>(d)</strong> <em>Tangguh</em> — konsisten meski gagal sehari, lalu melanjutkan; <em>Integratif</em> — jujur mencatat capaian apa adanya, tidak memanipulasi log. Bukti: log harian bertanggal + tangkapan layar <em>screen time</em>.</p>
+      </div>
+    </details>
+  </div>
+
+  <div class="card">
+    <span class="pill amber">Soal 3 · tujuh unsur</span>
+    <p style="margin:12px 0 6px"><strong>Kasus.</strong> Sebuah desa menolak rencana pembangunan yang mengubah aliran irigasi. Warga berargumentasi dengan bahasa daerah, mengacu pada aturan adat, memakai pengetahuan turun-temurun tentang musim, dan menutup pertemuan dengan doa bersama serta pertunjukan seni.</p>
+    <p style="margin:6px 0"><strong>Pertanyaan:</strong> (a) identifikasi unsur kebudayaan yang tampak (minimal empat); (b) jelaskan mengapa penolakan itu rasional, bukan sekadar “menolak kemajuan”; (c) tunjukkan satu perubahan unsur yang memengaruhi unsur lain.</p>
+    <details style="margin-bottom:0">
+      <summary>Kerangka jawaban</summary>
+      <div class="body">
+        <p><strong>(a)</strong> Bahasa (musyawarah dengan bahasa daerah), sistem pengetahuan (kalender musim, kearifan irigasi), organisasi sosial (rapat warga, lembaga adat), religi (doa bersama), kesenian (pertunjukan), dan mata pencaharian (pertanian sebagai sumber hidup).</p>
+        <p><strong>(b)</strong> Karena irigasi adalah bagian dari sistem adaptasi: ia menyangkut pangan, pengetahuan lokal, dan tatanan sosial. Menilai penolakan sebagai “anti-kemajuan” berarti memakai kacamata luar dan melanggar prinsip <strong>relativisme budaya</strong> (Boas). Yang seharusnya dilakukan adalah negosiasi, bukan pemaksaan.</p>
+        <p style="margin-bottom:0"><strong>(c)</strong> Perubahan teknologi irigasi → mengubah sistem mata pencaharian → mengubah organisasi sosial (peran lembaga adat) → memengaruhi ritual dan kesenian. Contoh nyata: mekanisasi pertanian menurunkan gotong royong dan mengubah upacara panen.</p>
+      </div>
+    </details>
+  </div>
+
+  <h3>Rubrik penilaian mandiri</h3>
+  <div class="tbl-scroll">
+    <table>
+      <thead><tr><th style="width:150px">Kriteria</th><th>Skor penuh bila…</th></tr></thead>
+      <tbody>
+        <tr><td>Ketepatan konsep</td><td>Istilah dipakai benar &amp; konsisten (tidak mencampur budaya/kebudayaan, ideal/aktivitas).</td></tr>
+        <tr><td>Rujukan tokoh</td><td>Menyebut minimal satu tokoh/teori yang relevan dengan tepat.</td></tr>
+        <tr><td>Analisis</td><td>Menjelaskan sebab–akibat, bukan hanya mendaftar.</td></tr>
+        <tr><td>Contoh</td><td>Konkret, lokal, dan benar-benar menggambarkan konsep.</td></tr>
+        <tr><td>Bukti perilaku</td><td>Dapat diperiksa pihak lain (dokumen, log, tangkapan layar), bukan janji.</td></tr>
+        <tr><td>Kerapian jawaban</td><td>Mengikuti urutan a–b–c–d, paragraf pendek, tiap sub-jawaban diberi label.</td></tr>
+      </tbody>
+    </table>
+  </div>
+</section>
+
+<!-- ============ 15 HAFALAN ============ -->
+<section id="hafalan">
+  <h2><span class="n">15</span>Kartu Hafalan</h2>
+  <p class="sub">Klik kartu untuk membalik. Ulangi sampai lancar tanpa melihat.</p>
+
+  <div class="cards">
+    <div class="flip"><div class="in">
+      <div class="fa"><div class="q">Definisi klasik</div><div class="t">Siapa yang menyebut kebudayaan sebagai <em>complex whole</em>?</div></div>
+      <div class="ba">E. B. Tylor (1871), <em>Primitive Culture</em> — pengetahuan, kepercayaan, seni, moral, hukum, adat, kebiasaan yang diperoleh sebagai anggota masyarakat.</div>
+    </div></div>
+
+    <div class="flip"><div class="in">
+      <div class="fa"><div class="q">Tiga wujud</div><div class="t">Sebutkan tiga wujud kebudayaan.</div></div>
+      <div class="ba">Ideal (sistem gagasan) → Aktivitas (sistem sosial) → Artefak (kebudayaan material).</div>
+    </div></div>
+
+    <div class="flip"><div class="in">
+      <div class="fa"><div class="q">Tujuh unsur</div><div class="t">Sebutkan 7 unsur kebudayaan universal.</div></div>
+      <div class="ba">Bahasa · sistem pengetahuan · organisasi sosial · peralatan hidup &amp; teknologi · mata pencaharian · religi · kesenian.</div>
+    </div></div>
+
+    <div class="flip"><div class="in">
+      <div class="fa"><div class="q">Etimologi</div><div class="t">Akar kata “budaya” dan “culture”?</div></div>
+      <div class="ba">buddhayah (jamak buddhi = akal/budi) dan colere (Latin: mengolah/membudidayakan tanah).</div>
+    </div></div>
+
+    <div class="flip"><div class="in">
+      <div class="fa"><div class="q">Pembudayaan</div><div class="t">Apa itu enculturation dan siapa tokohnya?</div></div>
+      <div class="ba">Proses individu mempelajari isi tradisional budaya dan mengasimilasi praktik serta nilainya — M. J. Herskovits (1948).</div>
+    </div></div>
+
+    <div class="flip"><div class="in">
+      <div class="fa"><div class="q">Geertz</div><div class="t">Apa maksud “jaringan makna” dan <em>thick description</em>?</div></div>
+      <div class="ba">Manusia tersangkut dalam jaring makna yang ia tenun sendiri; peneliti harus mengungkap makna di balik perilaku, bukan hanya mendeskripsikannya.</div>
+    </div></div>
+
+    <div class="flip"><div class="in">
+      <div class="fa"><div class="q">Empat teori</div><div class="t">Beda fungsionalisme vs struktural-fungsional?</div></div>
+      <div class="ba">Malinowski: fungsi memenuhi kebutuhan individu. Radcliffe-Brown: fungsi = kontribusi pada kelangsungan struktur masyarakat.</div>
+    </div></div>
+
+    <div class="flip"><div class="in">
+      <div class="fa"><div class="q">Materialisme</div><div class="t">Tiga lapis Marvin Harris?</div></div>
+      <div class="ba">Infrastruktur (teknologi, lingkungan, produksi) → struktur (organisasi sosial-politik) → superstruktur (nilai, agama, seni, ideologi).</div>
+    </div></div>
+
+    <div class="flip"><div class="in">
+      <div class="fa"><div class="q">Karakteristik</div><div class="t">Sembilan karakteristik kebudayaan?</div></div>
+      <div class="ba">Dipelajari · diwariskan · dimiliki bersama · simbolik · adaptif · dinamis · terintegrasi · normatif · akumulatif.</div>
+    </div></div>
+
+    <div class="flip"><div class="in">
+      <div class="fa"><div class="q">Budaya vs kebudayaan</div><div class="t">Apa pembeda utamanya?</div></div>
+      <div class="ba">Budaya = potensi/daya budi. Kebudayaan = aktualisasi potensi itu dalam gagasan, tindakan, dan karya.</div>
+    </div></div>
+
+    <div class="flip"><div class="in">
+      <div class="fa"><div class="q">Kearifan lokal</div><div class="t">Contoh kearifan lokal Indonesia?</div></div>
+      <div class="ba">Subak (Bali, irigasi), Sasi (Maluku, larangan adat sumber daya), jamu tradisional, kalender musim.</div>
+    </div></div>
+
+    <div class="flip"><div class="in">
+      <div class="fa"><div class="q">Relativisme</div><div class="t">Siapa penggagas dan apa intinya?</div></div>
+      <div class="ba">Franz Boas — budaya dinilai menurut konteks sejarah &amp; lingkungannya sendiri, bukan dengan ukuran budaya lain.</div>
+    </div></div>
+  </div>
+</section>
+
+<!-- ============ 16 CHECKLIST ============ -->
+<section id="checklist">
+  <h2><span class="n">16</span>Rencana Belajar Malam Ini</h2>
+  <p class="sub">Tiga putaran, total ±90 menit. Jangan membaca ulang dari atas ke bawah — uji diri.</p>
+
+  <div class="tbl-scroll">
+    <table>
+      <thead><tr><th style="width:90px">Waktu</th><th>Aktivitas</th><th style="width:190px">Keluaran</th></tr></thead>
+      <tbody>
+        <tr><td>20 menit</td><td>Baca Bagian 01–06 (manusia, pembudayaan, cipta-rasa-karsa, konsep, karakteristik, wujud).</td><td>Coretan 3 wujud + 9 karakteristik dari ingatan.</td></tr>
+        <tr><td>20 menit</td><td>Baca Bagian 07–09 (fungsi, 8 teori, 7 unsur).</td><td>Tabel teori dibuat ulang tanpa melihat.</td></tr>
+        <tr><td>15 menit</td><td>Kartu hafalan (Bagian 15) — putar sampai 12/12 benar.</td><td>Catat kartu yang masih salah.</td></tr>
+        <tr><td>25 menit</td><td>Kerjakan 3 soal Bagian 14 <strong>tanpa</strong> melihat kerangka jawaban, lalu bandingkan.</td><td>Jawaban tertulis a–d per soal.</td></tr>
+        <tr><td>10 menit</td><td>Baca ulang hanya bagian yang salah + glosarium.</td><td>Daftar 5 istilah yang masih ragu.</td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <div class="callout c-tip">
+    <b>Tiga hal yang paling menentukan nilai</b>
+    <strong>1.</strong> Selalu sebut tokoh/teori yang tepat. <strong>2.</strong> Bedakan konsep yang mirip secara eksplisit (budaya vs kebudayaan, ideal vs aktivitas, fungsionalisme vs struktural-fungsional). <strong>3.</strong> Tutup setiap jawaban dengan bukti yang bisa diperiksa — itu yang membedakan jawaban “bagus” dari jawaban “A”.
+  </div>
+
+  <div class="callout c-warn">
+    <b>Jangan lakukan ini</b>
+    Menjawab dengan daftar tanpa penjelasan; mencampur tiga wujud dengan cipta-rasa-karsa; menyebut “budaya” dan “kebudayaan” bergantian dalam satu jawaban yang justru meminta pembedaan; menulis “akan lebih disiplin” sebagai bukti perilaku.
+  </div>
+
+  <div class="foot">
+    Paparan disusun dari <em>Modul Ajar Budaya dan Karakter TIDAR 2026</em> (LPMPP Universitas Tidar), Bab I hal. 8–48 dan Bab II hal. 49–80, serta kuis 7 soal pada berkas yang sama. Cakupan ujian mengacu pada baris RPS pertemuan 8: <em>Midterm Examination mengukur penguasaan Sub-CPMK 1–2 (Bobot: 20)</em>.
+    <br>Simpan berkas ini di perangkat Anda; seluruh isinya mandiri tanpa koneksi internet.
+  </div>
+</section>
+
+</main>
+</div>
+
+<script>
+(function(){
+  // progress bar
+  var bar = document.getElementById('bar');
+  function prog(){
+    var h = document.documentElement.scrollHeight - window.innerHeight;
+    bar.style.width = (h > 0 ? (window.scrollY / h) * 100 : 0) + '%';
+  }
+  document.addEventListener('scroll', prog, {passive:true});
+  prog();
+
+  // scrollspy
+  var links = Array.prototype.slice.call(document.querySelectorAll('#nav a'));
+  var secs = links.map(function(a){ return document.querySelector(a.getAttribute('href')); }).filter(Boolean);
+  function spy(){
+    var pos = window.scrollY + 120, cur = secs[0];
+    secs.forEach(function(s){ if(s.offsetTop <= pos) cur = s; });
+    links.forEach(function(a){ a.classList.toggle('on', a.getAttribute('href') === '#' + cur.id); });
+  }
+  document.addEventListener('scroll', spy, {passive:true});
+  spy();
+
+  // flashcards
+  document.querySelectorAll('.flip').forEach(function(c){
+    c.addEventListener('click', function(){ c.classList.toggle('f'); });
+    c.setAttribute('tabindex','0');
+    c.addEventListener('keydown', function(e){
+      if(e.key === 'Enter' || e.key === ' '){ e.preventDefault(); c.classList.toggle('f'); }
+    });
+  });
+})();
+</script>
+</body>
+</html>

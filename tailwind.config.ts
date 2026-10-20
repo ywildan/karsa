@@ -1,4 +1,5 @@
 import type { Config } from "tailwindcss";
+import tailwindAnimate from "tailwindcss-animate";
 
 /**
  * Karsa — tailwind.config.ts
@@ -92,9 +93,10 @@ const config: Config = {
       },
     },
   },
-  // tailwindcss-animate belum punya tipe ESM → pakai require.
-  // eslint-disable-next-line @typescript-eslint/no-require-imports, @typescript-eslint/no-var-requires
-  plugins: [require("tailwindcss-animate")],
+  // Impor ESM, bukan `require()`: config ini bisa dimuat sebagai ESM oleh
+  // PostCSS/Tailwind, dan `require` tidak tersedia di konteks itu
+  // ("ReferenceError: require is not defined" saat dev).
+  plugins: [tailwindAnimate],
 };
 
 export default config;

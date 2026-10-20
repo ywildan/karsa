@@ -9,6 +9,7 @@ import {
   GraduationCap,
   Landmark,
   Layers,
+  Library,
   ScrollText,
   TableProperties,
   Users,
@@ -37,7 +38,7 @@ export const metadata: Metadata = { title: "Ruang Admin" };
 type Metric = {
   label: string;
   description: string;
-  value: number;
+  value: number | null;
   icon: LucideIcon;
   href: string;
 };
@@ -81,6 +82,10 @@ const AUDIT_LABELS: Record<string, string> = {
   KELAS_UPDATE: "Kelas diubah",
   KELAS_DELETE: "Kelas dihapus",
   MATKUL_ASSIGN: "Mata kuliah ditugaskan",
+  MATERI_CREATE: "Materi ditambahkan",
+  MATERI_UPDATE: "Materi diperbarui",
+  MATERI_STATUS: "Status materi diubah",
+  MATERI_DELETE: "Materi dihapus",
   SEMESTER_SET_ACTIVE: "Semester diaktifkan",
 };
 
@@ -96,6 +101,7 @@ export default async function AdminDashboardPage() {
     kelasCount,
     matkulCount,
     memberCount,
+    materiCount,
     activeSemester,
     libQueue,
     recentActivity,
@@ -107,6 +113,8 @@ export default async function AdminDashboardPage() {
     prisma.kelas.count(),
     prisma.matkul.count(),
     prisma.user.count({ where: { kelas_id: { not: null } } }),
+    // Tabel Materi bisa belum ada sebelum prisma/materi.sql dijalankan.
+    prisma.materi.count({ where: { status: "TERBIT" } }).catch(() => null),
     prisma.semester.findFirst({
       where: { is_active: true },
       select: { name: true },
@@ -178,6 +186,13 @@ export default async function AdminDashboardPage() {
       value: matkulCount,
       icon: BookOpen,
       href: "/admin/matkul",
+    },
+    {
+      label: "Materi terbit",
+      description: "Terbuka untuk publik",
+      value: materiCount,
+      icon: Library,
+      href: "/admin/materi",
     },
     {
       label: "Anggota kelas",
@@ -359,7 +374,7 @@ export default async function AdminDashboardPage() {
           title="Data akademik"
           description="Ringkasan data master dan anggota yang terdaftar."
         />
-        <div className="mt-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5">
+        <div className="mt-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
           {metrics.map((metric) => {
             const Icon = metric.icon;
             return (
@@ -373,7 +388,7 @@ export default async function AdminDashboardPage() {
                   <ArrowRight className="h-3.5 w-3.5 opacity-0 transition-opacity group-hover:opacity-100 group-focus-visible:opacity-100" aria-hidden />
                 </div>
                 <p className="mt-5 text-2xl font-semibold tabular-nums tracking-tight">
-                  {formatNumber(metric.value)}
+                  {metric.value === null ? "—" : formatNumber(metric.value)}
                 </p>
                 <p className="mt-1 text-sm font-medium">{metric.label}</p>
                 <p className="mt-0.5 text-xs text-muted-foreground">{metric.description}</p>

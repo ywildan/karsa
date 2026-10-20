@@ -170,6 +170,7 @@ model Prodi {
   kelas       Kelas[]
   libProfiles LibProfile[]
   libArticles LibArticle[]
+  materi      Materi[]
 
   pengelolaAssignments PengelolaAssignment[]
 
@@ -185,6 +186,46 @@ model Faculty {
 
   prodis      Prodi[]
   libProfiles LibProfile[]
+  materi      Materi[]
+}
+
+/// Materi — materi kuliah publik (kisi-kisi/ringkasan ujian) yang tampil di
+/// `/materi`. Isi deck disimpan sebagai HTML mandiri di kolom `html` dan
+/// disajikan dalam iframe ber-sandbox, bukan di-render ke dalam DOM app.
+///
+/// Lingkup (fakultas → prodi) mengikuti konvensi `scope_type` yang sama
+/// dengan `PengelolaAssignment`: string + CHECK di SQL, bukan enum native.
+///   · prodi_id  terisi  → milik satu prodi (fakultas diturunkan dari prodi)
+///   · faculty_id terisi, prodi_id null → milik satu fakultas (lintas prodi)
+///   · keduanya null     → umum, semua fakultas
+model Materi {
+  id         String   @id @default(cuid())
+  slug       String   @unique
+  judul      String
+  matkul     String
+  /// "UTS" | "UAS" | "KUIS"
+  jenis      String   @default("UTS")
+  pertemuan  String?
+  sub_cpmk   String?
+  bobot      Int?
+  sumber     String?
+  ringkasan  String
+  bagian     Int?
+  /// Deck HTML mandiri (satu berkas, tanpa dependensi jaringan).
+  html       String   @db.Text
+  /// "DRAFT" | "TERBIT" — hanya TERBIT yang tampil di halaman publik.
+  status     String   @default("DRAFT")
+  faculty_id String?
+  prodi_id   String?
+  created_at DateTime @default(now())
+  updated_at DateTime @default(now()) @updatedAt
+
+  faculty Faculty? @relation(fields: [faculty_id], references: [id], onDelete: Restrict, onUpdate: Cascade)
+  prodi   Prodi?   @relation(fields: [prodi_id], references: [id], onDelete: Restrict, onUpdate: Cascade)
+
+  @@index([status, updated_at(sort: Desc)])
+  @@index([faculty_id])
+  @@index([prodi_id])
 }
 
 /// Matkul — master mata kuliah, dipakai lintas kelas.

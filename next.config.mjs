@@ -14,6 +14,16 @@ const securityHeaders = [
 
 const nextConfig = {
   reactStrictMode: true,
+  /**
+   * Deck materi diunggah sebagai berkas HTML lewat Server Action di
+   * /admin/materi. Batas bawaan 1 MB terlalu mepet untuk satu deck utuh,
+   * jadi dinaikkan — tetap di bawah batas aman body request platform.
+   */
+  experimental: {
+    serverActions: {
+      bodySizeLimit: "4mb",
+    },
+  },
   async headers() {
     return [
       {
