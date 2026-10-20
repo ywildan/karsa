@@ -74,13 +74,13 @@ export default async function MateriIndexPage() {
             ringkasan yang sudah rapi dan boleh dibagikan, kirim ke pengelola
             untuk ditinjau.
           </p>
-          <a
-            href="mailto:yuwiaffa@gmail.com?subject=Kirim%20materi%20SiKarsa"
+          <Link
+            href="/materi/kirim"
             className="mt-4 inline-flex items-center gap-1.5 text-sm font-semibold text-primary underline-offset-4 hover:underline"
           >
             Kirim materi
             <span aria-hidden>→</span>
-          </a>
+          </Link>
         </div>
 
         <p className="mt-8 rounded-lg border border-border bg-card px-4 py-3 text-xs leading-5 text-muted-foreground">
