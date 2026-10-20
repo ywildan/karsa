@@ -142,15 +142,31 @@ export function MateriManager({
   const [form, setForm] = React.useState<FormState>(EMPTY_FORM);
   const [html, setHtml] = React.useState<string>("");
   const [namaBerkas, setNamaBerkas] = React.useState<string>("");
+  // Filter status: "semua" | "TERBIT" | "DRAFT". Hanya memengaruhi tampilan;
+  // data tetap dari server, jadi tidak ada permintaan ulang saat mengubah filter.
+  const [filterStatus, setFilterStatus] = React.useState<
+    "semua" | StatusMateri
+  >("semua");
   const [pending, startTransition] = React.useTransition();
+
+  const jumlahTerbit = daftar.filter((item) => item.status === "TERBIT").length;
+  const jumlahDraf = daftar.length - jumlahTerbit;
+
+  const tampil = React.useMemo(
+    () =>
+      filterStatus === "semua"
+        ? daftar
+        : daftar.filter((item) => item.status === filterStatus),
+    [daftar, filterStatus],
+  );
 
   const bySlug = React.useMemo(
     () => new Map(daftar.map((item) => [item.slug, item])),
     [daftar],
   );
   const kelompok = React.useMemo(
-    () => kelompokkanMateri(daftar.map(kePublik)),
-    [daftar],
+    () => kelompokkanMateri(tampil.map(kePublik)),
+    [tampil],
   );
 
   const prodiTersedia = React.useMemo(() => {
@@ -273,11 +289,31 @@ export function MateriManager({
 
   return (
     <>
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        <p className="text-xs text-muted-foreground">
-          {daftar.length} materi ·{" "}
-          {daftar.filter((item) => item.status === "TERBIT").length} terbit
-        </p>
+      <div className="flex flex-wrap items-end justify-between gap-3">
+        <div className="flex flex-wrap items-end gap-3">
+          <div className="grid gap-1.5">
+            <Label htmlFor="filter-materi" className="text-xs font-medium text-muted-foreground">
+              Tampilkan
+            </Label>
+            <Select
+              id="filter-materi"
+              value={filterStatus}
+              onValueChange={(value) =>
+                setFilterStatus(value as "semua" | StatusMateri)
+              }
+              className="h-9 w-56"
+            >
+              <option value="semua">Semua materi ({daftar.length})</option>
+              <option value="TERBIT">Sudah terbit ({jumlahTerbit})</option>
+              <option value="DRAFT">Draf ({jumlahDraf})</option>
+            </Select>
+          </div>
+          <p className="pb-2 text-xs text-muted-foreground" aria-live="polite">
+            {filterStatus === "semua"
+              ? `${daftar.length} materi · ${jumlahTerbit} terbit`
+              : `${tampil.length} dari ${daftar.length} materi · ${jumlahTerbit} terbit`}
+          </p>
+        </div>
         <Button onClick={openCreate} disabled={pending}>
           <Plus aria-hidden />
           Tambah materi
@@ -359,6 +395,25 @@ export function MateriManager({
                   ))}
                 </React.Fragment>
               ))}
+
+              {tampil.length === 0 && (
+                <TableRow>
+                  <TableCell
+                    colSpan={5}
+                    className="py-10 text-center text-sm text-muted-foreground"
+                  >
+                    Tidak ada materi{" "}
+                    {filterStatus === "TERBIT" ? "yang sudah terbit" : "berstatus draf"}.{" "}
+                    <button
+                      type="button"
+                      onClick={() => setFilterStatus("semua")}
+                      className="font-semibold text-primary hover:underline"
+                    >
+                      Tampilkan semua materi
+                    </button>
+                  </TableCell>
+                </TableRow>
+              )}
             </TableBody>
           </Table>
         </div>
