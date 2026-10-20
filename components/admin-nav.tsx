@@ -110,14 +110,6 @@ export function AdminNav() {
             </div>
           ))}
         </nav>
-
-        <div className="mt-8 rounded-2xl border border-border/70 bg-background p-3">
-          <p className="text-xs font-semibold">Butuh ringkasan?</p>
-          <p className="mt-1 text-xs leading-5 text-muted-foreground">Kembali ke beranda untuk melihat pekerjaan yang menunggu.</p>
-          <Link href="/admin/dashboard" className="mt-3 inline-flex text-xs font-semibold text-primary hover:underline">
-            Buka beranda
-          </Link>
-        </div>
       </aside>
 
       <div className="border-b border-border bg-card/80 px-4 lg:hidden">
