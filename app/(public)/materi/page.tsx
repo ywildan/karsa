@@ -3,6 +3,7 @@ import Link from "next/link";
 
 import { SiteFooter } from "@/components/landing/site-footer";
 import { SiteHeader } from "@/components/landing/site-header";
+import { getJudulArtikelTerbit } from "@/lib/artikel-query";
 import { getMateriTerbit } from "@/lib/materi-query";
 
 import { DaftarMateriPublik } from "./_components/daftar-materi-publik";
@@ -14,8 +15,10 @@ import { DaftarMateriPublik } from "./_components/daftar-materi-publik";
  *
  * Hierarki tampilan mengikuti struktur akademik:
  *   Umum (semua fakultas) → Fakultas → (Lintas prodi) → Prodi
- * Penyaringan fakultas/prodi ada di komponen klien `DaftarMateriPublik`; halaman
- * ini tetap server component (dan tetap statis) supaya metadata & SEO utuh.
+ * Penyaringan fakultas/prodi dan perpindahan tab ada di komponen klien
+ * `DaftarMateriPublik`; halaman ini tetap server component supaya metadata &
+ * SEO utuh. (Halaman dirender per permintaan — `SiteHeader` membaca cookie tema
+ * — jadi judul artikel baru dari Karsa Lib langsung ikut tanpa menunggu build.)
  */
 export const metadata: Metadata = {
   title: "Materi & kisi-kisi ujian",
@@ -33,7 +36,10 @@ export const metadata: Metadata = {
 };
 
 export default async function MateriIndexPage() {
-  const { daftar } = await getMateriTerbit();
+  const [{ daftar }, artikel] = await Promise.all([
+    getMateriTerbit(),
+    getJudulArtikelTerbit(),
+  ]);
   const total = daftar.length;
 
   return (
@@ -49,17 +55,18 @@ export default async function MateriIndexPage() {
         </h1>
         <p className="mt-4 max-w-2xl text-base leading-7 text-muted-foreground">
           Setiap materi memuat cakupan yang diukur, tabel pembeda, latihan soal
-          bergaya ujian beserta rubriknya, dan kartu hafalan. Tidak perlu akun
-          untuk membaca.
+          bergaya ujian beserta rubriknya, dan kartu hafalan. Materi terbuka
+          tanpa akun; artikel mahasiswa dari Karsa Lib hanya bisa dibaca di
+          aplikasi Karsa mobile.
         </p>
 
-        {total === 0 ? (
+        {total === 0 && artikel.length === 0 ? (
           <p className="mt-10 rounded-lg border border-dashed border-border bg-card px-4 py-6 text-sm leading-6 text-muted-foreground">
             Belum ada materi yang terbit. Materi ditambahkan dari ruang admin dan
             akan muncul di sini setelah diterbitkan.
           </p>
         ) : (
-          <DaftarMateriPublik daftar={daftar} />
+          <DaftarMateriPublik daftar={daftar} artikel={artikel} />
         )}
 
         <div className="mt-14 rounded-xl border border-dashed border-border bg-secondary/40 p-5 sm:p-6">
