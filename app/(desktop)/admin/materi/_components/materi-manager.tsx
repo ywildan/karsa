@@ -11,7 +11,8 @@
  * Status · Fakultas · Program studi di atas tabel.
  */
 import * as React from "react";
-import { FileUp, Pencil, Plus, Trash2 } from "lucide-react";
+import Link from "next/link";
+import { FileUp, Inbox, Pencil, Plus, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 
 import {
@@ -111,9 +112,12 @@ const EMPTY_FORM: FormState = {
 export function MateriManager({
   daftar,
   fakultas,
+  jumlahPermohonan = 0,
 }: {
   daftar: MateriAdmin[];
   fakultas: FakultasPilihan[];
+  /** Jumlah permohonan berstatus menunggu — ditampilkan di tombol Permohonan. */
+  jumlahPermohonan?: number;
 }) {
   const [dialogOpen, setDialogOpen] = React.useState(false);
   const [editing, setEditing] = React.useState<MateriAdmin | null>(null);
@@ -303,79 +307,103 @@ export function MateriManager({
 
   return (
     <>
-      <div className="flex flex-wrap items-end justify-between gap-3">
-        <div className="flex flex-wrap items-end gap-3">
-          <div className="grid gap-1.5">
-            <Label htmlFor="filter-materi" className="text-xs font-medium text-muted-foreground">
-              Status
-            </Label>
-            <Select
-              id="filter-materi"
-              value={filterStatus}
-              onValueChange={(value) =>
-                setFilterStatus(value as "semua" | StatusMateri)
-              }
-              className="h-9 w-44"
-            >
-              <option value="semua">Semua ({daftar.length})</option>
-              <option value="TERBIT">Terbit ({jumlahTerbit})</option>
-              <option value="DRAFT">Draf ({jumlahDraf})</option>
-            </Select>
-          </div>
-          <div className="grid gap-1.5">
-            <Label htmlFor="filter-fakultas" className="text-xs font-medium text-muted-foreground">
-              Fakultas
-            </Label>
-            <Select
-              id="filter-fakultas"
-              value={filterFakultas}
-              onValueChange={ubahFakultas}
-              className="h-9 w-56"
-            >
-              <option value="semua">Semua fakultas</option>
-              <option value="umum">Umum — lintas fakultas ({jumlahUmum})</option>
-              {fakultas.map((item) => (
-                <option key={item.id} value={item.id}>
-                  {item.name} (
-                  {daftar.filter((materi) => materi.facultyId === item.id).length})
-                </option>
-              ))}
-            </Select>
-          </div>
-          <div className="grid gap-1.5">
-            <Label htmlFor="filter-prodi" className="text-xs font-medium text-muted-foreground">
-              Program studi
-            </Label>
-            <Select
-              id="filter-prodi"
-              value={filterProdi}
-              onValueChange={setFilterProdi}
-              className="h-9 w-56"
-              disabled={filterFakultas === "umum"}
-            >
-              <option value="semua">
-                {filterFakultas === "semua" ? "Semua prodi" : "Semua prodi fakultas ini"}
-              </option>
-              {filterFakultas !== "umum" && (
-                <option value="lintas">Lintas prodi (tanpa prodi)</option>
+      <div className="flex flex-col gap-4">
+        <div className="flex flex-wrap items-center justify-start gap-2">
+          <Button variant="outline" asChild>
+            <Link href="/admin/materi/permohonan">
+              {/* Ikon berubah jadi angka saat ada antrean: 0 → ikon kotak masuk,
+                  >0 → angka permohonan yang menunggu (maks 99+). */}
+              {jumlahPermohonan > 0 ? (
+                <span
+                  aria-hidden
+                  className="inline-flex h-5 min-w-5 items-center justify-center rounded-full bg-primary px-1.5 text-[11px] font-bold leading-none text-primary-foreground"
+                >
+                  {jumlahPermohonan > 99 ? "99+" : jumlahPermohonan}
+                </span>
+              ) : (
+                <Inbox aria-hidden />
               )}
-              {pilihanProdi.map((item) => (
-                <option key={item.id} value={item.id}>
-                  {item.name}
-                </option>
-              ))}
-            </Select>
-          </div>
-          <p className="pb-2 text-xs text-muted-foreground" aria-live="polite">
-            {tampil.length === daftar.length
-              ? `${daftar.length} materi · ${jumlahTerbit} terbit`
-              : `${tampil.length} dari ${daftar.length} materi · ${jumlahTerbit} terbit`}
-          </p>
+              Permohonan
+              {jumlahPermohonan > 0 && (
+                <span className="sr-only">
+                  {jumlahPermohonan} permohonan menunggu
+                </span>
+              )}
+            </Link>
+          </Button>
+          <Button onClick={openCreate} disabled={pending}>
+            <Plus aria-hidden />
+            Tambah materi
+          </Button>
         </div>
-        <Button onClick={openCreate} disabled={pending}>
-          <Plus aria-hidden />
-          Tambah materi
-        </Button>
+          <div className="flex flex-wrap items-end gap-3">
+            <div className="grid gap-1.5">
+              <Label htmlFor="filter-materi" className="text-xs font-medium text-muted-foreground">
+                Status
+              </Label>
+              <Select
+                id="filter-materi"
+                value={filterStatus}
+                onValueChange={(value) =>
+                  setFilterStatus(value as "semua" | StatusMateri)
+                }
+                className="h-9 w-44"
+              >
+                <option value="semua">Semua ({daftar.length})</option>
+                <option value="TERBIT">Terbit ({jumlahTerbit})</option>
+                <option value="DRAFT">Draf ({jumlahDraf})</option>
+              </Select>
+            </div>
+            <div className="grid gap-1.5">
+              <Label htmlFor="filter-fakultas" className="text-xs font-medium text-muted-foreground">
+                Fakultas
+              </Label>
+              <Select
+                id="filter-fakultas"
+                value={filterFakultas}
+                onValueChange={ubahFakultas}
+                className="h-9 w-56"
+              >
+                <option value="semua">Semua fakultas</option>
+                <option value="umum">Umum — lintas fakultas ({jumlahUmum})</option>
+                {fakultas.map((item) => (
+                  <option key={item.id} value={item.id}>
+                    {item.name} (
+                    {daftar.filter((materi) => materi.facultyId === item.id).length})
+                  </option>
+                ))}
+              </Select>
+            </div>
+            <div className="grid gap-1.5">
+              <Label htmlFor="filter-prodi" className="text-xs font-medium text-muted-foreground">
+                Program studi
+              </Label>
+              <Select
+                id="filter-prodi"
+                value={filterProdi}
+                onValueChange={setFilterProdi}
+                className="h-9 w-56"
+                disabled={filterFakultas === "umum"}
+              >
+                <option value="semua">
+                  {filterFakultas === "semua" ? "Semua prodi" : "Semua prodi fakultas ini"}
+                </option>
+                {filterFakultas !== "umum" && (
+                  <option value="lintas">Lintas prodi (tanpa prodi)</option>
+                )}
+                {pilihanProdi.map((item) => (
+                  <option key={item.id} value={item.id}>
+                    {item.name}
+                  </option>
+                ))}
+              </Select>
+            </div>
+            <p className="pb-2 text-xs text-muted-foreground" aria-live="polite">
+              {tampil.length === daftar.length
+                ? `${daftar.length} materi · ${jumlahTerbit} terbit`
+                : `${tampil.length} dari ${daftar.length} materi · ${jumlahTerbit} terbit`}
+            </p>
+          </div>
       </div>
 
       {daftar.length === 0 ? (

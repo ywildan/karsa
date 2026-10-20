@@ -97,6 +97,17 @@ export default async function AdminMateriPage() {
       "Tabel Materi belum siap di database. Jalankan prisma/materi.sql di Supabase SQL Editor, lalu muat ulang halaman ini.";
   }
 
+  // Badge antrean di tombol "Permohonan". Kalau tabel permohonan belum ada,
+  // halaman materi tetap jalan — tombolnya tampil tanpa angka.
+  let jumlahPermohonan = 0;
+  try {
+    jumlahPermohonan = await prisma.materiPermohonan.count({
+      where: { status: "MENUNGGU" },
+    });
+  } catch {
+    jumlahPermohonan = 0;
+  }
+
   return (
     <main className="mx-auto flex w-full max-w-5xl flex-col gap-6 px-4 py-8">
       <header>
@@ -120,7 +131,11 @@ export default async function AdminMateriPage() {
           {galat}
         </div>
       ) : (
-        <MateriManager daftar={daftar} fakultas={fakultas} />
+        <MateriManager
+          daftar={daftar}
+          fakultas={fakultas}
+          jumlahPermohonan={jumlahPermohonan}
+        />
       )}
     </main>
   );

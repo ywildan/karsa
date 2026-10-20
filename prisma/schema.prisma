@@ -228,6 +228,39 @@ model Materi {
   @@index([prodi_id])
 }
 
+/// Permohonan materi yang dikirim publik lewat halaman /materi/kirim.
+///
+/// Sengaja terpisah dari `Materi`: isinya niat/permohonan, bukan deck. Pemohon
+/// tidak mengunggah berkas (tidak ada penyimpanan publik di Karsa), hanya
+/// menautkan berkasnya. Admin meninjau, lalu membuat materi sendiri dengan
+/// data yang sudah terisi — sehingga tabel ini tidak pernah masuk jalur saji
+/// publik dan tidak butuh kolom `html`.
+model MateriPermohonan {
+  id          String   @id @default(cuid())
+  nama        String
+  email       String
+  fakultas    String?
+  prodi       String?
+  matkul      String
+  /// "UTS" | "UAS" | "KUIS"
+  jenis       String   @default("UTS")
+  pertemuan   String?
+  ringkasan   String   @db.Text
+  /// URL berkas (Drive/GitHub/personal), bukan unggahan.
+  tautan      String?
+  /// Pernyataan pemohon bahwa materinya boleh dibagikan.
+  izin        Boolean  @default(false)
+  /// "MENUNGGU" | "DISETUJUI" | "DITOLAK"
+  status      String   @default("MENUNGGU")
+  catatan     String?  @db.Text
+  created_at  DateTime @default(now())
+  reviewed_at DateTime?
+  reviewed_by String?
+
+  @@index([status, created_at(sort: Desc)])
+  @@index([email])
+}
+
 /// Matkul — master mata kuliah, dipakai lintas kelas.
 model Matkul {
   id         String   @id @default(cuid())
