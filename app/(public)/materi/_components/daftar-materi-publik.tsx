@@ -70,6 +70,26 @@ export function DaftarMateriPublik({ daftar }: { daftar: MateriPublik[] }) {
     return [...nama].sort((a, b) => a.localeCompare(b, "id"));
   }, [daftar, fakultas]);
 
+  // Saat fakultas belum dipilih, prodi tetap bisa dipilih langsung: daftar
+  // memuat semua prodi yang ada, berlabel fakultasnya. Memilih salah satu
+  // sekaligus mengisi dropdown fakultas, jadi dua kontrol tidak pernah
+  // bertentangan. Tidak ada keadaan "tunggu pilih fakultas dulu".
+  const semuaProdi = React.useMemo(() => {
+    const peta = new Map<string, { prodi: string; fakultas: string }>();
+    for (const materi of daftar) {
+      if (!materi.prodi || !materi.fakultas) continue;
+      if (!peta.has(materi.prodi)) {
+        peta.set(materi.prodi, {
+          prodi: materi.prodi,
+          fakultas: materi.fakultas,
+        });
+      }
+    }
+    return [...peta.values()].sort((a, b) =>
+      a.prodi.localeCompare(b.prodi, "id"),
+    );
+  }, [daftar]);
+
   const tersaring = React.useMemo(
     () =>
       daftar.filter((materi) => {
@@ -91,6 +111,18 @@ export function DaftarMateriPublik({ daftar }: { daftar: MateriPublik[] }) {
     setProdi("semua");
   }
 
+  function ubahProdi(nilai: string) {
+    setProdi(nilai);
+    // Prodi menentukan fakultasnya: kalau fakultas belum dipilih, isi sekalian
+    // supaya dua dropdown tidak pernah menunjuk ke kombinasi yang mustahil.
+    if (nilai !== "semua" && nilai !== "lintas" && fakultas === "semua") {
+      const fakultasProdi = daftar.find(
+        (materi) => materi.prodi === nilai,
+      )?.fakultas;
+      if (fakultasProdi) setFakultas(fakultasProdi);
+    }
+  }
+
   function reset() {
     setFakultas("semua");
     setProdi("semua");
@@ -98,12 +130,14 @@ export function DaftarMateriPublik({ daftar }: { daftar: MateriPublik[] }) {
 
   return (
     <>
-      <div className="mt-10 flex flex-col gap-4 rounded-xl border border-border bg-card p-4 sm:p-5">
-        <div className="grid gap-4 sm:grid-cols-[minmax(0,1fr)_minmax(0,1fr)_auto] sm:items-end">
-          <div className="grid gap-1.5">
+      {/* Filter diletakkan di tengah dan langsung bisa dipakai: prodi tidak
+          menunggu fakultas dipilih. */}
+      <div className="mx-auto mt-10 w-full max-w-3xl rounded-2xl border border-border bg-card p-5">
+        <div className="flex flex-col items-center gap-4 sm:flex-row sm:items-end sm:justify-center">
+          <div className="grid w-full gap-1.5 sm:w-60">
             <label
               htmlFor="pilih-fakultas"
-              className="text-[11px] font-bold uppercase tracking-[0.14em] text-muted-foreground"
+              className="text-center text-[11px] font-bold uppercase tracking-[0.14em] text-muted-foreground sm:text-left"
             >
               Fakultas
             </label>
@@ -126,39 +160,47 @@ export function DaftarMateriPublik({ daftar }: { daftar: MateriPublik[] }) {
             </select>
           </div>
 
-          <div className="grid gap-1.5">
+          <div className="grid w-full gap-1.5 sm:w-72">
             <label
               htmlFor="pilih-prodi"
-              className="text-[11px] font-bold uppercase tracking-[0.14em] text-muted-foreground"
+              className="text-center text-[11px] font-bold uppercase tracking-[0.14em] text-muted-foreground sm:text-left"
             >
               Program studi
             </label>
             <select
               id="pilih-prodi"
               value={prodi}
-              onChange={(event) => setProdi(event.target.value)}
-              disabled={fakultas === "semua" || fakultas === "umum"}
+              onChange={(event) => ubahProdi(event.target.value)}
+              disabled={fakultas === "umum"}
               className={SELECT_KELAS}
             >
               <option value="semua">Semua prodi</option>
-              {daftarProdi.length > 0 && (
-                <option value="lintas">Lintas prodi</option>
+              {fakultas === "semua" ? (
+                <>
+                  <option value="lintas">Lintas prodi — tingkat fakultas</option>
+                  {semuaProdi.map((item) => (
+                    <option key={item.prodi} value={item.prodi}>
+                      {item.prodi} — {item.fakultas}
+                    </option>
+                  ))}
+                </>
+              ) : (
+                <>
+                  {daftarProdi.length > 0 && (
+                    <option value="lintas">Lintas prodi</option>
+                  )}
+                  {daftarProdi.map((nama) => (
+                    <option key={nama} value={nama}>
+                      {nama}
+                    </option>
+                  ))}
+                </>
               )}
-              {daftarProdi.map((nama) => (
-                <option key={nama} value={nama}>
-                  {nama}
-                </option>
-              ))}
             </select>
-            {fakultas === "semua" && (
-              <p className="text-[11px] leading-4 text-muted-foreground">
-                Pilih fakultas dulu untuk menyaring per prodi.
-              </p>
-            )}
           </div>
 
           <p
-            className="text-sm text-muted-foreground sm:pb-3"
+            className="text-center text-sm text-muted-foreground sm:pb-3 sm:text-left"
             aria-live="polite"
           >
             {menyaring
@@ -168,7 +210,7 @@ export function DaftarMateriPublik({ daftar }: { daftar: MateriPublik[] }) {
         </div>
 
         {menyaring && (
-          <div>
+          <div className="mt-4 text-center">
             <button
               type="button"
               onClick={reset}
