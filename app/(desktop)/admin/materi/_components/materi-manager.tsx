@@ -6,9 +6,9 @@
  * Tabel + dialog CRUD materi (client). Otorisasi tetap di server action;
  * di sini hanya state, unggahan berkas (dibaca di browser), dan toast.
  *
- * Tabel dikelompokkan mengikuti halaman publik: Umum → Fakultas → Prodi,
- * memakai helper `kelompokkanMateri` yang sama supaya urutan admin dan publik
- * tidak pernah berbeda.
+ * Tabel datar satu tingkat; lingkup tiap materi tampil sebagai label di
+ * barisnya sendiri (Umum / fakultas / prodi), lalu disaring lewat dropdown
+ * Status · Fakultas · Program studi di atas tabel.
  */
 import * as React from "react";
 import { FileUp, Pencil, Plus, Trash2 } from "lucide-react";
@@ -45,9 +45,7 @@ import {
   formatTanggalMateri,
   JENIS_UJIAN,
   LABEL_JENIS,
-  kelompokkanMateri,
   type JenisUjian,
-  type MateriPublik,
   type StatusMateri,
 } from "@/lib/materi";
 import { cn } from "@/lib/utils";
@@ -110,26 +108,6 @@ const EMPTY_FORM: FormState = {
   prodiId: "",
 };
 
-/** Baris admin → bentuk yang dipakai helper pengelompokan publik. */
-function kePublik(materi: MateriAdmin): MateriPublik {
-  return {
-    slug: materi.slug,
-    judul: materi.judul,
-    matkul: materi.matkul,
-    jenis: materi.jenis,
-    pertemuan: materi.pertemuan,
-    subCpmk: materi.subCpmk,
-    bobot: materi.bobot,
-    sumber: materi.sumber,
-    ringkasan: materi.ringkasan,
-    bagian: materi.bagian,
-    diperbarui: materi.diperbarui,
-    fakultas: materi.fakultas,
-    prodi: materi.prodi,
-    href: `/materi/${materi.slug}`,
-  };
-}
-
 export function MateriManager({
   daftar,
   fakultas,
@@ -142,32 +120,68 @@ export function MateriManager({
   const [form, setForm] = React.useState<FormState>(EMPTY_FORM);
   const [html, setHtml] = React.useState<string>("");
   const [namaBerkas, setNamaBerkas] = React.useState<string>("");
-  // Filter status: "semua" | "TERBIT" | "DRAFT". Hanya memengaruhi tampilan;
-  // data tetap dari server, jadi tidak ada permintaan ulang saat mengubah filter.
+  // Filter tampilan: status, fakultas, prodi. Semuanya di sisi klien dari
+  // daftar yang sudah dikirim server — tidak ada query ulang saat diubah.
   const [filterStatus, setFilterStatus] = React.useState<
     "semua" | StatusMateri
   >("semua");
+  // "semua" | "umum" (tanpa fakultas) | id fakultas
+  const [filterFakultas, setFilterFakultas] = React.useState<string>("semua");
+  // "semua" | "lintas" (fakultas tanpa prodi) | id prodi
+  const [filterProdi, setFilterProdi] = React.useState<string>("semua");
   const [pending, startTransition] = React.useTransition();
 
   const jumlahTerbit = daftar.filter((item) => item.status === "TERBIT").length;
   const jumlahDraf = daftar.length - jumlahTerbit;
+  const jumlahUmum = daftar.filter((item) => !item.facultyId).length;
 
   const tampil = React.useMemo(
     () =>
-      filterStatus === "semua"
-        ? daftar
-        : daftar.filter((item) => item.status === filterStatus),
-    [daftar, filterStatus],
+      daftar.filter((item) => {
+        if (filterStatus !== "semua" && item.status !== filterStatus) {
+          return false;
+        }
+        if (filterFakultas === "umum" && item.facultyId) return false;
+        if (
+          filterFakultas !== "semua" &&
+          filterFakultas !== "umum" &&
+          item.facultyId !== filterFakultas
+        ) {
+          return false;
+        }
+        if (filterProdi === "lintas" && (!item.facultyId || item.prodiId)) {
+          return false;
+        }
+        if (
+          filterProdi !== "semua" &&
+          filterProdi !== "lintas" &&
+          item.prodiId !== filterProdi
+        ) {
+          return false;
+        }
+        return true;
+      }),
+    [daftar, filterStatus, filterFakultas, filterProdi],
   );
 
-  const bySlug = React.useMemo(
-    () => new Map(daftar.map((item) => [item.slug, item])),
-    [daftar],
-  );
-  const kelompok = React.useMemo(
-    () => kelompokkanMateri(tampil.map(kePublik)),
-    [tampil],
-  );
+  const pilihanProdi =
+    filterFakultas === "umum"
+      ? []
+      : filterFakultas === "semua"
+        ? fakultas.flatMap((item) => item.prodi)
+        : (fakultas.find((item) => item.id === filterFakultas)?.prodi ?? []);
+
+  function ubahFakultas(nilai: string) {
+    setFilterFakultas(nilai);
+    // Prodi milik fakultas lain tidak mungkin cocok lagi dengan saringan baru.
+    setFilterProdi("semua");
+  }
+
+  function resetFilter() {
+    setFilterStatus("semua");
+    setFilterFakultas("semua");
+    setFilterProdi("semua");
+  }
 
   const prodiTersedia = React.useMemo(() => {
     if (!form.facultyId) return fakultas.flatMap((item) => item.prodi);
@@ -293,7 +307,7 @@ export function MateriManager({
         <div className="flex flex-wrap items-end gap-3">
           <div className="grid gap-1.5">
             <Label htmlFor="filter-materi" className="text-xs font-medium text-muted-foreground">
-              Tampilkan
+              Status
             </Label>
             <Select
               id="filter-materi"
@@ -301,15 +315,59 @@ export function MateriManager({
               onValueChange={(value) =>
                 setFilterStatus(value as "semua" | StatusMateri)
               }
-              className="h-9 w-56"
+              className="h-9 w-44"
             >
-              <option value="semua">Semua materi ({daftar.length})</option>
-              <option value="TERBIT">Sudah terbit ({jumlahTerbit})</option>
+              <option value="semua">Semua ({daftar.length})</option>
+              <option value="TERBIT">Terbit ({jumlahTerbit})</option>
               <option value="DRAFT">Draf ({jumlahDraf})</option>
             </Select>
           </div>
+          <div className="grid gap-1.5">
+            <Label htmlFor="filter-fakultas" className="text-xs font-medium text-muted-foreground">
+              Fakultas
+            </Label>
+            <Select
+              id="filter-fakultas"
+              value={filterFakultas}
+              onValueChange={ubahFakultas}
+              className="h-9 w-56"
+            >
+              <option value="semua">Semua fakultas</option>
+              <option value="umum">Umum — lintas fakultas ({jumlahUmum})</option>
+              {fakultas.map((item) => (
+                <option key={item.id} value={item.id}>
+                  {item.name} (
+                  {daftar.filter((materi) => materi.facultyId === item.id).length})
+                </option>
+              ))}
+            </Select>
+          </div>
+          <div className="grid gap-1.5">
+            <Label htmlFor="filter-prodi" className="text-xs font-medium text-muted-foreground">
+              Program studi
+            </Label>
+            <Select
+              id="filter-prodi"
+              value={filterProdi}
+              onValueChange={setFilterProdi}
+              className="h-9 w-56"
+              disabled={filterFakultas === "umum"}
+            >
+              <option value="semua">
+                {filterFakultas === "semua" ? "Semua prodi" : "Semua prodi fakultas ini"}
+              </option>
+              {filterFakultas !== "umum" && (
+                <option value="lintas">Lintas prodi (tanpa prodi)</option>
+              )}
+              {pilihanProdi.map((item) => (
+                <option key={item.id} value={item.id}>
+                  {item.name}
+                </option>
+              ))}
+            </Select>
+          </div>
           <p className="pb-2 text-xs text-muted-foreground" aria-live="polite">
-            {filterStatus === "semua"
+            {tampil.length === daftar.length
               ? `${daftar.length} materi · ${jumlahTerbit} terbit`
               : `${tampil.length} dari ${daftar.length} materi · ${jumlahTerbit} terbit`}
           </p>
@@ -342,58 +400,15 @@ export function MateriManager({
               </TableRow>
             </TableHeader>
             <TableBody>
-              {kelompok.umum.length > 0 && (
-                <>
-                  <BarisGrup label="Umum · semua fakultas" />
-                  {kelompok.umum.map((item) => (
-                    <BarisMateri
-                      key={item.slug}
-                      materi={bySlug.get(item.slug)!}
-                      pending={pending}
-                      onEdit={openEdit}
-                      onStatus={handleStatus}
-                      onDelete={handleDelete}
-                    />
-                  ))}
-                </>
-              )}
-
-              {kelompok.fakultas.map((fakultasItem) => (
-                <React.Fragment key={fakultasItem.nama}>
-                  <BarisGrup label={fakultasItem.nama} tingkat="fakultas" />
-
-                  {fakultasItem.lintasProdi.length > 0 && (
-                    <>
-                      <BarisGrup label="Lintas prodi" tingkat="prodi" />
-                      {fakultasItem.lintasProdi.map((item) => (
-                        <BarisMateri
-                          key={item.slug}
-                          materi={bySlug.get(item.slug)!}
-                          pending={pending}
-                          onEdit={openEdit}
-                          onStatus={handleStatus}
-                          onDelete={handleDelete}
-                        />
-                      ))}
-                    </>
-                  )}
-
-                  {fakultasItem.prodi.map((prodiItem) => (
-                    <React.Fragment key={prodiItem.nama}>
-                      <BarisGrup label={prodiItem.nama} tingkat="prodi" />
-                      {prodiItem.materi.map((item) => (
-                        <BarisMateri
-                          key={item.slug}
-                          materi={bySlug.get(item.slug)!}
-                          pending={pending}
-                          onEdit={openEdit}
-                          onStatus={handleStatus}
-                          onDelete={handleDelete}
-                        />
-                      ))}
-                    </React.Fragment>
-                  ))}
-                </React.Fragment>
+              {tampil.map((materi) => (
+                <BarisMateri
+                  key={materi.slug}
+                  materi={materi}
+                  pending={pending}
+                  onEdit={openEdit}
+                  onStatus={handleStatus}
+                  onDelete={handleDelete}
+                />
               ))}
 
               {tampil.length === 0 && (
@@ -402,11 +417,10 @@ export function MateriManager({
                     colSpan={5}
                     className="py-10 text-center text-sm text-muted-foreground"
                   >
-                    Tidak ada materi{" "}
-                    {filterStatus === "TERBIT" ? "yang sudah terbit" : "berstatus draf"}.{" "}
+                    Tidak ada materi yang cocok dengan filter ini.{" "}
                     <button
                       type="button"
-                      onClick={() => setFilterStatus("semua")}
+                      onClick={resetFilter}
                       className="font-semibold text-primary hover:underline"
                     >
                       Tampilkan semua materi
@@ -691,31 +705,6 @@ export function MateriManager({
   );
 }
 
-function BarisGrup({
-  label,
-  tingkat = "umum",
-}: {
-  label: string;
-  tingkat?: "umum" | "fakultas" | "prodi";
-}) {
-  return (
-    <TableRow className="bg-secondary/60 hover:bg-secondary/60">
-      <TableCell colSpan={5} className="py-2">
-        <span
-          className={cn(
-            "text-xs font-bold uppercase tracking-[0.14em]",
-            tingkat === "umum" && "text-primary",
-            tingkat === "fakultas" && "text-foreground",
-            tingkat === "prodi" && "pl-4 font-semibold text-muted-foreground",
-          )}
-        >
-          {label}
-        </span>
-      </TableCell>
-    </TableRow>
-  );
-}
-
 function BarisMateri({
   materi,
   pending,
@@ -737,6 +726,18 @@ function BarisMateri({
         <p className="font-medium">{materi.judul}</p>
         <p className="mt-0.5 text-xs text-muted-foreground">
           {materi.matkul} · /materi/{materi.slug}
+        </p>
+        {/* Lingkup dulu disampaikan lewat baris grup; sekarang tiap baris
+            membawa labelnya sendiri supaya tabel bisa difilter bebas. */}
+        <p className="mt-1.5 flex flex-wrap items-center gap-1.5">
+          <span className="rounded-full border border-border px-1.5 py-0.5 text-[11px] text-muted-foreground">
+            {materi.fakultas ?? "Umum · lintas fakultas"}
+          </span>
+          {(materi.prodi || materi.fakultas) && (
+            <span className="rounded-full border border-border px-1.5 py-0.5 text-[11px] text-muted-foreground">
+              {materi.prodi ?? "Lintas prodi"}
+            </span>
+          )}
         </p>
       </TableCell>
       <TableCell className="text-muted-foreground">
