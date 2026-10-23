@@ -3,6 +3,8 @@ import 'package:flutter/material.dart';
 import '../core/api_client.dart';
 import '../core/models.dart';
 import '../widgets/common.dart';
+import '../widgets/lib_docx_import.dart';
+import '../widgets/markdown_text.dart';
 import 'karsa_lib_article_screen.dart';
 import 'karsa_lib_editor_screen.dart';
 
@@ -33,6 +35,17 @@ class _KarsaLibVaultScreenState extends State<KarsaLibVaultScreen> {
   }
   void _message(String message) {
     if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(message)));
+  }
+  Future<void> _importDocx() async {
+    await importDocxFlow(
+      context,
+      api: widget.api,
+      onMessage: _message,
+      onImported: (result) async {
+        await _reload();
+        await _edit(result.article);
+      },
+    );
   }
   Future<void> _act(LibArticle article, String action) async {
     if (_busy.contains(article.id)) return;
@@ -76,7 +89,13 @@ class _KarsaLibVaultScreenState extends State<KarsaLibVaultScreen> {
   Widget build(BuildContext context) => DefaultTabController(
     length: 3,
     child: Scaffold(
-      appBar: AppBar(title: const Text('Tulisan saya'), bottom: const TabBar(
+      appBar: AppBar(title: const Text('Tulisan saya'), actions: [
+        IconButton(
+          tooltip: 'Impor file .docx menjadi draf',
+          onPressed: _importDocx,
+          icon: const Icon(Icons.upload_file_outlined),
+        ),
+      ], bottom: const TabBar(
         tabs: [Tab(text: 'Draf'), Tab(text: 'Terbit'), Tab(text: 'Arsip')],
       )),
       floatingActionButton: FloatingActionButton.extended(onPressed: () => _edit(),
@@ -123,7 +142,7 @@ class _KarsaLibVaultScreenState extends State<KarsaLibVaultScreen> {
                 const SizedBox(height: 8),
                 Text(article.title, style: const TextStyle(fontSize: 19, fontWeight: FontWeight.w700, height: 1.35)),
                 const SizedBox(height: 8),
-                Text(article.body, maxLines: 2, overflow: TextOverflow.ellipsis, style: const TextStyle(fontSize: 14, height: 1.6, color: KarsaColors.muted)),
+                Text(markdownPlainPreview(article.body), maxLines: 2, overflow: TextOverflow.ellipsis, style: const TextStyle(fontSize: 14, height: 1.6, color: KarsaColors.muted)),
                 const SizedBox(height: 12),
                 if (status != 'DRAFT') Text('${article.views} pembaca · ${article.commentsCount} komentar',
                   style: const TextStyle(fontSize: 12, color: KarsaColors.muted)),

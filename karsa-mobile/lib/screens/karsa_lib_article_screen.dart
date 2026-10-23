@@ -5,6 +5,7 @@ import '../core/models.dart';
 import '../widgets/common.dart';
 import '../widgets/lib_report_dialog.dart';
 import '../widgets/lib_ai_sheet.dart';
+import '../widgets/markdown_text.dart';
 import 'karsa_lib_author_screen.dart';
 
 class KarsaLibArticleScreen extends StatefulWidget {
@@ -97,7 +98,6 @@ class _KarsaLibArticleScreenState extends State<KarsaLibArticleScreen> {
       if (snapshot.connectionState != ConnectionState.done) return const LoadingState();
       if (snapshot.hasError) return ErrorState(message: friendlyError(snapshot.error!), onRetry: () => setState(_load));
       final article = snapshot.data!;
-      final paragraphs = article.body.trim().split(RegExp(r'\n\s*\n')).map((part) => part.trim()).where((part) => part.isNotEmpty).toList();
       return Column(children: [
         Expanded(child: CustomScrollView(slivers: [
           SliverPadding(padding: const EdgeInsets.fromLTRB(KarsaSpace.gutter, KarsaSpace.md, KarsaSpace.gutter, KarsaSpace.xl),
@@ -125,13 +125,11 @@ class _KarsaLibArticleScreenState extends State<KarsaLibArticleScreen> {
                   label: Text('${_commentCount ?? article.commentsCount} komentar')),
               ]),
               const Divider(height: 32),
-              SelectionArea(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                for (var index = 0; index < paragraphs.length; index++) Padding(
-                  key: _paragraphKeys.putIfAbsent(index + 1, () => GlobalKey()),
-                  padding: EdgeInsets.only(bottom: index == paragraphs.length - 1 ? 0 : 16),
-                  child: Text(paragraphs[index], style: const TextStyle(fontSize: 16, height: 1.85, color: KarsaColors.ink)),
-                ),
-              ])),
+              SelectionArea(child: MarkdownBody(
+                body: article.body,
+                blockKeys: _paragraphKeys,
+                onTapLink: openMarkdownLink,
+              )),
               const Divider(height: 48),
               SectionHeading(key: _discussionKey, title: 'Diskusi', subtitle: 'Berbagi tanggapan dengan teman satu prodi.'),
             ]))),
