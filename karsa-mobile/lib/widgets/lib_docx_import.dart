@@ -15,23 +15,18 @@ Future<void> importDocxFlow(
   required void Function(String message) onMessage,
   required Future<void> Function(LibDocxImportResult result) onImported,
 }) async {
-  final picked = await FilePicker.platform.pickFiles(
+  final file = await FilePicker.pickFile(
     type: FileType.custom,
     allowedExtensions: ['docx'],
-    withData: true,
   );
   if (!context.mounted) return;
-  final file = (picked == null || picked.files.isEmpty) ? null : picked.files.first;
   if (file == null) return;
   if (!file.name.toLowerCase().endsWith('.docx')) {
     onMessage('Pilih file berekstensi .docx.');
     return;
   }
-  final bytes = file.bytes;
-  if (bytes == null) {
-    onMessage('File tidak dapat dibaca dari perangkat.');
-    return;
-  }
+  final bytes = await file.readAsBytes();
+  if (!context.mounted) return;
   showDialog<void>(
     context: context,
     barrierDismissible: false,
