@@ -496,6 +496,89 @@ class ApiClient {
     return LibArticle.fromJson(data);
   }
 
+  /// Impor file .docx menjadi DRAF artikel di server. Mengembalikan
+  /// draf beserta info konversi (mis. jumlah gambar yang dibuang).
+  Future<LibDocxImportResult> importLibDocx({
+    required String fileName,
+    required List<int> bytes,
+  }) async {
+    final data =
+        await _requestMultipart(
+              '/lib/articles/import-docx',
+              field: 'file',
+              fileName: fileName,
+              bytes: bytes,
+            )
+            as Map<String, dynamic>;
+    return LibDocxImportResult.fromJson(data);
+  }
+
+  /// Unggah satu file sebagai multipart/form-data. Menangani token,
+  /// penyegaran sesi, dan envelope respons persis seperti [_request];
+  /// byte file disimpan di memori agar unggahan bisa diulang setelah
+  /// refresh token.
+  Future<dynamic> _requestMultipart(
+    String path, {
+    required String field,
+    required String fileName,
+    required List<int> bytes,
+    bool retry = true,
+    Duration requestTimeout = const Duration(seconds: 60),
+  }) async {
+    final generation = _sessionGeneration;
+    final request = http.MultipartRequest('POST', endpoint(path))
+      ..headers['Accept'] = 'application/json'
+      ..files.add(
+        http.MultipartFile.fromBytes(field, bytes, filename: fileName),
+      );
+    if (_accessToken != null) {
+      request.headers['Authorization'] = 'Bearer $_accessToken';
+    }
+    final streamed = await _http.send(request).timeout(requestTimeout);
+    final response = await http.Response.fromStream(
+      streamed,
+    ).timeout(requestTimeout);
+    if (generation != _sessionGeneration) {
+      throw const ApiException(
+        'Sesi telah berubah. Silakan masuk kembali.',
+        statusCode: 401,
+      );
+    }
+    if (response.statusCode == 401 && retry && await _refresh()) {
+      if (generation != _sessionGeneration) {
+        throw const ApiException('Sesi telah berubah.', statusCode: 401);
+      }
+      return _requestMultipart(
+        path,
+        field: field,
+        fileName: fileName,
+        bytes: bytes,
+        retry: false,
+        requestTimeout: requestTimeout,
+      );
+    }
+    Map<String, dynamic> envelope;
+    try {
+      envelope = jsonDecode(response.body) as Map<String, dynamic>;
+    } catch (_) {
+      throw ApiException(
+        'Server memberikan respons yang tidak dapat dibaca.',
+        statusCode: response.statusCode,
+      );
+    }
+    if (response.statusCode < 200 ||
+        response.statusCode >= 300 ||
+        envelope['ok'] != true) {
+      final error = envelope['error'] as Map<String, dynamic>?;
+      throw ApiException(
+        error?['message'] as String? ?? 'Permintaan tidak dapat diproses.',
+        code: error?['code'] as String?,
+        statusCode: response.statusCode,
+      );
+    }
+    return envelope['data'];
+  }
+
   Future<LibArticle> updateLibArticle(
     String articleId, {
     required String action,

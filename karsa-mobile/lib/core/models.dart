@@ -193,6 +193,31 @@ class LibArticle {
   }
 }
 
+/// Hasil impor .docx: draf artikel yang dibuat server beserta info
+/// konversi (gambar yang dibuang dan peringatan dari konverter).
+class LibDocxImportResult {
+  const LibDocxImportResult({
+    required this.article,
+    required this.droppedImages,
+    required this.warnings,
+  });
+
+  final LibArticle article;
+  final int droppedImages;
+  final List<String> warnings;
+
+  factory LibDocxImportResult.fromJson(Map<String, dynamic> json) {
+    final info = json['import_info'] as Map<String, dynamic>? ?? const {};
+    return LibDocxImportResult(
+      article: LibArticle.fromJson(json),
+      droppedImages: (info['dropped_images'] as num?)?.toInt() ?? 0,
+      warnings: (info['warnings'] as List? ?? const [])
+          .map((item) => item.toString())
+          .toList(),
+    );
+  }
+}
+
 class LibAiQuota {
   const LibAiQuota({required this.tokenRemaining, required this.tokenLimit, required this.summaryRemaining,
     this.websearchTier = 'free', this.websearchLimit = 0, this.websearchRemaining = 0});

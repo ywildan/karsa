@@ -13,8 +13,11 @@ import {
   KARSA_LIB_ARTICLE_MAX_BODY,
   KARSA_LIB_ARTICLE_MAX_TITLE,
   KARSA_LIB_COMMENT_MAX_BODY,
+  KARSA_LIB_DOCX_MAX_BYTES,
   KARSA_LIB_PAGE_SIZE,
 } from "./constants";
+import { docxToMarkdown } from "./docx";
+import { articleBodyPreview } from "./markdown";
 
 type Failure = { ok: false; status: number; code: string; message: string };
 type Success<T> = { ok: true; data: T; status?: number };
@@ -244,7 +247,7 @@ export async function listFeed(
     ok: true,
     data: rows.map((row) => ({
       ...row,
-      body_preview: row.body.length > 220 ? `${row.body.slice(0, 217).trimEnd()}…` : row.body,
+      body_preview: articleBodyPreview(row.body),
       author: {
         id: row.author_id,
         name: displayName(row.author.libProfile?.display_name, "Mahasiswa Karsa"),
@@ -300,7 +303,7 @@ export async function getAuthorProfile(actor: MobileActor, authorId: string): Pr
   });
   const serialized = articles.map((article) => ({
     ...article,
-    body_preview: article.body.length > 220 ? `${article.body.slice(0, 217).trimEnd()}…` : article.body,
+    body_preview: articleBodyPreview(article.body),
     views: article._count.views,
     comments_count: article._count.comments,
     _count: undefined,
@@ -382,6 +385,69 @@ export async function createArticle(actor: MobileActor, input: unknown): Promise
     select: { id: true, title: true, body: true, status: true, created_at: true, updated_at: true },
   });
   return { ok: true, data: row, status: 201 };
+}
+
+/**
+ * Impor file .docx menjadi DRAF artikel Markdown. Judul diambil dari
+ * heading pertama dokumen; bila tidak ada, dari nama file. Penulis tetap
+ * meninjau dan menerbitkan drafnya sendiri lewat alur vault biasa.
+ */
+export async function importDocxArticle(
+  actor: MobileActor,
+  input: { file_name: string; data: Buffer },
+): Promise<LibResult<unknown>> {
+  const denied = writerError(actor);
+  if (denied) return denied;
+  if (!/\.docx$/i.test(input.file_name.trim())) {
+    return fail(400, "DOCX_EXTENSION_REQUIRED", "File harus berekstensi .docx.");
+  }
+  if (input.data.length === 0) {
+    return fail(400, "DOCX_EMPTY", "File .docx kosong.");
+  }
+  if (input.data.length > KARSA_LIB_DOCX_MAX_BYTES) {
+    return fail(413, "DOCX_TOO_LARGE", `Ukuran file .docx maksimal ${Math.floor(KARSA_LIB_DOCX_MAX_BYTES / (1024 * 1024))} MB.`);
+  }
+
+  let converted;
+  try {
+    converted = await docxToMarkdown(input.data);
+  } catch {
+    return fail(400, "DOCX_INVALID", "File .docx tidak dapat dibaca. Pastikan file tidak rusak dan bukan format .doc lama.");
+  }
+  if (!converted.markdown) {
+    return fail(400, "DOCX_EMPTY", "Dokumen tidak berisi teks yang dapat dijadikan artikel.");
+  }
+  if (converted.markdown.length > KARSA_LIB_ARTICLE_MAX_BODY) {
+    return fail(
+      400,
+      "DOCX_TOO_LONG",
+      `Hasil konversi ${converted.markdown.length.toLocaleString("id-ID")} karakter, melebihi batas isi artikel ${KARSA_LIB_ARTICLE_MAX_BODY.toLocaleString("id-ID")} karakter. Perpendek dokumen lalu coba lagi.`,
+    );
+  }
+
+  const fallbackTitle = input.file_name.replace(/\.docx$/i, "").trim();
+  const parsed = articleInputSchema.safeParse({
+    title: converted.title ?? fallbackTitle,
+    body: converted.markdown,
+  });
+  if (!parsed.success) return fail(400, "INVALID_ARTICLE", parsed.error.issues[0]?.message ?? "Artikel tidak valid.");
+  const profile = requiredProfile(actor)!;
+  const row = await prisma.libArticle.create({
+    data: { author_id: actor.id, prodi_id: profile.prodi_id, ...parsed.data },
+    select: { id: true, title: true, body: true, status: true, created_at: true, updated_at: true },
+  });
+  return {
+    ok: true,
+    status: 201,
+    data: {
+      ...row,
+      import_info: {
+        source_file: input.file_name,
+        dropped_images: converted.droppedImages,
+        warnings: converted.warnings,
+      },
+    },
+  };
 }
 
 export async function updateArticle(actor: MobileActor, articleId: string, input: unknown): Promise<LibResult<unknown>> {

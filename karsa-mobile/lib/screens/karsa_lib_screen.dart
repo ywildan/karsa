@@ -6,6 +6,7 @@ import 'package:flutter/material.dart';
 import '../core/api_client.dart';
 import '../core/models.dart';
 import '../widgets/common.dart';
+import '../widgets/lib_docx_import.dart';
 import '../widgets/lib_report_dialog.dart';
 import 'karsa_lib_editor_screen.dart';
 import 'karsa_lib_author_request_screen.dart';
@@ -150,6 +151,7 @@ class _KarsaLibScreenState extends State<KarsaLibScreen> {
       tooltip: 'Menu Karsa Lib',
       onSelected: (value) {
         if (value == 'vault') _openVault();
+        if (value == 'import') _importDocx();
         if (value == 'request') _authorRequest();
         if (value == 'profile') Navigator.of(context).push<void>(MaterialPageRoute(
           builder: (_) => KarsaLibAuthorScreen(api: widget.api, authorId: widget.user.id)));
@@ -157,6 +159,7 @@ class _KarsaLibScreenState extends State<KarsaLibScreen> {
       itemBuilder: (_) => [
         if (bootstrap.canWrite) ...[
           const PopupMenuItem(value: 'vault', child: Text('Tulisan saya')),
+          const PopupMenuItem(value: 'import', child: Text('Impor dari .docx')),
           const PopupMenuItem(value: 'profile', child: Text('Profil penulis saya')),
         ] else PopupMenuItem(value: 'request', enabled: !pending,
             child: Text(pending ? 'Permohonan sedang ditinjau' : 'Ajukan akses penulis')),
@@ -373,6 +376,20 @@ class _KarsaLibScreenState extends State<KarsaLibScreen> {
   Future<void> _openVault() async {
     await Navigator.of(context).push<void>(MaterialPageRoute(builder: (_) => KarsaLibVaultScreen(api: widget.api)));
     if (mounted) await _refresh();
+  }
+
+  Future<void> _importDocx() async {
+    await importDocxFlow(
+      context,
+      api: widget.api,
+      onMessage: _message,
+      onImported: (result) async {
+        // Buka draf hasil impor di editor untuk ditinjau penulis.
+        final saved = await Navigator.of(context).push<bool>(MaterialPageRoute(
+          builder: (_) => KarsaLibEditorScreen(api: widget.api, article: result.article)));
+        if (mounted && saved == true) await _refresh();
+      },
+    );
   }
 
   Future<void> _compose(BuildContext context) async {
