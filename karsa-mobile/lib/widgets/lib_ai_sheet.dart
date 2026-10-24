@@ -427,15 +427,20 @@ class _LibAiSheetState extends State<_LibAiSheet> {
       child: Text(_error!, style: const TextStyle(fontSize: KarsaType.caption, color: KarsaColors.muted))),
   ]);
 
-  /// Composer gaya chat modern: satu container membulat berisi kolom teks
+  /// Composer gaya chat modern: satu bar gelap membulat berisi kolom teks
   /// di baris atas dan baris aksi (chip "Cari web" + tombol kirim) di
-  /// baris bawah. Struktur widget selalu sama walau keyboard buka/tutup,
-  /// supaya fokus TextField tidak terlepas saat inset berubah.
+  /// baris bawah — mengikuti bar input referensi (teks atas, pill aksi
+  /// bawah, tombol kirim di kanan). Struktur widget selalu sama walau
+  /// keyboard buka/tutup, supaya fokus TextField tidak terlepas saat
+  /// inset berubah.
   ///
   /// Perilaku tidak berubah: toggle web search tetap one-shot (reset
   /// setelah kirim), dialog kuota habis, dan logika kirim sama persis.
   /// Status aktif chip ditandai bentuk + label (bukan hanya warna) dan
   /// disampaikan ke pembaca layar lewat tooltip/selected.
+  /// Pill "Berpikir" dan tombol suara/lampiran dari referensi sengaja
+  /// tidak dibuat: Teman baca tidak punya mode berpikir maupun input
+  /// suara, jadi pill/tombol itu akan jadi pajangan tanpa fungsi.
   Widget _composer() {
     final keyboardOpen = MediaQuery.viewInsetsOf(context).bottom > 0;
     final quotaAvailable = (_quota?.tokenRemaining ?? 0) > 0;
@@ -449,23 +454,25 @@ class _LibAiSheetState extends State<_LibAiSheet> {
         const SizedBox(height: 8),
         Container(
           decoration: BoxDecoration(
-            color: KarsaColors.card,
-            border: Border.all(color: KarsaColors.border),
-            borderRadius: BorderRadius.circular(KarsaRadius.card),
+            color: KarsaColors.composerBar,
+            borderRadius: BorderRadius.circular(28),
           ),
           child: Column(mainAxisSize: MainAxisSize.min, children: [
             Padding(
-              padding: const EdgeInsets.fromLTRB(14, 10, 6, 0),
+              padding: const EdgeInsets.fromLTRB(16, 12, 8, 0),
               child: TextField(controller: _question, focusNode: _focus,
                 enabled: quotaAvailable, minLines: 1, maxLines: 3, maxLength: 600,
                 textInputAction: TextInputAction.newline,
+                style: const TextStyle(color: Colors.white),
+                cursorColor: Colors.white,
                 onEditingComplete: () {}, onSubmitted: (_) {},
-                decoration: const InputDecoration(
+                decoration: InputDecoration(
                   hintText: 'Tanya tentang materi…', counterText: '',
+                  hintStyle: TextStyle(color: Colors.white.withValues(alpha: 0.55)),
                   border: InputBorder.none, contentPadding: EdgeInsets.zero)),
             ),
             Padding(
-              padding: const EdgeInsets.fromLTRB(8, 2, 6, 6),
+              padding: const EdgeInsets.fromLTRB(10, 4, 8, 8),
               child: Row(children: [
                 Tooltip(
                   message: _webSearchArmed
@@ -482,17 +489,21 @@ class _LibAiSheetState extends State<_LibAiSheet> {
                           color: _webSearchArmed ? KarsaColors.tintStrong : null,
                           border: Border.all(color: _webSearchArmed
                               ? KarsaColors.tintStrong
-                              : KarsaColors.border),
+                              : Colors.white.withValues(alpha: 0.4)),
                           borderRadius: BorderRadius.circular(999),
                         ),
                         child: Row(mainAxisSize: MainAxisSize.min, children: [
                           Icon(_webSearchArmed ? Icons.public_rounded : Icons.public_outlined,
                             size: 16,
-                            color: _webSearchArmed ? KarsaColors.accentInk : KarsaColors.muted),
+                            color: _webSearchArmed
+                                ? KarsaColors.accentInk
+                                : Colors.white.withValues(alpha: 0.7)),
                           const SizedBox(width: 5),
                           Text('Cari web',
                             style: TextStyle(fontSize: KarsaType.caption, fontWeight: FontWeight.w700,
-                              color: _webSearchArmed ? KarsaColors.accentInk : KarsaColors.muted)),
+                              color: _webSearchArmed
+                                  ? KarsaColors.accentInk
+                                  : Colors.white.withValues(alpha: 0.7))),
                           if (_webSearchArmed) ...[
                             const SizedBox(width: 5),
                             const Text('· sekali',

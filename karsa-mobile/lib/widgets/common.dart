@@ -23,6 +23,12 @@ abstract final class KarsaColors {
   /// Wash lebih kuat untuk avatar, border notice, dan lingkaran empty state.
   static const tintStrong = Color(0xFFF3E1CF);
 
+  /// Latar bar composer Teman baca: abu gelap seperti bar input chat
+  /// modern, sengaja gelap di atas sheet krem supaya composer menonjol
+  /// dan teks putih di dalamnya terbaca. Chip aktif tetap memakai
+  /// tintStrong krem supaya statusnya kontras dengan bar.
+  static const composerBar = Color(0xFF2E2E2E);
+
   static const success = Color(0xFF3F6B45);
   static const danger = Color(0xFFA63A24);
 }
