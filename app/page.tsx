@@ -68,7 +68,7 @@ const TANYA = [
   },
   {
     q: "Apakah ada aplikasi Android?",
-    a: "Ada, untuk PJ yang mencatat langsung dari HP saat kelas berjalan. APK dirilis lewat GitHub Releases dan versi terbarunya tertaut di footer halaman ini.",
+    a: "Ada, untuk PJ yang mencatat langsung dari HP saat kelas berjalan. APK dirilis lewat GitHub Releases dan versi terbarunya ada di halaman unduh.",
   },
 ] as const;
 
@@ -233,9 +233,7 @@ export default async function HomePage() {
                   <Link href="/login">Masuk dengan Google</Link>
                 </Button>
                 <Button asChild variant="outline" className="w-full sm:w-auto">
-                  <a href="https://github.com/ywildan/karsa/releases/latest">
-                    APK Android
-                  </a>
+                  <Link href="/unduh">APK Android</Link>
                 </Button>
               </div>
             </div>

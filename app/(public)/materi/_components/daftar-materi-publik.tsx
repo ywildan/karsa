@@ -42,7 +42,9 @@ import {
 } from "@/lib/materi";
 
 /** Kanal unduh yang sama dengan footer publik. */
-const KANAL_UNDUH = "https://github.com/ywildan/karsa/releases/latest";
+// Dialog ini mengantar ke halaman /unduh (bukan langsung ke GitHub),
+// supaya pembaca melihat versi terbaru dan daftar Yang baru dulu.
+const KANAL_UNDUH = "/unduh";
 
 /** "Fakultas Teknik" → "fakultas-teknik" (untuk id anchor). */
 function buatId(nama: string): string {
@@ -486,9 +488,7 @@ export function DaftarMateriPublik({
               <Button variant="ghost">Tutup</Button>
             </DialogClose>
             <Button asChild>
-              <a href={KANAL_UNDUH} target="_blank" rel="noreferrer">
-                Unduh Karsa mobile
-              </a>
+              <a href={KANAL_UNDUH}>Unduh Karsa mobile</a>
             </Button>
           </DialogFooter>
         </DialogContent>

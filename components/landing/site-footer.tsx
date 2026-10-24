@@ -10,11 +10,9 @@ const TAUTAN = [
   { href: "/materi", label: "Materi & kisi-kisi" },
   { href: "/syarat-penggunaan", label: "Syarat Penggunaan" },
   { href: "/kebijakan-privasi", label: "Kebijakan Privasi" },
-  {
-    href: "https://github.com/ywildan/karsa/releases/latest",
-    label: "APK Android",
-    external: true,
-  },
+  // Kanal unduh mengantar ke halaman /unduh, bukan langsung ke GitHub:
+  // di sana ada versi terbaru, daftar Yang baru, dan tombol instal.
+  { href: "/unduh", label: "APK Android" },
 ] as const;
 
 export function SiteFooter() {
