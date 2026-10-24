@@ -427,52 +427,90 @@ class _LibAiSheetState extends State<_LibAiSheet> {
       child: Text(_error!, style: const TextStyle(fontSize: KarsaType.caption, color: KarsaColors.muted))),
   ]);
 
-  /// Composer selalu memakai struktur widget yang sama walau keyboard
-  /// buka/tutup: hanya visibilitas teks pembantu yang berubah, bukan
-  /// kehadiran widgetnya. Mengganti kehadiran widget saat inset berubah
-  /// menggeser layout dan membuat fokus TextField terlepas.
+  /// Composer gaya chat modern: satu container membulat berisi kolom teks
+  /// di baris atas dan baris aksi (chip "Cari web" + tombol kirim) di
+  /// baris bawah. Struktur widget selalu sama walau keyboard buka/tutup,
+  /// supaya fokus TextField tidak terlepas saat inset berubah.
+  ///
+  /// Perilaku tidak berubah: toggle web search tetap one-shot (reset
+  /// setelah kirim), dialog kuota habis, dan logika kirim sama persis.
+  /// Status aktif chip ditandai bentuk + label (bukan hanya warna) dan
+  /// disampaikan ke pembaca layar lewat tooltip/selected.
   Widget _composer() {
     final keyboardOpen = MediaQuery.viewInsetsOf(context).bottom > 0;
+    final quotaAvailable = (_quota?.tokenRemaining ?? 0) > 0;
     return SafeArea(top: false, child: Padding(
       padding: const EdgeInsets.fromLTRB(14, 8, 14, 10),
       child: Column(mainAxisSize: MainAxisSize.min, children: [
-        AnimatedOpacity(
-          duration: const Duration(milliseconds: 150),
-          opacity: keyboardOpen ? 0 : 1,
-          child: IgnorePointer(
-            ignoring: keyboardOpen,
-            child: Text('Sisa token bulan ini: ${formatTokenCount(_quota?.tokenRemaining ?? 0)}',
-              style: const TextStyle(fontSize: KarsaType.caption, color: KarsaColors.muted)),
-          ),
-        ),
+        // Sisa token selalu terlihat, termasuk saat keyboard terbuka:
+        // keputusan memakai web search (kuota sendiri) diambil saat mengetik.
+        Text('Sisa token bulan ini: ${formatTokenCount(_quota?.tokenRemaining ?? 0)}',
+          style: const TextStyle(fontSize: KarsaType.caption, color: KarsaColors.muted)),
         const SizedBox(height: 8),
-        Row(crossAxisAlignment: CrossAxisAlignment.end, children: [
-          // Status aktif ditandai bentuk (ikon berisi + lingkaran wash), bukan
-          // hanya warna, dan disampaikan ke pembaca layar lewat tooltip/selected.
-          Semantics(
-            selected: _webSearchArmed,
-            child: Container(
-              decoration: _webSearchArmed
-                  ? const BoxDecoration(color: KarsaColors.tintStrong, shape: BoxShape.circle)
-                  : null,
-              child: IconButton(
-                tooltip: _webSearchArmed ? 'Web search aktif untuk pertanyaan berikut' : 'Aktifkan web search',
-                onPressed: _sending ? null : _onWebSearchTap,
-                icon: Icon(_webSearchArmed ? Icons.public_rounded : Icons.public_outlined,
-                  color: _webSearchArmed ? KarsaColors.accentInk : KarsaColors.muted),
-              ),
-            ),
+        Container(
+          decoration: BoxDecoration(
+            color: KarsaColors.card,
+            border: Border.all(color: KarsaColors.border),
+            borderRadius: BorderRadius.circular(KarsaRadius.card),
           ),
-          const SizedBox(width: 4),
-          Expanded(child: TextField(controller: _question, focusNode: _focus,
-            enabled: (_quota?.tokenRemaining ?? 0) > 0, minLines: 1, maxLines: 3, maxLength: 600,
-            textInputAction: TextInputAction.newline,
-            onEditingComplete: () {}, onSubmitted: (_) {},
-            decoration: const InputDecoration(hintText: 'Tanya tentang materi…', counterText: ''))),
-          const SizedBox(width: 8),
-          IconButton.filled(tooltip: 'Kirim pertanyaan', onPressed: _sending || (_quota?.tokenRemaining ?? 0) == 0 ? null : _send,
-            icon: const Icon(Icons.arrow_upward_rounded)),
-        ]),
+          child: Column(mainAxisSize: MainAxisSize.min, children: [
+            Padding(
+              padding: const EdgeInsets.fromLTRB(14, 10, 6, 0),
+              child: TextField(controller: _question, focusNode: _focus,
+                enabled: quotaAvailable, minLines: 1, maxLines: 3, maxLength: 600,
+                textInputAction: TextInputAction.newline,
+                onEditingComplete: () {}, onSubmitted: (_) {},
+                decoration: const InputDecoration(
+                  hintText: 'Tanya tentang materi…', counterText: '',
+                  border: InputBorder.none, contentPadding: EdgeInsets.zero)),
+            ),
+            Padding(
+              padding: const EdgeInsets.fromLTRB(8, 2, 6, 6),
+              child: Row(children: [
+                Tooltip(
+                  message: _webSearchArmed
+                      ? 'Web search aktif untuk pertanyaan berikut'
+                      : 'Aktifkan web search',
+                  child: Semantics(
+                    selected: _webSearchArmed,
+                    child: InkWell(
+                      borderRadius: BorderRadius.circular(999),
+                      onTap: _sending ? null : _onWebSearchTap,
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                        decoration: BoxDecoration(
+                          color: _webSearchArmed ? KarsaColors.tintStrong : null,
+                          border: Border.all(color: _webSearchArmed
+                              ? KarsaColors.tintStrong
+                              : KarsaColors.border),
+                          borderRadius: BorderRadius.circular(999),
+                        ),
+                        child: Row(mainAxisSize: MainAxisSize.min, children: [
+                          Icon(_webSearchArmed ? Icons.public_rounded : Icons.public_outlined,
+                            size: 16,
+                            color: _webSearchArmed ? KarsaColors.accentInk : KarsaColors.muted),
+                          const SizedBox(width: 5),
+                          Text('Cari web',
+                            style: TextStyle(fontSize: KarsaType.caption, fontWeight: FontWeight.w700,
+                              color: _webSearchArmed ? KarsaColors.accentInk : KarsaColors.muted)),
+                          if (_webSearchArmed) ...[
+                            const SizedBox(width: 5),
+                            const Text('· sekali',
+                              style: TextStyle(fontSize: KarsaType.caption, color: KarsaColors.accentInk)),
+                          ],
+                        ]),
+                      ),
+                    ),
+                  ),
+                ),
+                const Spacer(),
+                IconButton.filled(tooltip: 'Kirim pertanyaan',
+                  onPressed: _sending || !quotaAvailable ? null : _send,
+                  icon: const Icon(Icons.arrow_upward_rounded)),
+              ]),
+            ),
+          ]),
+        ),
         AnimatedOpacity(
           duration: const Duration(milliseconds: 150),
           opacity: keyboardOpen ? 0 : 1,
