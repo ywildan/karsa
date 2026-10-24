@@ -264,14 +264,17 @@ class _LibAiSheetState extends State<_LibAiSheet> {
     await _send();
   }
 
-  /// Bubble pertanyaan pengirim: rata kanan, tanpa kotak oranye, dibuat
-  /// ramping (tanpa padding) — tingginya tinggal tinggi teks, lebarnya
-  /// mengikuti panjang teks sampai batas 80% lebar layar.
+  /// Bubble pertanyaan pengirim: rata kanan, oranye muda, lebar mengikuti teks.
   Widget _questionBubble(String text) => Align(
     alignment: Alignment.centerRight,
     child: Container(
-      margin: const EdgeInsets.only(top: 8, bottom: 4),
+      margin: const EdgeInsets.only(top: 12, bottom: 8),
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
       constraints: BoxConstraints(maxWidth: MediaQuery.of(context).size.width * 0.8),
+      decoration: BoxDecoration(
+        color: KarsaColors.orange.withValues(alpha: 0.12),
+        borderRadius: BorderRadius.circular(16),
+      ),
       child: Text(text, style: const TextStyle(fontSize: KarsaType.bodyLarge, fontWeight: FontWeight.w600)),
     ),
   );
@@ -473,13 +476,8 @@ class _LibAiSheetState extends State<_LibAiSheet> {
                     child: InkWell(
                       borderRadius: BorderRadius.circular(999),
                       onTap: _sending ? null : _onWebSearchTap,
-                      // Chip dibuat setinggi tombol kirim (48) supaya
-                      // keduanya sama besar: tinggi tetap, konten
-                      // diratakan tengah, lebar mengikuti label.
                       child: Container(
-                        height: 48,
-                        alignment: Alignment.center,
-                        padding: const EdgeInsets.symmetric(horizontal: 10),
+                        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
                         decoration: BoxDecoration(
                           color: _webSearchArmed ? KarsaColors.tintStrong : null,
                           border: Border.all(color: _webSearchArmed
