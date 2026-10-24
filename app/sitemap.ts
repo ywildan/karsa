@@ -26,6 +26,12 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
       changeFrequency: "weekly",
       priority: 0.9,
     },
+    {
+      url: `${BASE_URL}/unduh`,
+      lastModified: now,
+      changeFrequency: "weekly",
+      priority: 0.8,
+    },
     ...materi.map((item) => ({
       // Entri statis pra-migrasi disajikan sebagai berkas .html.
       url: `${BASE_URL}${item.statis ? `/materi/${item.slug}.html` : materiHref(item.slug)}`,
