@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Tampil selama proses start. Warna dan logo disamakan dengan splash
+         Flutter agar peralihan ke frame pertama tidak berkedip. -->
+    <style name="LaunchTheme" parent="@android:style/Theme.Light.NoTitleBar">
+        <item name="android:windowBackground">@drawable/splash_background</item>
+        <item name="android:statusBarColor">#FFFBF7</item>
+        <item name="android:windowLightStatusBar">true</item>
+    </style>
+    <!-- Dipakai FlutterActivity setelah FlutterView dibuat. Latar cream
+         mencegah kedipan putih/hitam sebelum frame Flutter digambar. -->
+    <style name="NormalTheme" parent="@android:style/Theme.Light.NoTitleBar">
+        <item name="android:windowBackground">#FFFBF7</item>
+    </style>
+</resources>

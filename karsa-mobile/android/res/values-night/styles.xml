@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Aplikasi selalu terang (KarsaApp memakai Brightness.light), jadi
+         mode gelap OS tetap memakai latar cream yang sama. -->
+    <style name="LaunchTheme" parent="@android:style/Theme.Light.NoTitleBar">
+        <item name="android:windowBackground">@drawable/splash_background</item>
+        <item name="android:statusBarColor">#FFFBF7</item>
+        <item name="android:windowLightStatusBar">true</item>
+    </style>
+    <style name="NormalTheme" parent="@android:style/Theme.Light.NoTitleBar">
+        <item name="android:windowBackground">#FFFBF7</item>
+    </style>
+</resources>

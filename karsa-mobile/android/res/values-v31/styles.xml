@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Android 12+ mengabaikan windowBackground dan memakai splash screen
+         sistem, sehingga warna serta ikonnya harus dideklarasikan di sini. -->
+    <style name="LaunchTheme" parent="@android:style/Theme.Light.NoTitleBar">
+        <item name="android:windowSplashScreenBackground">#FFFBF7</item>
+        <item name="android:windowSplashScreenAnimatedIcon">@drawable/splash_logo</item>
+        <item name="android:windowSplashScreenIconBackgroundColor">#CF6A12</item>
+        <item name="android:windowBackground">#FFFBF7</item>
+        <item name="android:statusBarColor">#FFFBF7</item>
+        <item name="android:windowLightStatusBar">true</item>
+    </style>
+</resources>

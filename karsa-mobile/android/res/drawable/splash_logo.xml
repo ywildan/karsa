@@ -1,0 +1,26 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Bentuk setara _LogoMark: kotak oranye beradius 28% dengan huruf K putih. -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="96dp"
+    android:height="96dp"
+    android:viewportWidth="1024"
+    android:viewportHeight="1024">
+    <path
+        android:fillColor="#CF6A12"
+        android:pathData="M287,0 L737,0 A287,287 0 0 1 1024,287 L1024,737 A287,287 0 0 1 737,1024 L287,1024 A287,287 0 0 1 0,737 L0,287 A287,287 0 0 1 287,0 Z" />
+    <path
+        android:pathData="M391.5,258 L391.5,765"
+        android:strokeColor="#FFFFFF"
+        android:strokeLineCap="round"
+        android:strokeWidth="119.5" />
+    <path
+        android:pathData="M452,462 L687,254"
+        android:strokeColor="#FFFFFF"
+        android:strokeLineCap="round"
+        android:strokeWidth="111.5" />
+    <path
+        android:pathData="M450,560 L688,768"
+        android:strokeColor="#FFFFFF"
+        android:strokeLineCap="round"
+        android:strokeWidth="111.5" />
+</vector>
