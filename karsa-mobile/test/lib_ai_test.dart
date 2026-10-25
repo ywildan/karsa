@@ -77,7 +77,9 @@ void main() {
     await tester.enterText(question, 'Apa inti materi?');
     await tester.tap(find.byTooltip('Kirim pertanyaan'));
     await tester.pump();
-    expect(tester.widget<TextField>(question).enabled, isTrue);
+    // `enabled` bernilai null berarti aktif (default TextField); yang
+    // diuji: kolom tidak ikut terkunci selama menunggu jawaban.
+    expect(tester.widget<TextField>(question).enabled, isNot(false));
     await tester.enterText(question, 'Pertanyaan selanjutnya');
     api.response.complete({'id': 'turn', 'question': 'Apa inti materi?', 'answer': 'Jawaban dari artikel.',
       'sources': [1], 'quota': {'token_remaining': 380000, 'token_limit': 400000, 'summary_remaining': 3}});
