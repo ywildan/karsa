@@ -237,21 +237,81 @@ class KarsaApp extends StatelessWidget {
   }
 }
 
-class _SplashScreen extends StatelessWidget {
+class _SplashScreen extends StatefulWidget {
   const _SplashScreen();
 
   @override
-  Widget build(BuildContext context) => const Scaffold(
-    body: Center(
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          _LogoMark(size: 64),
-          SizedBox(height: 20),
-          CircularProgressIndicator(),
-        ],
+  State<_SplashScreen> createState() => _SplashScreenState();
+}
+
+class _SplashScreenState extends State<_SplashScreen> with SingleTickerProviderStateMixin {
+  late final AnimationController _controller = AnimationController(
+    vsync: this,
+    duration: const Duration(milliseconds: 700),
+  )..forward();
+  late final Animation<double> _logoOpacity = CurvedAnimation(
+    parent: _controller, curve: const Interval(0, .55, curve: Curves.easeOut));
+  late final Animation<double> _logoScale = Tween<double>(begin: .96, end: 1).animate(
+    CurvedAnimation(parent: _controller, curve: const Interval(0, .55, curve: Curves.easeOutCubic)));
+  late final Animation<double> _copyOpacity = CurvedAnimation(
+    parent: _controller, curve: const Interval(.25, .85, curve: Curves.easeOut));
+  late final Animation<Offset> _copySlide = Tween<Offset>(begin: const Offset(0, .06), end: Offset.zero).animate(
+    CurvedAnimation(parent: _controller, curve: const Interval(.25, .85, curve: Curves.easeOutCubic)));
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    // Animasi dekoratif saja: pengguna yang menonaktifkan animasi langsung
+    // melihat versi akhir, tanpa mengubah status loading.
+    if (MediaQuery.disableAnimationsOf(context)) _controller.value = 1;
+  }
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) => Scaffold(
+    body: SafeArea(child: Center(child: SingleChildScrollView(
+      padding: const EdgeInsets.all(KarsaSpace.xl),
+      child: Semantics(
+        label: 'SiKarsa sedang menyiapkan aplikasi',
+        container: true,
+        child: Column(mainAxisSize: MainAxisSize.min, children: [
+          FadeTransition(
+            opacity: _logoOpacity,
+            child: ScaleTransition(scale: _logoScale, child: const _LogoMark(size: 96)),
+          ),
+          const SizedBox(height: 24),
+          FadeTransition(
+            opacity: _copyOpacity,
+            child: SlideTransition(position: _copySlide, child: const Column(mainAxisSize: MainAxisSize.min, children: [
+              Text('SiKarsa', style: TextStyle(
+                fontSize: KarsaType.display,
+                fontWeight: FontWeight.w800,
+                letterSpacing: -.3,
+                color: KarsaColors.ink,
+              )),
+              SizedBox(height: 6),
+              Text('Poin keaktifan, materi, dan diskusi kelas.',
+                textAlign: TextAlign.center,
+                style: TextStyle(fontSize: KarsaType.body, height: 1.5, color: KarsaColors.muted)),
+            ])),
+          ),
+          const SizedBox(height: 36),
+          const SizedBox(width: 96, height: 3, child: ClipRRect(
+            borderRadius: BorderRadius.all(Radius.circular(999)),
+            child: LinearProgressIndicator(
+              minHeight: 3,
+              color: KarsaColors.accentInk,
+              backgroundColor: KarsaColors.tintStrong,
+            ),
+          )),
+        ]),
       ),
-    ),
+    ))),
   );
 }
 
