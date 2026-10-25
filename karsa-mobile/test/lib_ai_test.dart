@@ -47,14 +47,13 @@ void main() {
     expect(state.quota, isNull);
   });
 
-  testWidgets('development buttons cannot open a sheet or request AI', (tester) async {
+  testWidgets('development backend leaves the Teman baca action disabled', (tester) async {
     final api = ArticleAiApi(enabled: false);
     await tester.pumpWidget(MaterialApp(home: KarsaLibArticleScreen(api: api, articleId: 'a')));
     await tester.pumpAndSettle();
-    expect(find.text('Dalam pengembangan'), findsOneWidget);
-    expect(tester.widget<OutlinedButton>(find.widgetWithText(OutlinedButton, 'Ringkas')).onPressed, isNull);
-    expect(tester.widget<FilledButton>(find.widgetWithText(FilledButton, 'Tanya AI')).onPressed, isNull);
-    await tester.tap(find.text('Tanya AI'));
+    final aiAction = find.widgetWithIcon(IconButton, Icons.auto_awesome_outlined);
+    expect(tester.widget<IconButton>(aiAction).onPressed, isNull);
+    await tester.tap(aiAction, warnIfMissed: false);
     await tester.pumpAndSettle();
     expect(api.stateCalls, 0);
     expect(api.providerCalls, 0);
@@ -69,7 +68,7 @@ void main() {
     final api = ArticleAiApi(enabled: true);
     await tester.pumpWidget(MaterialApp(home: KarsaLibArticleScreen(api: api, articleId: 'a')));
     await tester.pumpAndSettle();
-    await tester.tap(find.text('Tanya AI'));
+    await tester.tap(find.widgetWithIcon(IconButton, Icons.auto_awesome_outlined));
     await tester.pumpAndSettle();
     final question = find.byWidgetPredicate((widget) => widget is TextField && widget.decoration?.hintText == 'Tanya tentang materi…');
     tester.view.viewInsets = const FakeViewPadding(bottom: 280);

@@ -95,6 +95,20 @@ class _KarsaLibArticleScreenState extends State<KarsaLibArticleScreen> {
   @override
   Widget build(BuildContext context) => Scaffold(
     appBar: AppBar(title: const Text('Artikel'), actions: [
+      // Pintu masuk Teman baca ada di header supaya bar bawah hanya dipakai
+      // untuk komentar; dua tab (Ringkasan/Tanya materi) tetap ada di sheet.
+      FutureBuilder<LibArticle>(future: _article, builder: (context, snapshot) {
+        final article = snapshot.data;
+        if (article == null) {
+          return const IconButton(tooltip: 'Teman baca', icon: Icon(Icons.auto_awesome_outlined), onPressed: null);
+        }
+        final enabled = article.aiEnabled && article.aiRevision != null;
+        return IconButton(
+          tooltip: enabled ? 'Teman baca' : 'Teman baca masih dalam pengembangan',
+          icon: const Icon(Icons.auto_awesome_outlined),
+          onPressed: enabled ? () => _openAi(article, summarize: false) : null,
+        );
+      }),
       IconButton(tooltip: 'Laporkan artikel', icon: const Icon(Icons.flag_outlined),
         onPressed: () => _report(articleId: widget.articleId)),
     ]),
@@ -153,26 +167,18 @@ class _KarsaLibArticleScreenState extends State<KarsaLibArticleScreen> {
             );
           }),
         ])),
-        _composer(article),
+        _composer(),
       ]);
     }),
   );
 
-  /// Bar komentar: permukaan putih ber-garis atas, preview AI, strip
-  /// balasan, lalu satu shell membulat berisi field borderless dan tombol
-  /// kirim. Pola ini sama dengan komposer chat grup.
-  Widget _composer(LibArticle article) => Container(
+  /// Bar komentar: permukaan putih ber-garis atas, strip balasan, lalu satu
+  /// shell membulat berisi field borderless dan tombol kirim. Pola ini sama
+  /// dengan komposer chat grup.
+  Widget _composer() => Container(
     decoration: const BoxDecoration(color: KarsaColors.card, border: Border(top: BorderSide(color: KarsaColors.border))),
     child: SafeArea(top: false, child: Padding(padding: const EdgeInsets.fromLTRB(KarsaSpace.gutter, 8, KarsaSpace.gutter, 10), child: Column(
       mainAxisSize: MainAxisSize.min, children: [
-        if (MediaQuery.viewInsetsOf(context).bottom == 0) ...[
-          _ArticleAiPreview(
-            enabled: article.aiEnabled && article.aiRevision != null,
-            onSummary: () => _openAi(article, summarize: true),
-            onAsk: () => _openAi(article, summarize: false),
-          ),
-          const SizedBox(height: 12),
-        ],
         if (_replyToId != null) ...[
           _replyStrip(),
           const SizedBox(height: 8),
@@ -382,101 +388,5 @@ class _KarsaLibArticleScreenState extends State<KarsaLibArticleScreen> {
   }
   void _message(String message, {KarsaSnackKind kind = KarsaSnackKind.neutral}) {
     if (mounted) showKarsaSnack(context, message, kind: kind);
-  }
-}
-
-/// Aktivasi mengikuti flag backend; backend lama otomatis tetap disabled.
-class _ArticleAiPreview extends StatelessWidget {
-  const _ArticleAiPreview({required this.enabled, required this.onSummary, required this.onAsk});
-  final bool enabled;
-  final VoidCallback onSummary;
-  final VoidCallback onAsk;
-
-  @override
-  Widget build(BuildContext context) {
-    final disabledColor = KarsaColors.muted.withValues(alpha: .75);
-    final shape = RoundedRectangleBorder(
-      borderRadius: BorderRadius.circular(12),
-    );
-    final summarize = OutlinedButton.icon(
-      onPressed: enabled ? onSummary : null,
-      style: OutlinedButton.styleFrom(
-        disabledForegroundColor: disabledColor,
-        minimumSize: const Size(0, 44),
-        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-        side: const BorderSide(color: KarsaColors.border),
-        shape: shape,
-      ),
-      icon: const Icon(Icons.auto_awesome_outlined, size: 18),
-      label: const Text('Ringkas'),
-    );
-    final ask = FilledButton.icon(
-      onPressed: enabled ? onAsk : null,
-      style: FilledButton.styleFrom(
-        disabledForegroundColor: disabledColor,
-        disabledBackgroundColor: KarsaColors.tintStrong,
-        minimumSize: const Size(0, 44),
-        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-        shape: shape,
-      ),
-      icon: const Icon(Icons.chat_bubble_outline_rounded, size: 18),
-      label: const Text('Tanya AI'),
-    );
-
-    return Column(
-      mainAxisSize: MainAxisSize.min,
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Wrap(
-          spacing: 8,
-          runSpacing: 4,
-          crossAxisAlignment: WrapCrossAlignment.center,
-          children: [
-            const Text(
-              'Teman baca',
-              style: TextStyle(
-                fontSize: 12,
-                fontWeight: FontWeight.w700,
-                color: KarsaColors.muted,
-              ),
-            ),
-            if (!enabled) Container(
-              padding: const EdgeInsets.symmetric(horizontal: KarsaSpace.sm, vertical: 3),
-              decoration: BoxDecoration(
-                color: KarsaColors.tintSoft,
-                borderRadius: BorderRadius.circular(KarsaRadius.sm),
-              ),
-              child: const Text(
-                'Dalam pengembangan',
-                style: TextStyle(
-                  fontSize: KarsaType.caption,
-                  fontWeight: FontWeight.w600,
-                  color: KarsaColors.muted,
-                ),
-              ),
-            ),
-          ],
-        ),
-        const SizedBox(height: 6),
-        LayoutBuilder(
-          builder: (context, constraints) {
-            if (constraints.maxWidth < 280 ||
-                MediaQuery.textScalerOf(context).scale(14) > 21) {
-              return Column(
-                crossAxisAlignment: CrossAxisAlignment.stretch,
-                children: [summarize, const SizedBox(height: 6), ask],
-              );
-            }
-            return Row(
-              children: [
-                Expanded(child: summarize),
-                const SizedBox(width: 8),
-                Expanded(child: ask),
-              ],
-            );
-          },
-        ),
-      ],
-    );
   }
 }
