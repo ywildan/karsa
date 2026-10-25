@@ -80,10 +80,20 @@ class _LibAiSheetState extends State<_LibAiSheet> {
     super.initState();
     _summarize = widget.summarize;
     _pages = PageController(initialPage: _summarize ? 0 : 1);
+    _focus.addListener(_onFocusChanged);
     _load();
   }
   @override
-  void dispose() { _question.dispose(); _focus.dispose(); _scroll.dispose(); _pages.dispose(); super.dispose(); }
+  void dispose() {
+    _focus.removeListener(_onFocusChanged);
+    _question.dispose(); _focus.dispose(); _scroll.dispose(); _pages.dispose(); super.dispose();
+  }
+
+  /// Shell komposer menebalkan tepinya saat fokus; dengarkan perubahan
+  /// fokus agar animasi itu berjalan tanpa menunggu rebuild lain.
+  void _onFocusChanged() {
+    if (mounted) setState(() {});
+  }
 
   /// Pindah tab lewat tombol: perbarui indikator segera, lalu animasikan
   /// PageView bila sudah terpasang. [onPageChanged] menyinkronkan [_summarize]
@@ -358,12 +368,7 @@ class _LibAiSheetState extends State<_LibAiSheet> {
           },
           children: [_summaryView(), _chatView()],
         )),
-    if (!_loading && _enabled && !_summarize)
-      AnimatedContainer(
-        duration: const Duration(milliseconds: 180),
-        curve: Curves.easeOut,
-        child: _composer(),
-      ),
+    if (!_loading && _enabled && !_summarize) _composer(),
   ]);
 
   Widget _summaryView() => ListView(padding: const EdgeInsets.fromLTRB(KarsaSpace.gutter, KarsaSpace.md, KarsaSpace.gutter, KarsaSpace.lg), children: [
@@ -427,100 +432,163 @@ class _LibAiSheetState extends State<_LibAiSheet> {
       child: Text(_error!, style: const TextStyle(fontSize: KarsaType.caption, color: KarsaColors.muted))),
   ]);
 
-  /// Composer gaya chat modern: satu container membulat berisi kolom teks
-  /// di baris atas dan baris aksi (chip "Cari web" + tombol kirim) di
-  /// baris bawah. Struktur widget selalu sama walau keyboard buka/tutup,
-  /// supaya fokus TextField tidak terlepas saat inset berubah.
+  /// Composer chat: satu shell membulat berisi kolom teks borderless dan
+  /// baris aksi (chip web search, sisa token, tombol kirim). Semua bentuk
+  /// memakai satu bahasa: shell radius 24, chip dan tombol bundar.
+  ///
+  /// Border tema sengaja dinetralkan di TextField: `InputDecoration`
+  /// mewarisi `enabledBorder`/`focusedBorder` global, yang kalau dibiarkan
+  /// menggambar kotak kedua di dalam shell. Tepi shell sendiri menebal
+  /// saat fokus sebagai penanda.
   ///
   /// Perilaku tidak berubah: toggle web search tetap one-shot (reset
   /// setelah kirim), dialog kuota habis, dan logika kirim sama persis.
-  /// Status aktif chip ditandai bentuk + label (bukan hanya warna) dan
-  /// disampaikan ke pembaca layar lewat tooltip/selected.
   Widget _composer() {
     final keyboardOpen = MediaQuery.viewInsetsOf(context).bottom > 0;
     final quotaAvailable = (_quota?.tokenRemaining ?? 0) > 0;
     return SafeArea(top: false, child: Padding(
-      padding: const EdgeInsets.fromLTRB(14, 8, 14, 10),
+      padding: const EdgeInsets.fromLTRB(KarsaSpace.gutter, KarsaSpace.sm, KarsaSpace.gutter, KarsaSpace.sm),
       child: Column(mainAxisSize: MainAxisSize.min, children: [
-        // Sisa token selalu terlihat, termasuk saat keyboard terbuka:
-        // keputusan memakai web search (kuota sendiri) diambil saat mengetik.
-        Text('Sisa token bulan ini: ${formatTokenCount(_quota?.tokenRemaining ?? 0)}',
-          style: const TextStyle(fontSize: KarsaType.caption, color: KarsaColors.muted)),
-        const SizedBox(height: 8),
-        Container(
+        AnimatedContainer(
+          duration: const Duration(milliseconds: 160),
+          curve: Curves.easeOut,
           decoration: BoxDecoration(
             color: KarsaColors.card,
-            border: Border.all(color: KarsaColors.border),
-            borderRadius: BorderRadius.circular(KarsaRadius.card),
+            border: Border.all(
+              color: _focus.hasFocus ? KarsaColors.accentInk : KarsaColors.border,
+              width: _focus.hasFocus ? 1.4 : 1,
+            ),
+            borderRadius: BorderRadius.circular(KarsaRadius.sheet),
           ),
-          child: Column(mainAxisSize: MainAxisSize.min, children: [
-            Padding(
-              padding: const EdgeInsets.fromLTRB(14, 10, 6, 0),
-              child: TextField(controller: _question, focusNode: _focus,
-                enabled: quotaAvailable, minLines: 1, maxLines: 3, maxLength: 600,
-                textInputAction: TextInputAction.newline,
-                onEditingComplete: () {}, onSubmitted: (_) {},
-                decoration: const InputDecoration(
-                  hintText: 'Tanya tentang materi…', counterText: '',
-                  border: InputBorder.none, contentPadding: EdgeInsets.zero)),
-            ),
-            Padding(
-              padding: const EdgeInsets.fromLTRB(8, 2, 6, 6),
-              child: Row(children: [
-                Tooltip(
-                  message: _webSearchArmed
-                      ? 'Web search aktif untuk pertanyaan berikut'
-                      : 'Aktifkan web search',
-                  child: Semantics(
-                    selected: _webSearchArmed,
-                    child: InkWell(
-                      borderRadius: BorderRadius.circular(999),
-                      onTap: _sending ? null : _onWebSearchTap,
-                      child: Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-                        decoration: BoxDecoration(
-                          color: _webSearchArmed ? KarsaColors.tintStrong : null,
-                          border: Border.all(color: _webSearchArmed
-                              ? KarsaColors.tintStrong
-                              : KarsaColors.border),
-                          borderRadius: BorderRadius.circular(999),
-                        ),
-                        child: Row(mainAxisSize: MainAxisSize.min, children: [
-                          Icon(_webSearchArmed ? Icons.public_rounded : Icons.public_outlined,
-                            size: 16,
-                            color: _webSearchArmed ? KarsaColors.accentInk : KarsaColors.muted),
-                          const SizedBox(width: 5),
-                          Text('Cari web',
-                            style: TextStyle(fontSize: KarsaType.caption, fontWeight: FontWeight.w700,
-                              color: _webSearchArmed ? KarsaColors.accentInk : KarsaColors.muted)),
-                          if (_webSearchArmed) ...[
-                            const SizedBox(width: 5),
-                            const Text('· sekali',
-                              style: TextStyle(fontSize: KarsaType.caption, color: KarsaColors.accentInk)),
-                          ],
-                        ]),
-                      ),
-                    ),
-                  ),
-                ),
-                const Spacer(),
-                IconButton.filled(tooltip: 'Kirim pertanyaan',
-                  onPressed: _sending || !quotaAvailable ? null : _send,
-                  icon: const Icon(Icons.arrow_upward_rounded)),
-              ]),
-            ),
-          ]),
+          child: quotaAvailable ? _composerInput() : _composerQuotaEmpty(),
         ),
-        AnimatedOpacity(
-          duration: const Duration(milliseconds: 150),
-          opacity: keyboardOpen ? 0 : 1,
-          child: const Column(mainAxisSize: MainAxisSize.min, children: [
-            SizedBox(height: 7),
-            Text('Artikel dan pertanyaan dikirim ke penyedia AI. Periksa kembali jawaban.',
-              style: TextStyle(fontSize: KarsaType.caption, color: KarsaColors.muted), textAlign: TextAlign.center),
-          ]),
+        // Disclaimer hanya memakan ruang saat keyboard tertutup; dengan
+        // AnimatedSize ruangnya ikut menyusut, bukan sekadar transparan.
+        AnimatedSize(
+          duration: const Duration(milliseconds: 160),
+          curve: Curves.easeOut,
+          alignment: Alignment.topCenter,
+          child: keyboardOpen ? const SizedBox(width: double.infinity) : const Padding(
+            padding: EdgeInsets.only(top: KarsaSpace.sm),
+            child: Text('Artikel dan pertanyaan dikirim ke penyedia AI. Periksa kembali jawaban.',
+              textAlign: TextAlign.center,
+              style: TextStyle(fontSize: KarsaType.caption, color: KarsaColors.muted)),
+          ),
         ),
       ]),
     ));
   }
+
+  Widget _composerInput() => Column(mainAxisSize: MainAxisSize.min, children: [
+    Padding(
+      padding: const EdgeInsets.fromLTRB(KarsaSpace.lg, 14, KarsaSpace.lg, 0),
+      child: TextField(controller: _question, focusNode: _focus,
+        minLines: 1, maxLines: 3, maxLength: 600,
+        style: const TextStyle(fontSize: KarsaType.bodyLarge, height: 1.45),
+        textInputAction: TextInputAction.newline,
+        onEditingComplete: () {}, onSubmitted: (_) {},
+        decoration: const InputDecoration(
+          hintText: 'Tanya tentang materi…',
+          hintStyle: TextStyle(fontSize: KarsaType.bodyLarge, color: KarsaColors.muted),
+          counterText: '',
+          border: InputBorder.none,
+          enabledBorder: InputBorder.none,
+          focusedBorder: InputBorder.none,
+          disabledBorder: InputBorder.none,
+          filled: false,
+          isDense: true,
+          contentPadding: EdgeInsets.zero)),
+    ),
+    Padding(
+      padding: const EdgeInsets.fromLTRB(10, 2, 10, 8),
+      child: Row(children: [
+        _webSearchChip(),
+        const SizedBox(width: KarsaSpace.sm),
+        Expanded(child: Align(alignment: Alignment.centerRight, child: _quotaLabel())),
+        const SizedBox(width: KarsaSpace.sm),
+        _sendButton(),
+      ]),
+    ),
+  ]);
+
+  /// Chip web search ringkas (32) supaya seimbang dengan tombol kirim 40
+  /// dan tidak mendominasi baris aksi. Status aktif ditandai ikon, label,
+  /// dan latar — bukan warna saja — serta diekspos ke pembaca layar.
+  Widget _webSearchChip() {
+    final armed = _webSearchArmed;
+    return Tooltip(
+      message: armed ? 'Web search aktif untuk pertanyaan berikut' : 'Aktifkan web search',
+      child: Semantics(
+        selected: armed,
+        child: InkWell(
+          borderRadius: BorderRadius.circular(999),
+          onTap: _sending ? null : _onWebSearchTap,
+          child: AnimatedContainer(
+            duration: const Duration(milliseconds: 150),
+            curve: Curves.easeOut,
+            // minHeight, bukan height tetap: chip ikut memanjang saat
+            // pengguna memperbesar ukuran teks sistem.
+            constraints: const BoxConstraints(minHeight: 32),
+            margin: const EdgeInsets.symmetric(vertical: 4),
+            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+            decoration: BoxDecoration(
+              color: armed ? KarsaColors.tintStrong : null,
+              border: Border.all(color: armed ? KarsaColors.tintStrong : KarsaColors.border),
+              borderRadius: BorderRadius.circular(999),
+            ),
+            child: Row(mainAxisSize: MainAxisSize.min, children: [
+              Icon(armed ? Icons.public_rounded : Icons.public_outlined,
+                size: 15, color: armed ? KarsaColors.accentInk : KarsaColors.muted),
+              const SizedBox(width: 5),
+              Text(armed ? 'Cari web aktif' : 'Cari web',
+                style: TextStyle(fontSize: KarsaType.caption, fontWeight: FontWeight.w700,
+                  color: armed ? KarsaColors.accentInk : KarsaColors.muted)),
+            ]),
+          ),
+        ),
+      ),
+    );
+  }
+
+  /// Sisa token ringkas di baris aksi; menebal saat tersisa <=20% agar
+  /// pengguna sadar sebelum kuota habis total.
+  Widget _quotaLabel() {
+    final remaining = _quota?.tokenRemaining ?? 0;
+    final limit = _quota?.tokenLimit ?? 0;
+    final low = limit > 0 && remaining <= limit ~/ 5;
+    return Text('Sisa ${formatTokenCount(remaining)} token',
+      maxLines: 1, overflow: TextOverflow.ellipsis, textAlign: TextAlign.right,
+      style: TextStyle(fontSize: KarsaType.caption,
+        fontWeight: low ? FontWeight.w700 : FontWeight.w400,
+        color: low ? KarsaColors.accentInk : KarsaColors.muted));
+  }
+
+  /// Tombol kirim dengan spinner di tempat panah saat menunggu jawaban.
+  Widget _sendButton() => IconButton.filled(
+    tooltip: 'Kirim pertanyaan',
+    padding: EdgeInsets.zero,
+    style: IconButton.styleFrom(
+      // Selama mengirim tombol tetap oranye supaya spinner putih terbaca.
+      disabledBackgroundColor: _sending ? KarsaColors.orange : null,
+      disabledForegroundColor: _sending ? KarsaColors.onOrange : null,
+    ),
+    onPressed: _sending || (_quota?.tokenRemaining ?? 0) == 0 ? null : _send,
+    icon: _sending
+        ? const SizedBox.square(dimension: 18,
+            child: CircularProgressIndicator(strokeWidth: 2, color: KarsaColors.onOrange))
+        : const Icon(Icons.arrow_upward_rounded, size: 20),
+  );
+
+  /// Pengganti kolom input saat kuota token bulan ini habis: satu baris
+  /// ajakan melihat paket, bukan field mati tanpa penjelasan.
+  Widget _composerQuotaEmpty() => Padding(
+    padding: const EdgeInsets.fromLTRB(KarsaSpace.lg, KarsaSpace.md, KarsaSpace.sm, KarsaSpace.sm),
+    child: Row(children: [
+      const Icon(Icons.hourglass_empty_rounded, size: 18, color: KarsaColors.muted),
+      const SizedBox(width: KarsaSpace.sm),
+      const Expanded(child: Text('Kuota token bulan ini habis.',
+        style: TextStyle(fontSize: KarsaType.body, color: KarsaColors.ink))),
+      TextButton(onPressed: _openPlan, child: const Text('Lihat paket')),
+    ]),
+  );
 }
