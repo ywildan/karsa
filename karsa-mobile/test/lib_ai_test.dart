@@ -86,7 +86,7 @@ void main() {
     expect(api.providerCalls, 1);
     tester.view.viewInsets = const FakeViewPadding();
     await tester.pumpAndSettle();
-    expect(find.text('Sisa token bulan ini: 380.000'), findsOneWidget);
+    expect(find.text('Sisa 380.000 token'), findsOneWidget);
     expect(tester.takeException(), isNull);
   });
 }
