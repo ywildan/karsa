@@ -21,6 +21,9 @@ class _GroupChatScreenState extends State<GroupChatScreen>
     with WidgetsBindingObserver, SingleTickerProviderStateMixin {
   final _composer = TextEditingController();
   final _composerFocus = FocusNode();
+  /// Sinyal untuk baris komposer saja, supaya ketikan tidak membangun ulang
+  /// seluruh layar (daftar pesan ikut di dalam build layar).
+  late final Listenable _composerSignals = Listenable.merge([_composer, _composerFocus]);
   final _scroll = ScrollController();
   final _stageKey = GlobalKey();
   final _chatViewportKey = GlobalKey();
@@ -1016,11 +1019,6 @@ class _GroupChatScreenState extends State<GroupChatScreen>
                 ],
               ),
             ),
-            if (_replyTo != null)
-              _ReplyComposer(
-                message: _replyTo!,
-                onClose: () => setState(() => _replyTo = null),
-              ),
             _composerBar(),
           ],
         ),
@@ -1095,45 +1093,104 @@ class _GroupChatScreenState extends State<GroupChatScreen>
     );
   }
 
+  /// Bar komposer yang menempel di dasar layar: permukaan putih dengan
+  /// garis atas tipis, lalu satu shell membulat berisi field borderless
+  /// dan tombol kirim. Strip balasan ikut menempel di dalam bar ini agar
+  /// konteks balasan tidak tampak sebagai kartu terpisah.
   Widget _composerBar() {
     final disabled = _isLocked && !_isManager;
-    return SafeArea(
-      top: false,
-      child: Padding(
-        padding: const EdgeInsets.fromLTRB(12, 8, 12, 10),
-        child: Row(
-          crossAxisAlignment: CrossAxisAlignment.end,
-          children: [
-            Expanded(
-              child: TextField(
-                controller: _composer,
-                focusNode: _composerFocus,
-                enabled: !disabled,
-                maxLength: 2000,
-                minLines: 1,
-                maxLines: 5,
-                decoration: InputDecoration(
-                  hintText: disabled ? 'Grup dikunci oleh PJ' : 'Tulis pesan',
-                  counterText: '',
+    return Container(
+      decoration: const BoxDecoration(
+        color: KarsaColors.card,
+        border: Border(top: BorderSide(color: KarsaColors.border)),
+      ),
+      child: SafeArea(
+        top: false,
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(12, 8, 12, 10),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              if (_replyTo != null) ...[
+                _ReplyComposer(
+                  message: _replyTo!,
+                  onClose: () => setState(() => _replyTo = null),
                 ),
-                // Aksi submit bawaan melepas fokus dan menutup keyboard.
-                onEditingComplete: () {},
-                onSubmitted: (_) => _send(),
+                const SizedBox(height: 8),
+              ],
+              ListenableBuilder(
+                listenable: _composerSignals,
+                builder: (context, _) {
+                  final canSend = !disabled && !_sending && _composer.text.trim().isNotEmpty;
+                  final focused = _composerFocus.hasFocus;
+                  return AnimatedContainer(
+                    duration: const Duration(milliseconds: 160),
+                    curve: Curves.easeOut,
+                    decoration: BoxDecoration(
+                      color: KarsaColors.background,
+                      border: Border.all(
+                        color: focused ? KarsaColors.accentInk : KarsaColors.border,
+                        width: focused ? 1.4 : 1,
+                      ),
+                      borderRadius: BorderRadius.circular(KarsaRadius.sheet),
+                    ),
+                    child: Row(
+                      crossAxisAlignment: CrossAxisAlignment.end,
+                      children: [
+                        Expanded(
+                          child: TextField(
+                            controller: _composer,
+                            focusNode: _composerFocus,
+                            enabled: !disabled,
+                            maxLength: 2000,
+                            minLines: 1,
+                            maxLines: 5,
+                            style: const TextStyle(fontSize: KarsaType.bodyLarge, height: 1.45),
+                            textInputAction: TextInputAction.newline,
+                            // Aksi submit bawaan melepas fokus dan menutup keyboard.
+                            onEditingComplete: () {},
+                            onSubmitted: (_) => _send(),
+                            decoration: InputDecoration(
+                              hintText: disabled ? 'Grup dikunci oleh PJ' : 'Tulis pesan',
+                              hintStyle: const TextStyle(fontSize: KarsaType.bodyLarge, color: KarsaColors.muted),
+                              counterText: '',
+                              border: InputBorder.none,
+                              enabledBorder: InputBorder.none,
+                              focusedBorder: InputBorder.none,
+                              disabledBorder: InputBorder.none,
+                              filled: false,
+                              isDense: true,
+                              contentPadding: const EdgeInsets.fromLTRB(16, 14, 8, 14),
+                            ),
+                          ),
+                        ),
+                        Padding(
+                          padding: const EdgeInsets.fromLTRB(4, 4, 4, 4),
+                          child: IconButton.filled(
+                            key: _sendButtonKey,
+                            tooltip: 'Kirim',
+                            padding: EdgeInsets.zero,
+                            style: IconButton.styleFrom(
+                              // Tombol tetap oranye selama mengirim agar spinner terbaca.
+                              disabledBackgroundColor: _sending ? KarsaColors.orange : null,
+                              disabledForegroundColor: _sending ? KarsaColors.onOrange : null,
+                            ),
+                            onPressed: canSend ? _send : null,
+                            icon: _sending
+                                ? const SizedBox.square(
+                                    dimension: 18,
+                                    child: CircularProgressIndicator(strokeWidth: 2, color: KarsaColors.onOrange),
+                                  )
+                                : const Icon(Icons.arrow_upward_rounded, size: 20),
+                          ),
+                        ),
+                      ],
+                    ),
+                  );
+                },
               ),
-            ),
-            const SizedBox(width: 8),
-            IconButton.filled(
-              key: _sendButtonKey,
-              tooltip: 'Kirim',
-              onPressed: disabled || _sending ? null : _send,
-              icon: _sending
-                  ? const SizedBox.square(
-                      dimension: 18,
-                      child: CircularProgressIndicator(strokeWidth: 2),
-                    )
-                  : const Icon(Icons.send_rounded),
-            ),
-          ],
+            ],
+          ),
         ),
       ),
     );
@@ -1197,22 +1254,48 @@ class _ReplyComposer extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) => Container(
-    margin: const EdgeInsets.fromLTRB(12, 6, 12, 0),
     padding: const EdgeInsets.fromLTRB(12, 8, 4, 8),
     decoration: BoxDecoration(
-      color: Theme.of(context).colorScheme.surfaceContainerHighest,
+      color: KarsaColors.tintSoft,
       borderRadius: BorderRadius.circular(KarsaRadius.md),
     ),
     child: Row(
       children: [
-        Expanded(
-          child: Text(
-            'Membalas ${message.author.name}: ${message.text ?? ''}',
-            maxLines: 1,
-            overflow: TextOverflow.ellipsis,
+        Container(
+          width: 3,
+          height: 30,
+          decoration: BoxDecoration(
+            color: KarsaColors.accentInk,
+            borderRadius: BorderRadius.circular(999),
           ),
         ),
-        IconButton(tooltip: 'Batalkan balasan', onPressed: onClose, icon: const Icon(Icons.close_rounded)),
+        const SizedBox(width: 10),
+        Expanded(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                'Membalas ${message.author.name}',
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: const TextStyle(
+                  fontSize: KarsaType.caption,
+                  fontWeight: FontWeight.w700,
+                  color: KarsaColors.accentInk,
+                ),
+              ),
+              const SizedBox(height: 2),
+              Text(
+                _pinnedMessagePreview(message),
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: const TextStyle(fontSize: KarsaType.caption, color: KarsaColors.muted),
+              ),
+            ],
+          ),
+        ),
+        IconButton(tooltip: 'Batalkan balasan', onPressed: onClose, icon: const Icon(Icons.close_rounded, size: 20)),
       ],
     ),
   );

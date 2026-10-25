@@ -27,8 +27,12 @@ class _KarsaLibArticleScreenState extends State<KarsaLibArticleScreen> {
   final Set<String> _expandedThreads = {};
   String? _replyToId;
   String? _replyToName;
+  String? _replyToBody;
   int? _commentCount;
   bool _sending = false;
+  /// Sinyal untuk komposer saja supaya mengetik tidak membangun ulang
+  /// seluruh layar artikel.
+  late final Listenable _commentSignals = Listenable.merge([_comment, _focus]);
 
   @override
   void initState() { super.initState(); _load(); }
@@ -154,9 +158,12 @@ class _KarsaLibArticleScreenState extends State<KarsaLibArticleScreen> {
     }),
   );
 
+  /// Bar komentar: permukaan putih ber-garis atas, preview AI, strip
+  /// balasan, lalu satu shell membulat berisi field borderless dan tombol
+  /// kirim. Pola ini sama dengan komposer chat grup.
   Widget _composer(LibArticle article) => Container(
     decoration: const BoxDecoration(color: KarsaColors.card, border: Border(top: BorderSide(color: KarsaColors.border))),
-    child: SafeArea(top: false, child: Padding(padding: const EdgeInsets.fromLTRB(16, 8, 16, 10), child: Column(
+    child: SafeArea(top: false, child: Padding(padding: const EdgeInsets.fromLTRB(KarsaSpace.gutter, 8, KarsaSpace.gutter, 10), child: Column(
       mainAxisSize: MainAxisSize.min, children: [
         if (MediaQuery.viewInsetsOf(context).bottom == 0) ...[
           _ArticleAiPreview(
@@ -166,22 +173,88 @@ class _KarsaLibArticleScreenState extends State<KarsaLibArticleScreen> {
           ),
           const SizedBox(height: 12),
         ],
-        if (_replyToId != null) Row(children: [
-          Expanded(child: Text('Membalas $_replyToName', style: const TextStyle(fontSize: KarsaType.caption, color: KarsaColors.accentInk))),
-          IconButton(tooltip: 'Batal membalas', onPressed: _sending ? null : () => setState(() { _replyToId = null; _replyToName = null; }),
-            icon: const Icon(Icons.close_rounded, size: 20)),
-        ]),
-        Row(crossAxisAlignment: CrossAxisAlignment.end, children: [
-          Expanded(child: TextField(controller: _comment, focusNode: _focus, enabled: !_sending,
-            minLines: 1, maxLines: 4, maxLength: 2000,
-            decoration: InputDecoration(hintText: _replyToId == null ? 'Tulis komentar…' : 'Tulis balasan…', counterText: ''))),
-          const SizedBox(width: 8),
-          IconButton.filled(tooltip: 'Kirim komentar', onPressed: _sending ? null : _sendComment,
-            icon: _sending ? const SizedBox.square(dimension: 20, child: CircularProgressIndicator(strokeWidth: 2))
-              : const Icon(Icons.arrow_upward_rounded)),
-        ]),
+        if (_replyToId != null) ...[
+          _replyStrip(),
+          const SizedBox(height: 8),
+        ],
+        ListenableBuilder(
+          listenable: _commentSignals,
+          builder: (context, _) {
+            final canSend = !_sending && _comment.text.trim().isNotEmpty;
+            final focused = _focus.hasFocus;
+            return AnimatedContainer(
+              duration: const Duration(milliseconds: 160),
+              curve: Curves.easeOut,
+              decoration: BoxDecoration(
+                color: KarsaColors.background,
+                border: Border.all(
+                  color: focused ? KarsaColors.accentInk : KarsaColors.border,
+                  width: focused ? 1.4 : 1,
+                ),
+                borderRadius: BorderRadius.circular(KarsaRadius.sheet),
+              ),
+              child: Row(crossAxisAlignment: CrossAxisAlignment.end, children: [
+                Expanded(child: TextField(controller: _comment, focusNode: _focus,
+                  maxLength: 2000, minLines: 1, maxLines: 4,
+                  style: const TextStyle(fontSize: KarsaType.bodyLarge, height: 1.45),
+                  textInputAction: TextInputAction.newline,
+                  onEditingComplete: () {},
+                  decoration: InputDecoration(
+                    hintText: _replyToId == null ? 'Tulis komentar…' : 'Tulis balasan…',
+                    hintStyle: const TextStyle(fontSize: KarsaType.bodyLarge, color: KarsaColors.muted),
+                    counterText: '',
+                    border: InputBorder.none,
+                    enabledBorder: InputBorder.none,
+                    focusedBorder: InputBorder.none,
+                    disabledBorder: InputBorder.none,
+                    filled: false,
+                    isDense: true,
+                    contentPadding: const EdgeInsets.fromLTRB(16, 14, 8, 14)))),
+                Padding(padding: const EdgeInsets.all(4), child: IconButton.filled(
+                  tooltip: 'Kirim komentar',
+                  padding: EdgeInsets.zero,
+                  style: IconButton.styleFrom(
+                    // Tombol tetap oranye selama mengirim agar spinner terbaca.
+                    disabledBackgroundColor: _sending ? KarsaColors.orange : null,
+                    disabledForegroundColor: _sending ? KarsaColors.onOrange : null,
+                  ),
+                  onPressed: canSend ? _sendComment : null,
+                  icon: _sending
+                      ? const SizedBox.square(dimension: 18,
+                          child: CircularProgressIndicator(strokeWidth: 2, color: KarsaColors.onOrange))
+                      : const Icon(Icons.arrow_upward_rounded, size: 20))),
+              ]),
+            );
+          },
+        ),
       ],
     ))),
+  );
+
+  /// Strip "Membalas …" yang menempel di komposer, sama dengan chat grup.
+  Widget _replyStrip() => Container(
+    padding: const EdgeInsets.fromLTRB(12, 8, 4, 8),
+    decoration: BoxDecoration(
+      color: KarsaColors.tintSoft,
+      borderRadius: BorderRadius.circular(KarsaRadius.md),
+    ),
+    child: Row(children: [
+      Container(width: 3, height: 30,
+        decoration: BoxDecoration(color: KarsaColors.accentInk, borderRadius: BorderRadius.circular(999))),
+      const SizedBox(width: 10),
+      Expanded(child: Column(mainAxisSize: MainAxisSize.min, crossAxisAlignment: CrossAxisAlignment.start, children: [
+        Text('Membalas ${_replyToName ?? ''}', maxLines: 1, overflow: TextOverflow.ellipsis,
+          style: const TextStyle(fontSize: KarsaType.caption, fontWeight: FontWeight.w700, color: KarsaColors.accentInk)),
+        if ((_replyToBody ?? '').trim().isNotEmpty) ...[
+          const SizedBox(height: 2),
+          Text(_replyToBody!.trim(), maxLines: 1, overflow: TextOverflow.ellipsis,
+            style: const TextStyle(fontSize: KarsaType.caption, color: KarsaColors.muted)),
+        ],
+      ])),
+      IconButton(tooltip: 'Batal membalas',
+        onPressed: _sending ? null : () => setState(() { _replyToId = null; _replyToName = null; _replyToBody = null; }),
+        icon: const Icon(Icons.close_rounded, size: 20)),
+    ]),
   );
 
   Widget _commentThread(LibComment comment) {
@@ -238,7 +311,7 @@ class _KarsaLibArticleScreenState extends State<KarsaLibArticleScreen> {
             if (!isReply)
               KarsaTapAction(
                 onTap: _sending ? null : () {
-                  setState(() { _replyToId = comment.id; _replyToName = comment.author; });
+                  setState(() { _replyToId = comment.id; _replyToName = comment.author; _replyToBody = comment.body; });
                   _focus.requestFocus();
                 },
                 label: 'Balas',
@@ -267,13 +340,23 @@ class _KarsaLibArticleScreenState extends State<KarsaLibArticleScreen> {
   );
 
   Future<void> _sendComment() async {
-    if (_sending || _comment.text.trim().isEmpty) return;
+    final draft = _comment.text;
+    final text = draft.trim();
+    if (_sending || text.isEmpty) return;
     setState(() => _sending = true);
     try {
-      await widget.api.createLibComment(widget.articleId, body: _comment.text.trim(), parentId: _replyToId);
+      await widget.api.createLibComment(widget.articleId, body: text, parentId: _replyToId);
       if (!mounted) return;
-      _comment.clear();
-      setState(() { _replyToId = null; _replyToName = null; });
+      setState(() {
+        // Jangan hapus ketikan baru yang masuk selagi komentar dikirim.
+        if (_comment.text == draft) {
+          _comment.clear();
+        } else if (_comment.text.startsWith(draft)) {
+          final next = _comment.text.substring(draft.length);
+          _comment.value = TextEditingValue(text: next, selection: TextSelection.collapsed(offset: next.length));
+        }
+        _replyToId = null; _replyToName = null; _replyToBody = null;
+      });
       _focus.unfocus();
       try { await _reloadComments(); } catch (_) { _message('Komentar tersimpan. Muat ulang diskusi untuk melihatnya.'); }
     } catch (error) { _message(friendlyError(error), kind: KarsaSnackKind.danger); }
