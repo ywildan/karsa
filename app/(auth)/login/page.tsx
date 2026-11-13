@@ -125,7 +125,7 @@ export default async function LoginPage({
               </span>{" "}
               yang bisa masuk. Ada kendala? Hubungi{" "}
               <Link
-                href="mailto:yuwiaffa@gmail.com"
+                href="mailto:admin@sikarsa.id"
                 className="font-medium text-foreground underline underline-offset-4 hover:underline"
               >
                 developer

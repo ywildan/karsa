@@ -57,9 +57,9 @@ export function SiteFooter() {
             Kendala atau koreksi data:{" "}
             <a
               className="font-medium text-foreground underline-offset-4 hover:underline"
-              href="mailto:yuwiaffa@gmail.com"
+              href="mailto:admin@sikarsa.id"
             >
-              yuwiaffa@gmail.com
+              admin@sikarsa.id
             </a>
           </p>
         </div>
