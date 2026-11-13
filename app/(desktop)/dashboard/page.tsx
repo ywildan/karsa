@@ -21,14 +21,17 @@ export default async function DashboardPage() {
   const rapor = await getRaporMahasiswa();
 
   if (rapor.empty) {
+    const belumAktif = rapor.reason === "belum_aktif";
     return (
       <main className="mx-auto flex min-h-[calc(100dvh-3.5rem)] w-full max-w-2xl items-center px-6 py-12">
         <section className="w-full rounded-2xl border border-dashed border-border bg-card p-8 text-center">
           <h1 className="text-xl font-semibold tracking-tight">
-            Belum terdaftar di kelas
+            {belumAktif ? "Semester aktif belum ditetapkan" : "Belum terdaftar di kelas"}
           </h1>
           <p className="mx-auto mt-2 max-w-md text-sm text-muted-foreground">
-            Kamu belum terdaftar di kelas manapun. Hubungi admin.
+            {belumAktif
+              ? "Admin belum menetapkan semester aktif untuk prodi dan angkatanmu. Hubungi admin."
+              : "Kamu belum terdaftar di kelas manapun. Hubungi admin."}
           </p>
           <form action={signOutAction} className="mt-6">
             <Button type="submit" variant="outline">

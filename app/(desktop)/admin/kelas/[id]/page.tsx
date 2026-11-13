@@ -166,8 +166,9 @@ export default async function AdminKelasDetailPage({
         <div>
           <h1 className="text-2xl font-semibold tracking-tight">{kelas.name}</h1>
           <p className="mt-1 text-sm text-muted-foreground">
-            Prodi {kelas.prodi.name} · Semester {kelas.semester.name} · Dibuat{" "}
-            {formatDateWib(kelas.created_at)} WIB
+            Prodi {kelas.prodi.name}
+            {kelas.angkatan ? ` · Angkatan ${kelas.angkatan}` : ""} · Semester{" "}
+            {kelas.semester.name} · Dibuat {formatDateWib(kelas.created_at)} WIB
           </p>
         </div>
       </header>

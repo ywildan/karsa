@@ -55,7 +55,8 @@ cp .env.example .env      # lalu isi DATABASE_URL, DIRECT_URL, AUTH_*, dsb.
 npx prisma generate
 npx prisma db push
 
-# 4. Seed: 4 KategoriPoin + 1 Semester aktif + data uji
+# 4. Seed: 4 KategoriPoin + 1 periode semester + data uji (termasuk pointer
+#    semester aktif cohort TI 2023)
 npm run db:seed
 
 # 5. Verifikasi
@@ -99,7 +100,7 @@ Dua hal yang perlu diperhatikan:
 
 Seed juga sengaja tidak pernah menimpa baris yang sudah ada (`DO NOTHING` /
 `update` idempoten), jadi perubahan role manual di panel admin tidak akan
-tertimpa — kecuali tanggal & status aktif semester seed itu sendiri.
+tertimpa — kecuali tanggal & penanda semester legacy milik seed itu sendiri.
 
 ### `prisma/init.sql` vs `prisma/schema.prisma`
 
@@ -109,7 +110,8 @@ tertimpa — kecuali tanggal & status aktif semester seed itu sendiri.
 atau tanpa engine Prisma). Selain `init.sql`, `prisma/` memuat SQL additif yang
 sudah diterapkan bertahap: `mobile-native.sql`, `mobile-groups.sql`,
 `mobile-groups-retention.sql`, `pengelola-scope.sql`, `karsa-lib-ai.sql`,
-`karsa-lib-author-social.sql`, `user-growth.sql`.
+`karsa-lib-author-social.sql`, `user-growth.sql`, `cohort-semester.sql`
+(semester aktif per prodi + angkatan; jalankan untuk database lama).
 **Kalau salah satu diubah, update keduanya.**
 
 ---

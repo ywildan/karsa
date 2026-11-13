@@ -31,6 +31,11 @@ import { auditActorFromSession, logAudit } from "@/lib/audit";
 import { requirePengelola } from "@/lib/auth-helpers";
 import { canManageKelas } from "@/lib/pengelola";
 import {
+  angkatanFromNim,
+  angkatanMismatchMessage,
+  NIM_BELUM_ADA_MESSAGE,
+} from "@/lib/semester";
+import {
   isStudentEmail,
   NIM_MESSAGE,
   NIM_REGEX,
@@ -220,10 +225,17 @@ export async function addMahasiswaToKelas(
 
   const kelas = await prisma.kelas.findUnique({
     where: { id: parsedId.data },
-    select: { id: true, name: true, prodi_id: true },
+    select: { id: true, name: true, prodi_id: true, angkatan: true },
   });
   if (!kelas || (!admin.is_admin && !canManageKelas(admin.pengelola_scopes, kelas))) {
     return { ok: false, error: "Kelas tidak ditemukan. Mungkin sudah dihapus." };
+  }
+
+  if (kelas.angkatan === null) {
+    return {
+      ok: false,
+      error: "Kelas ini belum punya angkatan. Lengkapi dulu lewat Edit Kelas.",
+    };
   }
 
   const user: PreviewRow | null = await prisma.user.findFirst({
@@ -253,6 +265,18 @@ export async function addMahasiswaToKelas(
       error: `User sudah terdaftar di kelas lain${
         kelasLama ? ` (${kelasLama})` : ""
       }. Pindahkan dulu.`,
+    };
+  }
+
+  const nimAngkatan = angkatanFromNim(user.nim);
+  if (nimAngkatan === null) {
+    // Admin boleh merangkap mahasiswa tanpa NIM (PRD §6); cohort-nya mengikuti
+    // angkatan kelas. Mahasiswa biasa wajib punya NIM agar bisa diverifikasi.
+    if (!user.is_admin) return { ok: false, error: NIM_BELUM_ADA_MESSAGE };
+  } else if (nimAngkatan !== kelas.angkatan) {
+    return {
+      ok: false,
+      error: angkatanMismatchMessage(nimAngkatan, kelas.angkatan),
     };
   }
 
@@ -335,10 +359,28 @@ export async function createAndAddMahasiswa(
 
   const kelas = await prisma.kelas.findUnique({
     where: { id: parsedId.data },
-    select: { id: true, name: true, prodi_id: true },
+    select: { id: true, name: true, prodi_id: true, angkatan: true },
   });
   if (!kelas || (!admin.is_admin && !canManageKelas(admin.pengelola_scopes, kelas))) {
     return { ok: false, error: "Kelas tidak ditemukan. Mungkin sudah dihapus." };
+  }
+
+  if (kelas.angkatan === null) {
+    return {
+      ok: false,
+      error: "Kelas ini belum punya angkatan. Lengkapi dulu lewat Edit Kelas.",
+    };
+  }
+
+  const nimAngkatan = angkatanFromNim(nim);
+  if (nimAngkatan === null) {
+    return { ok: false, error: NIM_BELUM_ADA_MESSAGE };
+  }
+  if (nimAngkatan !== kelas.angkatan) {
+    return {
+      ok: false,
+      error: angkatanMismatchMessage(nimAngkatan, kelas.angkatan),
+    };
   }
 
   // Cek duplikat eksplisit supaya pesannya menyebut field yang bentrok

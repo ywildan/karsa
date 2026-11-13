@@ -129,7 +129,7 @@ export function RekapView({
         >
           <option value="">
             {kelasOptions.length === 0
-              ? "Belum ada kelas pada semester aktif"
+              ? "Belum ada kelas"
               : "Pilih kelas"}
           </option>
           {kelasOptions.map((option) => (

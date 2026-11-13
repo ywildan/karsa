@@ -53,7 +53,7 @@ export default async function LeaderboardPage() {
             Leaderboard belum tersedia
           </h1>
           <p className="mx-auto mt-2 max-w-md text-sm text-muted-foreground">
-            Kelas kamu tidak terdaftar pada semester aktif saat ini.
+            Kelas kamu tidak terdaftar pada semester aktif angkatannya saat ini.
           </p>
           <Button asChild className="mt-6">
             <Link href="/dashboard">Kembali ke dashboard</Link>

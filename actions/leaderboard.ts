@@ -16,6 +16,8 @@ import {
   type UnrankedLeaderboardRow,
 } from "@/lib/leaderboard";
 import { prisma } from "@/lib/prisma";
+import { SEMESTER_AKTIF_BELUM_DISET } from "@/lib/semester";
+import { activeSemesterForKelas } from "@/lib/services/semester-service";
 
 export interface LeaderboardOption {
   id: string;
@@ -32,18 +34,18 @@ export type LeaderboardResult =
   | { ok: true; data: LeaderboardRow[] }
   | { ok: false; error: string };
 
-async function getSemesterAktif() {
-  const semesterAktif = await prisma.semester.findFirst({
-    where: { is_active: true },
-    select: { id: true, name: true },
+/**
+ * Semester aktif cohort user. Null bila user belum punya kelas, kelas belum
+ * punya angkatan, atau kelasnya bukan periode aktif cohort-nya.
+ */
+async function getSemesterAktif(user: { kelas_id: string | null }) {
+  if (!user.kelas_id) return null;
+  const kelas = await prisma.kelas.findUnique({
+    where: { id: user.kelas_id },
+    select: { prodi_id: true, angkatan: true, semester_id: true },
   });
-
-  // Invarian sistem: selalu ada tepat satu semester aktif (PRD §9).
-  if (!semesterAktif) {
-    throw new Error("Semester aktif belum ditetapkan.");
-  }
-
-  return semesterAktif;
+  if (!kelas) return null;
+  return activeSemesterForKelas(kelas);
 }
 
 /**
@@ -61,7 +63,11 @@ export async function getLeaderboard(
     return { ok: false, error: "Kamu belum terdaftar di kelas." };
   }
 
-  const semesterAktif = await getSemesterAktif();
+  const semesterAktif = await getSemesterAktif(user);
+  if (!semesterAktif) {
+    return { ok: false, error: SEMESTER_AKTIF_BELUM_DISET };
+  }
+
   const kelasMatkul = await prisma.kelasMatkul.findUnique({
     where: { id: kelasMatkulId },
     select: {
@@ -149,7 +155,9 @@ export async function getKelasMatkulOptionsForLeaderboard(): Promise<
 
   if (!user.kelas_id) return [];
 
-  const semesterAktif = await getSemesterAktif();
+  const semesterAktif = await getSemesterAktif(user);
+  if (!semesterAktif) return [];
+
   const kelasMatkuls = await prisma.kelasMatkul.findMany({
     where: {
       kelas_id: user.kelas_id,
@@ -183,24 +191,24 @@ export async function getLeaderboardMeta(): Promise<LeaderboardMeta | null> {
 
   if (!user.kelas_id) return null;
 
-  const semesterAktif = await getSemesterAktif();
-  const kelas = await prisma.kelas.findFirst({
-    where: {
-      id: user.kelas_id,
-      semester_id: semesterAktif.id,
-    },
+  const kelas = await prisma.kelas.findUnique({
+    where: { id: user.kelas_id },
     select: {
       name: true,
+      prodi_id: true,
+      angkatan: true,
+      semester_id: true,
       prodi: { select: { name: true } },
-      semester: { select: { name: true } },
     },
   });
-
   if (!kelas) return null;
+
+  const semesterAktif = await activeSemesterForKelas(kelas);
+  if (!semesterAktif) return null;
 
   return {
     kelasName: kelas.name,
     prodiName: kelas.prodi.name,
-    semesterName: kelas.semester.name,
+    semesterName: semesterAktif.name,
   };
 }

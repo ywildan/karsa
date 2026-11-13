@@ -5,10 +5,11 @@
  *
  *   A. DATA PRODUKSI  (selalu dijalankan)
  *      · 4 KategoriPoin  (Bertanya · Menjawab · Presentasi · Lainnya)
- *      · 1 Semester aktif
+ *      · 1 Periode semester
  *
  *   B. DATA UJI (test users) — dijalankan kecuali SEED_TEST_DATA=false
- *      · 1 Prodi TI · 2 Matkul · 1 Kelas TI-01
+ *      · 1 Prodi TI · 2 Matkul · 1 Kelas TI-01 (angkatan 2023)
+ *      · Pointer semester aktif cohort TI 2023
  *      · 5 test user @students.untidar.ac.id (admin, 2 PJ, 1 mahasiswa,
  *        1 user tanpa kelas)
  *      · 2 KelasMatkul (PJ berbeda) · 2 sample PoinLog
@@ -59,6 +60,9 @@ const KELAS_TI01_ID = "kelas_ti01";
 const KM_ALGO_TI01_ID = "km_algo_ti01";
 const KM_PWEB_TI01_ID = "km_pweb_ti01";
 
+/** Angkatan kelas uji — sama dengan prefix NIM 23xx di bawah. */
+const SEED_ANGKATAN = 2023;
+
 /** Tanggal seed disimpan UTC-naive (kolom TIMESTAMP(3) tanpa timezone). */
 function toUtcDate(value: string, endOfDay = false): Date {
   const jam = endOfDay ? "23:59:59.000Z" : "00:00:00.000Z";
@@ -98,10 +102,9 @@ async function seedSemester(): Promise<void> {
     throw new Error("SEED_SEMESTER_END harus setelah SEED_SEMESTER_START.");
   }
 
-  // PRD §9: hanya 1 semester aktif. URUTAN PENTING — matikan semester lain
-  // DULU, baru nyalakan semester ini. Kalau dibalik, partial unique index
-  // "Semester_satu_aktif_key" akan menolak (P2002) saat ada semester lain
-  // yang sedang aktif.
+  // `is_active` adalah penanda global lama (legacy). Dipertahankan agar
+  // migrasi `cohort-semester.sql` punya sumber pointer awal; aplikasi baru
+  // membaca `CohortSemester`.
   const dimatikan = await prisma.semester.updateMany({
     where: { name: { not: SEMESTER_NAME }, is_active: true },
     data: { is_active: false },
@@ -115,7 +118,7 @@ async function seedSemester(): Promise<void> {
     update: { start_date, end_date, is_active: true },
     create: { name: SEMESTER_NAME, start_date, end_date, is_active: true },
   });
-  console.log(`  · Semester aktif: ${semester.name} (${semester.id})`);
+  console.log(`  · Periode semester: ${semester.name} (${semester.id})`);
 }
 
 async function promoteAdmin(): Promise<void> {
@@ -180,15 +183,32 @@ async function seedKelas(): Promise<void> {
 
   const kelas = await prisma.kelas.upsert({
     where: { id: KELAS_TI01_ID },
-    update: { name: "TI-01", prodi_id: PRODI_TI_ID, semester_id: semester.id },
+    update: {
+      name: "TI-01",
+      prodi_id: PRODI_TI_ID,
+      angkatan: SEED_ANGKATAN,
+      semester_id: semester.id,
+    },
     create: {
       id: KELAS_TI01_ID,
       name: "TI-01",
       prodi_id: PRODI_TI_ID,
+      angkatan: SEED_ANGKATAN,
       semester_id: semester.id,
     },
   });
   console.log(`  · Kelas: ${kelas.name} — semester ${semester.name} (${kelas.id})`);
+
+  await prisma.cohortSemester.upsert({
+    where: { prodi_id_angkatan: { prodi_id: PRODI_TI_ID, angkatan: SEED_ANGKATAN } },
+    update: { semester_id: semester.id },
+    create: {
+      prodi_id: PRODI_TI_ID,
+      angkatan: SEED_ANGKATAN,
+      semester_id: semester.id,
+    },
+  });
+  console.log(`  · Semester aktif: TI ${SEED_ANGKATAN} → ${semester.name}`);
 }
 
 /**

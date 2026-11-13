@@ -150,15 +150,21 @@ export async function getRekapByKelas(kelasId: string): Promise<RekapResult> {
 export async function getKelasOptionsForRekap(): Promise<RekapKelasOption[]> {
   const actor = await requirePengelola();
 
+  // Semua periode, bukan hanya yang aktif: rekap historis tetap harus bisa
+  // dibuka walau cohort sudah pindah semester.
   const kelas = await prisma.kelas.findMany({
-    where: { semester: { is_active: true } },
     select: {
       id: true,
       name: true,
       prodi_id: true,
       prodi: { select: { name: true } },
+      semester: { select: { name: true, start_date: true } },
     },
-    orderBy: [{ prodi: { name: "asc" } }, { name: "asc" }],
+    orderBy: [
+      { semester: { start_date: "desc" } },
+      { prodi: { name: "asc" } },
+      { name: "asc" },
+    ],
   });
 
   const visible = actor.is_admin
@@ -167,7 +173,7 @@ export async function getKelasOptionsForRekap(): Promise<RekapKelasOption[]> {
 
   return visible.map((item) => ({
     id: item.id,
-    label: `${item.name} · ${item.prodi.name}`,
+    label: `${item.name} · ${item.prodi.name} · ${item.semester.name}`,
   }));
 }
 

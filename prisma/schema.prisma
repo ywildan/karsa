@@ -143,7 +143,12 @@ model VerificationToken {
 // Master akademik
 // ---------------------------------------------------------------------------
 
-/// Semester — hanya satu yang boleh `is_active = true` (PRD §9).
+/// Semester — periode akademik (contoh: "Ganjil 2026/2027").
+///
+/// `is_active` adalah penanda GLOBAL warisan model lama dan tidak lagi dibaca
+/// aplikasi: semester aktif sekarang ditentukan per (prodi, angkatan) lewat
+/// `CohortSemester`. Kolom dipertahankan agar migrasi data lama bisa berjalan
+/// bertahap; dihapus pada migrasi terpisah setelah verifikasi.
 model Semester {
   id         String   @id @default(cuid())
   name       String   @unique // contoh: "Ganjil 2026/2027"
@@ -153,9 +158,30 @@ model Semester {
   created_at DateTime @default(now())
   updated_at DateTime @default(now()) @updatedAt
 
-  kelas Kelas[]
+  kelas            Kelas[]
+  cohortSemesters  CohortSemester[]
 
   pengelolaAssignments PengelolaAssignment[]
+}
+
+/// CohortSemester — satu-satunya sumber "semester aktif".
+///
+/// Satu baris per (prodi, angkatan): dua kelas dalam angkatan yang sama
+/// otomatis berbagi semester aktif yang sama, sedangkan prodi/angkatan lain
+/// boleh menunjuk periode yang berbeda.
+model CohortSemester {
+  id          String   @id @default(cuid())
+  prodi_id    String
+  angkatan    Int
+  semester_id String
+  created_at  DateTime @default(now())
+  updated_at  DateTime @default(now()) @updatedAt
+
+  prodi    Prodi    @relation(fields: [prodi_id], references: [id], onDelete: Restrict, onUpdate: Cascade)
+  semester Semester @relation(fields: [semester_id], references: [id], onDelete: Restrict, onUpdate: Cascade)
+
+  @@unique([prodi_id, angkatan])
+  @@index([semester_id])
 }
 
 /// Prodi — program studi.
@@ -168,6 +194,7 @@ model Prodi {
 
   faculty     Faculty?     @relation(fields: [faculty_id], references: [id], onDelete: Restrict, onUpdate: Cascade)
   kelas       Kelas[]
+  cohortSemesters CohortSemester[]
   libProfiles LibProfile[]
   libArticles LibArticle[]
   materi      Materi[]
@@ -272,12 +299,16 @@ model Matkul {
   kelasMatkul KelasMatkul[]
 }
 
-/// Kelas — rombongan belajar pada satu prodi & satu semester.
-/// Unique (name, prodi_id, semester_id) sesuai PRD §3.
+/// Kelas — rombongan belajar pada satu prodi, satu angkatan, satu semester.
+///
+/// `angkatan` (tahun masuk, mis. 2026) adalah identitas cohort untuk menentukan
+/// semester aktif lewat `CohortSemester`. Nullable demi data lama; kelas baru
+/// wajib diisi dan divalidasi terhadap NIM mahasiswa.
 model Kelas {
   id          String   @id @default(cuid())
   name        String
   prodi_id    String
+  angkatan    Int?
   semester_id String
   created_at  DateTime @default(now())
   updated_at  DateTime @default(now()) @updatedAt
@@ -290,9 +321,10 @@ model Kelas {
 
   pengelolaAssignments PengelolaAssignment[]
 
-  @@unique([name, prodi_id, semester_id])
+  @@unique([name, prodi_id, angkatan, semester_id])
   @@index([prodi_id])
   @@index([semester_id])
+  @@index([prodi_id, angkatan])
 }
 
 // ---------------------------------------------------------------------------

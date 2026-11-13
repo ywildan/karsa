@@ -20,6 +20,7 @@ import { auditActor, auditActorFromSession, logAudit } from "@/lib/audit";
 import { requireAdmin, requirePengelola } from "@/lib/auth-helpers";
 import { canManageKelas, canManageProdi } from "@/lib/pengelola";
 import { prisma } from "@/lib/prisma";
+import { ANGKATAN_MAX, ANGKATAN_MESSAGE, ANGKATAN_MIN, angkatanFromNim } from "@/lib/semester";
 
 const kelasInputSchema = z.object({
   name: z
@@ -27,11 +28,26 @@ const kelasInputSchema = z.object({
     .trim()
     .min(1, "Nama kelas wajib diisi.")
     .max(50, "Nama kelas maksimal 50 karakter."),
-    prodi_id: z.string().min(1, "Prodi wajib dipilih."),
+  prodi_id: z.string().min(1, "Prodi wajib dipilih."),
+  angkatan: z.coerce
+    .number()
+    .int(ANGKATAN_MESSAGE)
+    .min(ANGKATAN_MIN, ANGKATAN_MESSAGE)
+    .max(ANGKATAN_MAX, ANGKATAN_MESSAGE),
   semester_id: z.string().min(1, "Semester wajib dipilih."),
 });
 
-type KelasInput = z.infer<typeof kelasInputSchema>;
+/**
+ * Tipe wire dari client: `angkatan` datang sebagai string dari `<input>` lalu
+ * dipaksa angka oleh `z.coerce`. Jangan pakai `z.infer` — hasilnya number,
+ * padahal yang dikirim client masih string.
+ */
+type KelasInput = {
+  name: string;
+  prodi_id: string;
+  angkatan: string | number;
+  semester_id: string;
+};
 
 /** Validasi update: prodi/semester boleh dipertahankan (UI selalu kirim ketiga). */
 const kelasUpdateSchema = z.object({
@@ -40,7 +56,12 @@ const kelasUpdateSchema = z.object({
     .trim()
     .min(1, "Nama kelas wajib diisi.")
     .max(50, "Nama kelas maksimal 50 karakter."),
-    prodi_id: z.string().min(1, "Prodi wajib dipilih."),
+  prodi_id: z.string().min(1, "Prodi wajib dipilih."),
+  angkatan: z.coerce
+    .number()
+    .int(ANGKATAN_MESSAGE)
+    .min(ANGKATAN_MIN, ANGKATAN_MESSAGE)
+    .max(ANGKATAN_MAX, ANGKATAN_MESSAGE),
   semester_id: z.string().min(1, "Semester wajib dipilih."),
 });
 
@@ -62,14 +83,14 @@ export async function createKelas(input: KelasInput): Promise<ActionResult> {
   const parsed = kelasInputSchema.safeParse(input);
   if (!parsed.success) return { ok: false, error: zodFirstError(parsed.error) };
 
-  const { name, prodi_id, semester_id } = parsed.data;
+  const { name, prodi_id, angkatan, semester_id } = parsed.data;
   if (!admin.is_admin && !canManageProdi(admin.pengelola_scopes, prodi_id)) {
     return { ok: false, error: "Prodi ini berada di luar lingkup penunjukan Anda." };
   }
   try {
     await prisma.$transaction(async (tx) => {
       const created = await tx.kelas.create({
-        data: { name, prodi_id, semester_id },
+        data: { name, prodi_id, angkatan, semester_id },
       });
 
       await logAudit(
@@ -78,7 +99,7 @@ export async function createKelas(input: KelasInput): Promise<ActionResult> {
           action: "KELAS_CREATE",
           entity: { type: "Kelas", id: created.id, label: name },
           context: { kelas_id: created.id, kelas_label: name },
-          after: { name, prodi_id, semester_id },
+          after: { name, prodi_id, angkatan, semester_id },
         },
         tx,
       );
@@ -89,7 +110,7 @@ export async function createKelas(input: KelasInput): Promise<ActionResult> {
       error: mapPrismaKnownError(
         error,
         {
-          P2002: "Kelas dengan nama yang sama sudah ada di prodi + semester ini.",
+          P2002: "Kelas dengan nama yang sama sudah ada di prodi + angkatan + semester ini.",
           P2003: "Prodi atau semester tidak valid.",
         },
         "Gagal menyimpan kelas. Silakan coba lagi.",
@@ -115,11 +136,11 @@ export async function updateKelas(
   const parsed = kelasUpdateSchema.safeParse(input);
   if (!parsed.success) return { ok: false, error: zodFirstError(parsed.error) };
 
-  const { name, prodi_id, semester_id } = parsed.data;
+  const { name, prodi_id, angkatan, semester_id } = parsed.data;
 
   const before = await prisma.kelas.findUnique({
     where: { id },
-    select: { name: true, prodi_id: true, semester_id: true },
+    select: { name: true, prodi_id: true, angkatan: true, semester_id: true },
   });
   if (!before) {
     return { ok: false, error: "Kelas tidak ditemukan. Mungkin sudah dihapus." };
@@ -136,15 +157,31 @@ export async function updateKelas(
     }
   }
 
+  if (angkatan !== before.angkatan) {
+    const anggota = await prisma.user.findMany({
+      where: { kelas_id: id },
+      select: { nim: true },
+    });
+    const bentrok = anggota.filter(
+      (item) => item.nim !== null && angkatanFromNim(item.nim) !== angkatan,
+    );
+    if (bentrok.length > 0) {
+      return {
+        ok: false,
+        error: `Angkatan ${angkatan} tidak cocok dengan NIM ${bentrok.length} mahasiswa di kelas ini.`,
+      };
+    }
+  }
+
   const changedFields = (
-    ["name", "prodi_id", "semester_id"] as const
+    ["name", "prodi_id", "angkatan", "semester_id"] as const
   ).filter((field) => before[field] !== parsed.data[field]);
 
   try {
     await prisma.$transaction(async (tx) => {
       await tx.kelas.update({
         where: { id },
-        data: { name, prodi_id, semester_id },
+        data: { name, prodi_id, angkatan, semester_id },
       });
 
       await logAudit(
@@ -154,7 +191,7 @@ export async function updateKelas(
           entity: { type: "Kelas", id, label: name },
           context: { kelas_id: id, kelas_label: name },
           before,
-          after: { name, prodi_id, semester_id },
+          after: { name, prodi_id, angkatan, semester_id },
           metadata: { changed_fields: changedFields },
         },
         tx,
@@ -166,7 +203,7 @@ export async function updateKelas(
       error: mapPrismaKnownError(
         error,
         {
-          P2002: "Kelas dengan nama yang sama sudah ada di prodi + semester ini.",
+          P2002: "Kelas dengan nama yang sama sudah ada di prodi + angkatan + semester ini.",
           P2025: "Kelas tidak ditemukan. Mungkin sudah dihapus.",
           P2003: "Prodi atau semester tidak valid.",
         },

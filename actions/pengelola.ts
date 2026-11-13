@@ -12,8 +12,8 @@
  * · Penunjukan berbasis email: bila user belum pernah login, baris tersimpan
  *   PENDING (`user_id` null) dan diklaim otomatis saat login pertama
  *   (`auth.ts` / `lib/user-snapshot.ts`).
- * · Masa berlaku terikat semester aktif saat penunjukan dibuat; hak berhenti
- *   saat semester berganti (penurunan lingkup di `lib/user-snapshot.ts`).
+ * · Masa berlaku: penunjukan KELAS berhenti saat kelasnya bukan lagi semester
+ *   aktif cohort-nya; penunjukan PRODI berlaku sampai dicabut admin.
  * · Setiap mutasi menulis AuditLog dalam transaksi yang sama.
  */
 import { revalidatePath } from "next/cache";
@@ -23,6 +23,7 @@ import { auditActor, logAudit } from "@/lib/audit";
 import { requireAdmin, requirePengelola } from "@/lib/auth-helpers";
 import { filterKelasByScope } from "@/lib/pengelola";
 import { prisma } from "@/lib/prisma";
+import { activeSemesterIdsForKelas } from "@/lib/services/semester-service";
 import { isAllowedEmail } from "@/lib/utils";
 
 const idSchema = z.string().trim().min(1).max(128);
@@ -67,11 +68,10 @@ export async function getPengelolaAdminData(): Promise<{
   assignments: PengelolaAssignmentRow[];
   prodis: { id: string; name: string }[];
   kelasOptions: { id: string; name: string; prodi_name: string; semester_name: string }[];
-  activeSemester: { id: string; name: string } | null;
 }> {
   await requireAdmin();
 
-  const [rows, prodis, kelasList, activeSemester] = await Promise.all([
+  const [rows, prodis, kelasList] = await Promise.all([
     prisma.pengelolaAssignment.findMany({
       orderBy: [{ revoked_at: "asc" }, { granted_at: "desc" }],
       take: 200,
@@ -99,21 +99,51 @@ export async function getPengelolaAdminData(): Promise<{
       select: {
         id: true,
         name: true,
+        prodi_id: true,
+        angkatan: true,
+        semester_id: true,
         prodi: { select: { name: true } },
         semester: { select: { name: true } },
       },
     }),
-    prisma.semester.findFirst({
-      where: { is_active: true },
-      select: { id: true, name: true },
-    }),
+  ]);
+
+  const assignedKelasIds = [
+    ...new Set(
+      rows
+        .filter((row) => row.kelas_id !== null)
+        .map((row) => row.kelas_id as string),
+    ),
+  ];
+  const assignedKelas = assignedKelasIds.length
+    ? await prisma.kelas.findMany({
+        where: { id: { in: assignedKelasIds } },
+        select: {
+          id: true,
+          prodi_id: true,
+          angkatan: true,
+          semester_id: true,
+        },
+      })
+    : [];
+
+  // Gabungkan dengan kelasList (maks. 300) supaya status penunjukan lama
+  // tetap benar walau kelasnya tidak ikut termuat di daftar opsi.
+  const activeByKelasId = await activeSemesterIdsForKelas([
+    ...kelasList,
+    ...assignedKelas,
   ]);
 
   const assignments: PengelolaAssignmentRow[] = rows.map((row) => {
     let status: PengelolaAssignmentRow["status"] = "AKTIF";
     if (row.revoked_at) status = "DICABUT";
     else if (!row.user_id) status = "PENDING";
-    else if (row.semester_id && row.semester_id !== activeSemester?.id) {
+    else if (
+      row.scope_type === "KELAS" &&
+      row.kelas_id &&
+      row.semester_id &&
+      row.semester_id !== activeByKelasId[row.kelas_id]
+    ) {
       status = "KEDALUWARSA";
     }
     return {
@@ -135,16 +165,23 @@ export async function getPengelolaAdminData(): Promise<{
     };
   });
 
+  // Penunjukan KELAS hanya berguna untuk kelas yang periodenya masih aktif
+  // bagi cohort-nya; kelas historis disembunyikan dari form.
+  const kelasAktif = kelasList.filter(
+    (kelas) =>
+      kelas.angkatan === null ||
+      activeByKelasId[kelas.id] === kelas.semester_id,
+  );
+
   return {
     assignments,
     prodis,
-    kelasOptions: kelasList.map((kelas) => ({
+    kelasOptions: kelasAktif.map((kelas) => ({
       id: kelas.id,
       name: kelas.name,
       prodi_name: kelas.prodi.name,
       semester_name: kelas.semester.name,
     })),
-    activeSemester,
   };
 }
 
@@ -169,16 +206,9 @@ export async function assignPengelola(formData: FormData): Promise<void> {
     throw new Error("Pilih kelas lingkup penunjukan.");
   }
 
-  const activeSemester = await prisma.semester.findFirst({
-    where: { is_active: true },
-    select: { id: true, name: true },
-  });
-  if (!activeSemester) {
-    throw new Error("Belum ada semester aktif — penunjukan pengelola membutuhkan semester aktif.");
-  }
-
   // Target harus nyata; label disimpan untuk jejak audit.
   let targetLabel = "";
+  let targetSemesterId: string | null = null;
   if (scope_type === "PRODI") {
     const prodi = await prisma.prodi.findUnique({
       where: { id: prodi_id! },
@@ -189,10 +219,15 @@ export async function assignPengelola(formData: FormData): Promise<void> {
   } else {
     const kelas = await prisma.kelas.findUnique({
       where: { id: kelas_id! },
-      select: { name: true, prodi: { select: { name: true } } },
+      select: {
+        name: true,
+        semester_id: true,
+        prodi: { select: { name: true } },
+      },
     });
     if (!kelas) throw new Error("Kelas lingkup tidak ditemukan.");
     targetLabel = `${kelas.name} · ${kelas.prodi.name}`;
+    targetSemesterId = kelas.semester_id;
   }
 
   const existing = await prisma.pengelolaAssignment.findFirst({
@@ -227,7 +262,7 @@ export async function assignPengelola(formData: FormData): Promise<void> {
         prodi_id: scope_type === "PRODI" ? prodi_id : null,
         kelas_id: scope_type === "KELAS" ? kelas_id : null,
         granted_by_id: admin.id,
-        semester_id: activeSemester.id,
+        semester_id: targetSemesterId,
       },
     });
     await logAudit(
@@ -245,7 +280,7 @@ export async function assignPengelola(formData: FormData): Promise<void> {
           prodi_id: scope_type === "PRODI" ? prodi_id : null,
           kelas_id: scope_type === "KELAS" ? kelas_id : null,
           target_label: targetLabel,
-          semester_id: activeSemester.id,
+          semester_id: targetSemesterId,
           status: user ? "AKTIF" : "PENDING",
         },
       },

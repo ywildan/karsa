@@ -11,11 +11,9 @@ import { Select } from "@/components/ui/select";
 export function PengelolaAssignForm({
   prodis,
   kelasOptions,
-  activeSemesterName,
 }: {
   prodis: { id: string; name: string }[];
   kelasOptions: { id: string; name: string; prodi_name: string; semester_name: string }[];
-  activeSemesterName: string | null;
 }) {
   const [scopeType, setScopeType] = React.useState<"PRODI" | "KELAS">("PRODI");
 
@@ -49,8 +47,8 @@ export function PengelolaAssignForm({
           <option value="KELAS">Satu kelas</option>
         </Select>
         <p className="text-xs text-muted-foreground">
-          Berlaku untuk semester aktif{activeSemesterName ? ` (${activeSemesterName})` : ""} dan
-          berhenti saat semester berganti.
+          PRODI berlaku sampai dicabut. KELAS berlaku selama kelas itu masih di
+          semester aktif angkatannya.
         </p>
       </div>
 

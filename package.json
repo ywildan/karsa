@@ -21,6 +21,7 @@
     "test:ai-usage": "tsx --test tests/ai-usage.test.ts",
     "test:ai-settings": "tsx --test tests/ai-settings.test.ts",
     "test:nim-gate": "tsx --test tests/nim-gate.test.ts",
+    "test:semester": "tsx --test tests/semester-policy.test.ts",
     "test:lib-ai:integration": "node --conditions=react-server --import tsx --test tests/lib-ai.integration.ts",
     "test:groups:integration": "tsx --test tests/group-api.integration.ts",
     "db:generate": "prisma generate",

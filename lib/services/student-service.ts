@@ -7,32 +7,57 @@ import {
   type UnrankedLeaderboardRow,
 } from "@/lib/leaderboard";
 import { prisma } from "@/lib/prisma";
+import {
+  activeSemesterForKelas,
+  type ActiveSemester,
+} from "@/lib/services/semester-service";
 
 export interface StudentActor {
   id: string;
   kelas_id: string | null;
 }
 
-async function activeSemester() {
-  const semester = await prisma.semester.findFirst({
-    where: { is_active: true },
-    select: { id: true, name: true },
+interface StudentKelas {
+  id: string;
+  name: string;
+  prodi_id: string;
+  angkatan: number | null;
+  semester_id: string;
+  prodi: { name: string };
+}
+
+async function loadStudentKelas(actor: StudentActor): Promise<StudentKelas | null> {
+  if (!actor.kelas_id) return null;
+  return prisma.kelas.findUnique({
+    where: { id: actor.kelas_id },
+    select: {
+      id: true,
+      name: true,
+      prodi_id: true,
+      angkatan: true,
+      semester_id: true,
+      prodi: { select: { name: true } },
+    },
   });
-  if (!semester) throw new Error("Semester aktif belum ditetapkan.");
-  return semester;
+}
+
+/** Semester aktif cohort mahasiswa; null bila kelasnya bukan periode aktif. */
+async function activeSemesterForStudent(
+  kelas: StudentKelas,
+): Promise<ActiveSemester | null> {
+  return activeSemesterForKelas(kelas);
 }
 
 export async function getStudentReport(actor: StudentActor) {
-  if (!actor.kelas_id) return { empty: true as const };
-  const semester = await activeSemester();
+  const kelas = await loadStudentKelas(actor);
+  if (!kelas) return { empty: true as const };
 
-  const [kelas, assignments, logs] = await Promise.all([
-    prisma.kelas.findFirst({
-      where: { id: actor.kelas_id, semester_id: semester.id },
-      select: { id: true, name: true, prodi: { select: { name: true } } },
-    }),
+  const semester = await activeSemesterForStudent(kelas);
+  if (!semester) return { empty: true as const };
+
+  const [assignments, logs] = await Promise.all([
     prisma.kelasMatkul.findMany({
-      where: { kelas_id: actor.kelas_id, kelas: { semester_id: semester.id } },
+      where: { kelas_id: kelas.id },
       select: {
         id: true,
         matkul: { select: { name: true, code: true } },
@@ -43,7 +68,7 @@ export async function getStudentReport(actor: StudentActor) {
     prisma.poinLog.findMany({
       where: {
         mahasiswa_id: actor.id,
-        kelasMatkul: { kelas: { semester_id: semester.id } },
+        kelasMatkul: { kelas_id: kelas.id },
       },
       select: {
         id: true,
@@ -57,8 +82,6 @@ export async function getStudentReport(actor: StudentActor) {
       orderBy: { created_at: "desc" },
     }),
   ]);
-
-  if (!kelas) return { empty: true as const };
   const perAssignment = new Map<string, typeof logs>();
   for (const log of logs) {
     const current = perAssignment.get(log.kelas_matkul_id) ?? [];
@@ -88,10 +111,13 @@ export async function getStudentReport(actor: StudentActor) {
 }
 
 export async function getLeaderboardOptions(actor: StudentActor) {
-  if (!actor.kelas_id) return [];
-  const semester = await activeSemester();
+  const kelas = await loadStudentKelas(actor);
+  if (!kelas) return [];
+  const semester = await activeSemesterForStudent(kelas);
+  if (!semester) return [];
+
   const rows = await prisma.kelasMatkul.findMany({
-    where: { kelas_id: actor.kelas_id, kelas: { semester_id: semester.id } },
+    where: { kelas_id: kelas.id },
     select: { id: true, matkul: { select: { name: true, code: true } } },
     orderBy: { matkul: { name: "asc" } },
   });
@@ -103,26 +129,25 @@ export async function getLeaderboardOptions(actor: StudentActor) {
 }
 
 export async function getStudentLeaderboard(actor: StudentActor, assignmentId: string) {
-  if (!actor.kelas_id) return null;
-  const semester = await activeSemester();
+  const kelas = await loadStudentKelas(actor);
+  if (!kelas) return null;
+  const semester = await activeSemesterForStudent(kelas);
+  if (!semester) return null;
+
   const assignment = await prisma.kelasMatkul.findFirst({
-    where: {
-      id: assignmentId,
-      kelas_id: actor.kelas_id,
-      kelas: { semester_id: semester.id },
-    },
+    where: { id: assignmentId, kelas_id: kelas.id },
     select: { id: true, matkul: { select: { name: true, code: true } } },
   });
   if (!assignment) return null;
 
   const [students, totals] = await Promise.all([
     prisma.user.findMany({
-      where: { kelas_id: actor.kelas_id },
+      where: { kelas_id: kelas.id },
       select: { id: true, name: true, nim: true },
     }),
     prisma.poinLog.groupBy({
       by: ["mahasiswa_id"],
-      where: { kelas_matkul_id: assignment.id, mahasiswa: { kelas_id: actor.kelas_id } },
+      where: { kelas_matkul_id: assignment.id, mahasiswa: { kelas_id: kelas.id } },
       _sum: { poin: true },
     }),
   ]);

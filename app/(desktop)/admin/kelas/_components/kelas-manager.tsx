@@ -58,6 +58,7 @@ export function KelasManager({
   const [editing, setEditing] = React.useState<KelasRow | null>(null);
   const [name, setName] = React.useState("");
   const [prodiId, setProdiId] = React.useState("");
+  const [angkatan, setAngkatan] = React.useState("");
   const [semesterId, setSemesterId] = React.useState("");
   const [pending, startTransition] = React.useTransition();
 
@@ -66,6 +67,7 @@ export function KelasManager({
     setEditing(null);
     setName("");
     setProdiId(prodis[0]?.id ?? "");
+    setAngkatan("");
     setSemesterId(semesters[0]?.id ?? "");
     setDialogOpen(true);
   }
@@ -74,13 +76,14 @@ export function KelasManager({
     setEditing(row);
     setName(row.name);
     setProdiId(row.prodi_id);
+    setAngkatan(row.angkatan?.toString() ?? "");
     setSemesterId(row.semester_id);
     setDialogOpen(true);
   }
 
   function handleSubmit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    const payload = { name, prodi_id: prodiId, semester_id: semesterId };
+    const payload = { name, prodi_id: prodiId, angkatan, semester_id: semesterId };
     startTransition(async () => {
       const result = editing
         ? await updateKelas(editing.id, payload)
@@ -154,6 +157,7 @@ export function KelasManager({
               <TableRow>
                 <TableHead>Nama</TableHead>
                 <TableHead>Prodi</TableHead>
+                <TableHead>Angkatan</TableHead>
                 <TableHead>Semester</TableHead>
                 <TableHead className="text-right">Mahasiswa</TableHead>
                 <TableHead className="text-right">Matkul</TableHead>
@@ -165,6 +169,9 @@ export function KelasManager({
                 <TableRow key={row.id}>
                   <TableCell className="font-medium">{row.name}</TableCell>
                   <TableCell>{row.prodi.name}</TableCell>
+                  <TableCell className="tabular-nums">
+                    {row.angkatan ?? "—"}
+                  </TableCell>
                   <TableCell>{row.semester.name}</TableCell>
                   <TableCell className="text-right">{row._count.users}</TableCell>
                   <TableCell className="text-right">
@@ -220,7 +227,7 @@ export function KelasManager({
               {editing ? `Edit Kelas ${editing.name}` : "Tambah Kelas"}
             </DialogTitle>
             <DialogDescription>
-              Nama kelas unik per kombinasi prodi + semester.
+              Nama kelas unik per kombinasi prodi + angkatan + semester.
             </DialogDescription>
           </DialogHeader>
 
@@ -253,6 +260,26 @@ export function KelasManager({
             </div>
 
             <div className="grid gap-2">
+              <Label htmlFor="kelas-angkatan">Angkatan</Label>
+              <Input
+                id="kelas-angkatan"
+                type="number"
+                inputMode="numeric"
+                min={2000}
+                max={2100}
+                step={1}
+                value={angkatan}
+                onChange={(event) => setAngkatan(event.target.value)}
+                placeholder="2026"
+                required
+              />
+              <p className="text-xs text-muted-foreground">
+                Tahun masuk cohort. Mahasiswa dengan NIM angkatan lain tidak
+                bisa ditambahkan ke kelas ini.
+              </p>
+            </div>
+
+            <div className="grid gap-2">
               <Label htmlFor="kelas-semester">Semester</Label>
               <Select
                 id="kelas-semester"
@@ -278,7 +305,7 @@ export function KelasManager({
               </Button>
               <Button
                 type="submit"
-                disabled={pending || !prodiId || !semesterId}
+                disabled={pending || !prodiId || !angkatan || !semesterId}
               >
                 {pending
                   ? "Menyimpan..."

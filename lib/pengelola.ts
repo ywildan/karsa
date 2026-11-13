@@ -34,32 +34,40 @@ export interface PengelolaAssignmentLike {
   semester_id: string | null;
 }
 
+/** Peta `kelas_id` → semester aktif cohort kelas itu (null = belum/bukan aktif). */
+export type KelasActiveSemesterMap = Readonly<Record<string, string | null>>;
+
 /**
  * Turunkan lingkup efektif dari baris-baris penunjukan seorang user.
  *
  * Baris diabaikan bila:
  * - sudah dicabut (`revoked_at` terisi), atau
- * - terikat semester lain (`semester_id` terisi dan bukan semester aktif) —
- *   penunjukan berhenti memberi hak begitu semester berganti, atau
+ * - penunjukan KELAS terikat semester lain daripada semester aktif cohort
+ *   kelasnya (penunjukan berhenti memberi hak begitu cohort pindah), atau
  * - targetnya tidak konsisten dengan `scope_type` (data rusak → fail-closed).
  *
- * `activeSemesterId` boleh null (mis. belum ada semester aktif): penunjukan
- * yang terikat semester tertentu lalu dianggap belum/tidak berlaku, sedangkan
- * penunjukan tanpa ikatan semester tetap berlaku.
+ * Penunjukan PRODI sengaja TIDAK kedaluwarsa otomatis: satu penunjukan prodi
+ * mencakup banyak angkatan yang bisa berada di periode berbeda, sehingga masa
+ * berlakunya berakhir hanya saat dicabut admin (keputusan produk).
+ *
+ * `activeSemesterByKelasId` boleh tidak memuat kelas tertentu (mis. migrasi
+ * cohort belum jalan): penunjukan KELAS yang terikat semester lalu dianggap
+ * tidak berlaku, sedangkan penunjukan tanpa ikatan semester tetap berlaku.
  */
 export function derivePengelolaScopes(
   rows: readonly PengelolaAssignmentLike[],
-  activeSemesterId: string | null,
+  activeSemesterByKelasId: KelasActiveSemesterMap,
 ): PengelolaScopes {
   const prodiIds = new Set<string>();
   const kelasIds = new Set<string>();
 
   for (const row of rows) {
     if (row.revoked_at) continue;
-    if (row.semester_id && row.semester_id !== activeSemesterId) continue;
     if (row.scope_type === "PRODI" && row.prodi_id) {
       prodiIds.add(row.prodi_id);
     } else if (row.scope_type === "KELAS" && row.kelas_id) {
+      const activeSemester = activeSemesterByKelasId[row.kelas_id] ?? null;
+      if (row.semester_id && row.semester_id !== activeSemester) continue;
       kelasIds.add(row.kelas_id);
     }
   }

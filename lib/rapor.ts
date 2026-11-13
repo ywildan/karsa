@@ -53,7 +53,10 @@ export interface RaporMahasiswaData {
   totalPoin: number;
 }
 
-/** Hasil query rapor: user tanpa kelas tidak memiliki data akademik aktif. */
+/**
+ * Hasil query rapor: user tanpa kelas / cohort belum punya semester aktif
+ * tidak memiliki data akademik aktif.
+ */
 export type RaporMahasiswaResult =
-  | { ok: true; empty: true }
+  | { ok: true; empty: true; reason: "tanpa_kelas" | "belum_aktif" }
   | { ok: true; empty: false; data: RaporMahasiswaData };

@@ -46,7 +46,7 @@ class _ReportScreenState extends State<ReportScreen> {
           else if (snapshot.hasError)
             SliverFillRemaining(hasScrollBody: false, child: ErrorState(message: friendlyError(snapshot.error!), onRetry: _reload))
           else if (snapshot.data!.isEmpty)
-            const SliverFillRemaining(hasScrollBody: false, child: EmptyState(title: 'Belum ada laporan', message: 'Kelas atau semester aktif belum tersedia untuk akunmu.', icon: Icons.assessment_outlined))
+            const SliverFillRemaining(hasScrollBody: false, child: EmptyState(title: 'Belum ada laporan', message: 'Kelas atau semester aktif angkatanmu belum tersedia.', icon: Icons.assessment_outlined))
           else
             SliverPadding(
               padding: const EdgeInsets.fromLTRB(20, 12, 20, 28),

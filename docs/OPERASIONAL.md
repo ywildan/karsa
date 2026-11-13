@@ -77,7 +77,21 @@ Verify Database Restore → isi `backup_run_id` + konfirmasi
 - Setiap koreksi tercatat di `/admin/audit`. Setelah semester berganti, data
   terkunci (kecuali bug sistem, perlu persetujuan dosen + admin).
 
-## 6. Retensi data
+## 6. Semester aktif per angkatan
+
+- Semester aktif ditetapkan per **(prodi, angkatan)** di `/admin/semester`
+  bagian "Semester aktif per angkatan". Dua kelas dalam angkatan yang sama
+  otomatis mengikuti periode yang sama; prodi/angkatan lain bisa berbeda.
+- Rapor, leaderboard, dan input poin hanya membaca periode pointer tersebut.
+  Angkatan tanpa pointer akan melihat rapor kosong dan kartu input PJ tidak
+  muncul; dashboard admin menandai jumlah angkatan yang belum ditetapkan.
+- Mengubah pointer hanya memengaruhi angkatan itu. Penunjukan pengelola
+  ber-scope KELAS berhenti saat kelasnya bukan lagi periode aktif cohort-nya;
+  scope PRODI berlaku sampai dicabut manual.
+- Database lama: jalankan `prisma/cohort-semester.sql`, lalu isi angkatan untuk
+  kelas yang masih `angkatan IS NULL` lewat Edit Kelas.
+
+## 7. Retensi data
 
 | Data | Retensi |
 |---|---|
@@ -93,7 +107,7 @@ hapus via SQL dengan urutan `PoinLog` → `Account`/`Session` → `User`
 (FK `RESTRICT` — urutan wajib). Audit log di-anonymize (`DELETED_USER`),
 tidak dihapus. Batas proses 7 hari kerja.
 
-## 7. Retensi pesan grup
+## 8. Retensi pesan grup
 
 Fungsi `public.karsa_purge_group_retention()` (`prisma/mobile-groups-retention.sql`)
 dijalankan otomatis oleh **Supabase Cron**, bukan oleh aplikasi.
@@ -135,7 +149,7 @@ SELECT jobname, schedule, active FROM cron.job
 WHERE jobname = 'karsa-group-retention-daily';
 ```
 
-## 8. Pengabaian build Vercel
+## 9. Pengabaian build Vercel
 
 `vercel.json` mengatur `ignoreCommand` → `scripts/vercel-ignore-build.sh`. Skrip
 menentukan apakah push memicu build web: **`exit 0` = build dilewati**, kode keluar

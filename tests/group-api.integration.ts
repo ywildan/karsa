@@ -84,7 +84,10 @@ after(async () => {
 });
 
 test("mobile group API enforces membership, contextual PJ rights, and abuse rules", async () => {
-  const semester = await prisma.semester.findFirstOrThrow({ where: { is_active: true } });
+  const kelasAcuan = await prisma.kelas.findUniqueOrThrow({
+    where: { id: "kelas_ti01" },
+    select: { semester_id: true },
+  });
 
   await prisma.user.create({
     data: {
@@ -100,7 +103,8 @@ test("mobile group API enforces membership, contextual PJ rights, and abuse rule
       id: "kelas_other",
       name: "TI-02",
       prodi_id: "prodi_ti",
-      semester_id: semester.id,
+      angkatan: 2023,
+      semester_id: kelasAcuan.semester_id,
     },
   });
   await prisma.user.create({

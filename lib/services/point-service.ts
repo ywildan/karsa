@@ -7,6 +7,11 @@ import { mapPrismaKnownError, zodFirstError } from "@/lib/action-utils";
 import { logAudit } from "@/lib/audit";
 import { CATATAN_MAX, DOUBLE_SUBMIT_WINDOW_MS, mahasiswaLabel } from "@/lib/poin";
 import { prisma } from "@/lib/prisma";
+import { KELAS_NONAKTIF_MESSAGE, cohortKey } from "@/lib/semester";
+import {
+  activeSemesterForCohort,
+  activeSemestersForCohorts,
+} from "@/lib/services/semester-service";
 import { POIN_MAX, POIN_MIN } from "@/lib/utils";
 
 export interface PointActor {
@@ -36,6 +41,9 @@ async function resolveAssignment(assignmentId: string, pjId: string) {
       kelas: {
         select: {
           name: true,
+          prodi_id: true,
+          angkatan: true,
+          semester_id: true,
           prodi: { select: { name: true } },
           semester: { select: { name: true } },
         },
@@ -43,6 +51,19 @@ async function resolveAssignment(assignmentId: string, pjId: string) {
     },
   });
   return assignment?.pj_id === pjId ? assignment : null;
+}
+
+type ActiveAssignment = NonNullable<Awaited<ReturnType<typeof resolveAssignment>>>;
+
+/**
+ * Input/koreksi hanya boleh untuk kelas yang periodenya masih aktif bagi
+ * cohort (prodi + angkatan) kelas tersebut.
+ */
+async function assignmentIsActive(assignment: ActiveAssignment): Promise<boolean> {
+  const { angkatan, prodi_id, semester_id } = assignment.kelas;
+  if (angkatan === null) return false;
+  const semester = await activeSemesterForCohort(prodi_id, angkatan);
+  return semester?.id === semester_id;
 }
 
 export async function listPjAssignments(pjId: string) {
@@ -55,6 +76,9 @@ export async function listPjAssignments(pjId: string) {
       kelas: {
         select: {
           name: true,
+          prodi_id: true,
+          angkatan: true,
+          semester_id: true,
           prodi: { select: { name: true } },
           semester: { select: { name: true } },
         },
@@ -62,7 +86,27 @@ export async function listPjAssignments(pjId: string) {
     },
     orderBy: { matkul: { name: "asc" } },
   });
-  const classIds = [...new Set(rows.map((row) => row.kelas_id))];
+
+  const activeByCohort = await activeSemestersForCohorts(
+    rows
+      .filter((row) => row.kelas.angkatan !== null)
+      .map((row) => ({
+        prodi_id: row.kelas.prodi_id,
+        angkatan: row.kelas.angkatan as number,
+      })),
+  );
+
+  // Kelas dari periode lama disembunyikan dari daftar input; riwayatnya tetap
+  // bisa dilihat di tab Riwayat.
+  const visible = rows.filter(
+    (row) =>
+      row.kelas.angkatan !== null &&
+      activeByCohort.get(
+        cohortKey(row.kelas.prodi_id, row.kelas.angkatan as number),
+      )?.id === row.kelas.semester_id,
+  );
+
+  const classIds = [...new Set(visible.map((row) => row.kelas_id))];
   const counts = classIds.length
     ? await prisma.user.groupBy({
         by: ["kelas_id"],
@@ -72,17 +116,21 @@ export async function listPjAssignments(pjId: string) {
     : [];
   const countByClass = new Map(counts.map((item) => [item.kelas_id, item._count._all]));
 
-  return rows.map((row) => ({
+  return visible.map((row) => ({
     id: row.id,
     matkul: row.matkul,
-    kelas: row.kelas,
+    kelas: {
+      name: row.kelas.name,
+      prodi: row.kelas.prodi,
+      semester: row.kelas.semester,
+    },
     student_count: countByClass.get(row.kelas_id) ?? 0,
   }));
 }
 
 export async function listAssignmentStudents(pjId: string, assignmentId: string) {
   const assignment = await resolveAssignment(assignmentId, pjId);
-  if (!assignment) return null;
+  if (!assignment || !(await assignmentIsActive(assignment))) return null;
   const students = await prisma.user.findMany({
     where: { kelas_id: assignment.kelas_id },
     select: { id: true, name: true, nim: true },
@@ -92,7 +140,11 @@ export async function listAssignmentStudents(pjId: string, assignmentId: string)
     assignment: {
       id: assignment.id,
       matkul: assignment.matkul,
-      kelas: assignment.kelas,
+      kelas: {
+        name: assignment.kelas.name,
+        prodi: assignment.kelas.prodi,
+        semester: assignment.kelas.semester,
+      },
     },
     students: students.map((student) => ({
       ...student,
@@ -162,6 +214,9 @@ export async function createPoint(
 
   const assignment = await resolveAssignment(kelas_matkul_id, actor.id);
   if (!assignment) return { ok: false, error: "Kamu bukan PJ untuk matkul ini." };
+  if (!(await assignmentIsActive(assignment))) {
+    return { ok: false, error: KELAS_NONAKTIF_MESSAGE };
+  }
   if (mahasiswa_id === actor.id) {
     return { ok: false, error: "PJ tidak bisa memberi poin untuk dirinya sendiri." };
   }
@@ -261,7 +316,15 @@ export async function deletePoint(actor: PointActor, id: string): Promise<Action
           kategori: { select: { name: true } },
           kelasMatkul: {
             select: {
-              kelas: { select: { id: true, name: true } },
+              kelas: {
+                select: {
+                  id: true,
+                  name: true,
+                  prodi_id: true,
+                  angkatan: true,
+                  semester_id: true,
+                },
+              },
               matkul: { select: { id: true, name: true } },
             },
           },
@@ -269,6 +332,18 @@ export async function deletePoint(actor: PointActor, id: string): Promise<Action
       });
       if (!log) return { ok: false, error: "Poin tidak ditemukan." };
       if (log.pj_id !== actor.id) return { ok: false, error: "Kamu tidak berhak hapus poin ini." };
+
+      const { angkatan, prodi_id, semester_id } = log.kelasMatkul.kelas;
+      const pointer =
+        angkatan === null
+          ? null
+          : await tx.cohortSemester.findUnique({
+              where: { prodi_id_angkatan: { prodi_id, angkatan } },
+              select: { semester_id: true },
+            });
+      if (!pointer || pointer.semester_id !== semester_id) {
+        return { ok: false, error: KELAS_NONAKTIF_MESSAGE };
+      }
 
       const deleted = await tx.poinLog.deleteMany({ where: { id, pj_id: actor.id } });
       if (deleted.count !== 1) return { ok: false, error: "Poin tidak ditemukan." };

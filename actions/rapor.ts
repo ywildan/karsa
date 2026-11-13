@@ -13,9 +13,14 @@ import type {
   RaporMatkulItem,
   RaporPoinItem,
 } from "@/lib/rapor";
+import { activeSemesterForKelas } from "@/lib/services/semester-service";
 
 /**
- * Ambil rapor mahasiswa untuk semester aktif.
+ * Ambil rapor mahasiswa untuk semester aktif cohort-nya.
+ *
+ * Semester aktif ditentukan per (prodi, angkatan) lewat `CohortSemester`,
+ * bukan satu periode global. Header, daftar matkul, dan riwayat poin memakai
+ * periode yang sama supaya tidak ada lagi header kelas lama dengan total 0.
  *
  * `PoinLog` tidak menyimpan semester secara langsung, sehingga filter semester
  * dilakukan lewat `PoinLog.kelasMatkul.kelas.semester_id`. Riwayat selalu
@@ -26,30 +31,34 @@ export async function getRaporMahasiswa(): Promise<RaporMahasiswaResult> {
 
   // Tidak ada kelas → tidak ada query akademik tambahan.
   if (!user.kelas_id) {
-    return { ok: true, empty: true };
+    return { ok: true, empty: true, reason: "tanpa_kelas" };
   }
 
-  const semesterAktif = await prisma.semester.findFirst({
-    where: { is_active: true },
-    select: { id: true, name: true },
+  const kelas = await prisma.kelas.findUnique({
+    where: { id: user.kelas_id },
+    select: {
+      id: true,
+      name: true,
+      prodi_id: true,
+      angkatan: true,
+      semester_id: true,
+      prodi: { select: { name: true } },
+    },
   });
 
-  // Invarian sistem: selalu ada tepat satu semester aktif (PRD §9).
-  if (!semesterAktif) {
-    throw new Error("Semester aktif belum ditetapkan.");
+  // Klaim session bisa tertinggal bila kelas dihapus setelah JWT diterbitkan.
+  if (!kelas) {
+    return { ok: true, empty: true, reason: "tanpa_kelas" };
   }
 
-  const [kelas, kelasMatkuls, poinLogs] = await Promise.all([
-    prisma.kelas.findUnique({
-      where: { id: user.kelas_id },
-      select: {
-        id: true,
-        name: true,
-        prodi: { select: { name: true } },
-      },
-    }),
+  const semesterAktif = await activeSemesterForKelas(kelas);
+  if (!semesterAktif) {
+    return { ok: true, empty: true, reason: "belum_aktif" };
+  }
+
+  const [kelasMatkuls, poinLogs] = await Promise.all([
     prisma.kelasMatkul.findMany({
-      where: { kelas_id: user.kelas_id },
+      where: { kelas_id: kelas.id },
       select: {
         id: true,
         matkul: { select: { name: true, code: true } },
@@ -78,11 +87,6 @@ export async function getRaporMahasiswa(): Promise<RaporMahasiswaResult> {
       orderBy: { created_at: "desc" },
     }),
   ]);
-
-  // Klaim session bisa tertinggal bila kelas dihapus setelah JWT diterbitkan.
-  if (!kelas) {
-    return { ok: true, empty: true };
-  }
 
   const riwayatPerMatkul = new Map<string, RaporPoinItem[]>();
   for (const poinLog of poinLogs) {

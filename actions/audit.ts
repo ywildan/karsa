@@ -183,17 +183,20 @@ export async function getAuditLog(
   }));
 }
 
-/** Opsi dropdown kelas dari kelas pada semester aktif (pengelola: hanya lingkupnya). */
+/** Opsi dropdown kelas dari semua periode (pengelola: hanya lingkupnya). */
 export async function getAuditKelasOptions(): Promise<AuditKelasOption[]> {
   const actor = await requirePengelola();
 
   const rows = await prisma.kelas.findMany({
-    where: { semester: { is_active: true } },
-    orderBy: { name: "asc" },
+    orderBy: [
+      { semester: { start_date: "desc" } },
+      { name: "asc" },
+    ],
     select: {
       id: true,
       name: true,
       prodi_id: true,
+      semester: { select: { name: true } },
     },
   });
 
@@ -203,7 +206,7 @@ export async function getAuditKelasOptions(): Promise<AuditKelasOption[]> {
 
   return visible.map((row) => ({
     id: row.id,
-    label: row.name,
+    label: `${row.name} · ${row.semester.name}`,
   }));
 }
 

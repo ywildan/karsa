@@ -9,17 +9,15 @@
 
 import * as React from "react";
 import type { Semester } from "@prisma/client";
-import { Pencil, Plus, Star, Trash2 } from "lucide-react";
+import { Pencil, Plus, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 
 import {
   createSemester,
   deleteSemester,
-  setActiveSemester,
   updateSemester,
 } from "@/actions/semester";
 import { Button } from "@/components/button";
-import { Badge } from "@/components/ui/badge";
 import {
   Dialog,
   DialogContent,
@@ -87,17 +85,6 @@ export function SemesterManager({ semesters }: { semesters: Semester[] }) {
     });
   }
 
-  function handleSetActive(semester: Semester) {
-    startTransition(async () => {
-      const result = await setActiveSemester(semester.id);
-      if (result.ok) {
-        toast.success(result.message ?? "Semester aktif diganti.");
-      } else {
-        toast.error(result.error);
-      }
-    });
-  }
-
   function handleDelete(semester: Semester) {
     const confirmed = window.confirm(
       `Hapus semester "${semester.name}"? Tindakan ini tidak bisa dibatalkan.`,
@@ -135,7 +122,6 @@ export function SemesterManager({ semesters }: { semesters: Semester[] }) {
                 <TableHead>Nama</TableHead>
                 <TableHead>Tanggal Mulai</TableHead>
                 <TableHead>Tanggal Akhir</TableHead>
-                <TableHead>Status</TableHead>
                 <TableHead className="text-right">Aksi</TableHead>
               </TableRow>
             </TableHeader>
@@ -146,24 +132,7 @@ export function SemesterManager({ semesters }: { semesters: Semester[] }) {
                   <TableCell>{formatDateWib(semester.start_date)}</TableCell>
                   <TableCell>{formatDateWib(semester.end_date)}</TableCell>
                   <TableCell>
-                    {semester.is_active ? (
-                      <Badge>Aktif</Badge>
-                    ) : (
-                      <Badge variant="secondary">Tidak aktif</Badge>
-                    )}
-                  </TableCell>
-                  <TableCell>
                     <div className="flex justify-end gap-1.5">
-                      <Button
-                        type="button"
-                        variant="outline"
-                        size="sm"
-                        disabled={pending || semester.is_active}
-                        onClick={() => handleSetActive(semester)}
-                      >
-                        <Star aria-hidden />
-                        Set Aktif
-                      </Button>
                       <Button
                         type="button"
                         variant="outline"
@@ -201,8 +170,8 @@ export function SemesterManager({ semesters }: { semesters: Semester[] }) {
               {editing ? `Edit Semester ${editing.name}` : "Tambah Semester"}
             </DialogTitle>
             <DialogDescription>
-              Contoh nama: &quot;Ganjil 2026/2027&quot;. Semester baru dibuat
-              dalam status tidak aktif.
+              Contoh nama: &quot;Ganjil 2026/2027&quot;. Semester baru belum
+              menjadi semester aktif sampai ditetapkan per angkatan.
             </DialogDescription>
           </DialogHeader>
 

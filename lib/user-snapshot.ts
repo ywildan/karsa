@@ -21,6 +21,7 @@ import {
   type PengelolaScopes,
 } from "@/lib/pengelola";
 import { prisma } from "@/lib/prisma";
+import { activeSemesterIdsForKelas } from "@/lib/services/semester-service";
 
 /** Profil ringkas user — dipakai untuk klaim JWT & otorisasi server. */
 export interface UserSnapshot {
@@ -134,24 +135,40 @@ async function loadPengelolaScopes(row: SnapshotRow): Promise<PengelolaScopes> {
       data: { user_id: row.id },
     });
 
-    const [assignments, activeSemester] = await Promise.all([
-      prisma.pengelolaAssignment.findMany({
-        where: { user_id: row.id, revoked_at: null },
-        select: {
-          scope_type: true,
-          prodi_id: true,
-          kelas_id: true,
-          revoked_at: true,
-          semester_id: true,
-        },
-      }),
-      prisma.semester.findFirst({
-        where: { is_active: true },
-        select: { id: true },
-      }),
-    ]);
+    const assignments = await prisma.pengelolaAssignment.findMany({
+      where: { user_id: row.id, revoked_at: null },
+      select: {
+        scope_type: true,
+        prodi_id: true,
+        kelas_id: true,
+        revoked_at: true,
+        semester_id: true,
+      },
+    });
 
-    return derivePengelolaScopes(assignments, activeSemester?.id ?? null);
+    // Penunjukan KELAS hanya berlaku selama kelasnya berada di semester aktif
+    // cohort-nya. Penunjukan PRODI tidak ikut kedaluwarsa (lihat lib/pengelola).
+    const kelasIds = [
+      ...new Set(
+        assignments
+          .filter((item) => item.scope_type === "KELAS" && item.kelas_id)
+          .map((item) => item.kelas_id as string),
+      ),
+    ];
+    const kelasList = kelasIds.length
+      ? await prisma.kelas.findMany({
+          where: { id: { in: kelasIds } },
+          select: {
+            id: true,
+            prodi_id: true,
+            angkatan: true,
+          },
+        })
+      : [];
+
+    const activeSemesterByKelasId = await activeSemesterIdsForKelas(kelasList);
+
+    return derivePengelolaScopes(assignments, activeSemesterByKelasId);
   } catch (error) {
     console.error(
       "[snapshot] gagal membaca penunjukan pengelola — lingkup dikosongkan.",

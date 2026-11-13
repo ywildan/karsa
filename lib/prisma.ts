@@ -10,7 +10,9 @@
  *
  * Pemakaian:
  *   import { prisma } from "@/lib/prisma";
- *   const semester = await prisma.semester.findFirst({ where: { is_active: true } });
+ *   const kelas = await prisma.kelas.findUnique({ where: { id: kelasId } });
+ *   const aktif = await activeSemesterForKelas(kelas);
+ *   // Semester aktif per cohort: lihat `lib/services/semester-service.ts`.
  *
  * Catatan: Prisma Client dihasilkan oleh `npx prisma generate`
  * (`@prisma/client`). Perintah itu di-skip di sandbox; jalankan di lokal

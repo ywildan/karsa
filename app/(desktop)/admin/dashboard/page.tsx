@@ -58,7 +58,7 @@ const SHORTCUTS = [
   },
   {
     title: "Atur semester",
-    description: "Periksa periode yang aktif",
+    description: "Periode dan semester aktif per angkatan",
     href: "/admin/semester",
     icon: CalendarDays,
   },
@@ -102,7 +102,9 @@ export default async function AdminDashboardPage() {
     matkulCount,
     memberCount,
     materiCount,
-    activeSemester,
+    cohortGroups,
+    cohortPointers,
+    kelasTanpaAngkatan,
     libQueue,
     recentActivity,
     userGrowth,
@@ -115,10 +117,14 @@ export default async function AdminDashboardPage() {
     prisma.user.count({ where: { kelas_id: { not: null } } }),
     // Tabel Materi bisa belum ada sebelum prisma/materi.sql dijalankan.
     prisma.materi.count({ where: { status: "TERBIT" } }).catch(() => null),
-    prisma.semester.findFirst({
-      where: { is_active: true },
-      select: { name: true },
+    prisma.kelas.groupBy({
+      by: ["prodi_id", "angkatan"],
+      where: { angkatan: { not: null } },
     }),
+    prisma.cohortSemester.findMany({
+      select: { prodi_id: true, angkatan: true },
+    }),
+    prisma.kelas.count({ where: { angkatan: null } }),
     Promise.all([
       prisma.libAuthorRequest.count({ where: { status: "PENDING" } }),
       prisma.libReport.count({ where: { status: "PENDING" } }),
@@ -157,6 +163,16 @@ export default async function AdminDashboardPage() {
   const pendingTotal = libQueue
     ? libQueue.authorRequests + libQueue.reports
     : null;
+
+  const cohortPointersSet = new Set(
+    cohortPointers.map((row) => `${row.prodi_id}:${row.angkatan}`),
+  );
+  const cohortTotal = cohortGroups.length;
+  const cohortMissing = cohortGroups.filter(
+    (row) =>
+      row.angkatan !== null &&
+      !cohortPointersSet.has(`${row.prodi_id}:${row.angkatan}`),
+  ).length;
 
   const metrics: Metric[] = [
     {
@@ -221,11 +237,26 @@ export default async function AdminDashboardPage() {
           href="/admin/semester"
           className="inline-flex min-h-9 items-center gap-2 rounded-full border border-border bg-card px-3 text-xs font-medium text-foreground transition-colors hover:bg-accent focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
         >
-          <span className="h-2 w-2 rounded-full bg-primary" aria-hidden />
-          {activeSemester ? activeSemester.name : "Belum ada semester aktif"}
+          <span
+            className={`h-2 w-2 rounded-full ${cohortMissing > 0 ? "bg-destructive" : "bg-primary"}`}
+            aria-hidden
+          />
+          {cohortTotal === 0
+            ? "Belum ada angkatan terdaftar"
+            : cohortMissing === 0
+              ? `Semester aktif siap untuk ${cohortTotal} angkatan`
+              : `${cohortMissing} dari ${cohortTotal} angkatan belum punya semester aktif`}
           <ArrowRight className="h-3.5 w-3.5 text-muted-foreground" aria-hidden />
         </Link>
       </header>
+
+      {kelasTanpaAngkatan > 0 && (
+        <p className="rounded-xl border border-amber-500/30 bg-amber-500/10 px-4 py-3 text-sm text-amber-800">
+          Ada {formatNumber(kelasTanpaAngkatan)} kelas lama tanpa angkatan.
+          Lengkapi angkatannya di Kelola Kelas agar semester aktif cohort-nya
+          bisa ditetapkan.
+        </p>
+      )}
 
       <section
         aria-labelledby="admin-priority-title"

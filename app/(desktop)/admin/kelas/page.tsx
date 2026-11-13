@@ -38,8 +38,8 @@ export default async function AdminKelasPage() {
       <header>
         <h1 className="text-2xl font-semibold tracking-tight">Kelas</h1>
         <p className="mt-1 text-sm text-muted-foreground">
-          Rombongan belajar per prodi & semester. Satu nama unik per kombinasi
-          prodi + semester.
+          Rombongan belajar per prodi, angkatan, dan semester. Satu nama unik
+          per kombinasi prodi + angkatan + semester.
         </p>
       </header>
 

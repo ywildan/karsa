@@ -48,6 +48,11 @@ import {
   type RiwayatPoinRow,
 } from "@/lib/poin";
 import { prisma } from "@/lib/prisma";
+import { KELAS_NONAKTIF_MESSAGE, cohortKey } from "@/lib/semester";
+import {
+  activeSemesterForCohort,
+  activeSemestersForCohorts,
+} from "@/lib/services/semester-service";
 import { POIN_MAX, POIN_MIN } from "@/lib/utils";
 
 // ---------------------------------------------------------------------------
@@ -97,12 +102,29 @@ async function resolveKelasMatkulAsPj(kelasMatkulId: string, pjId: string) {
       kelas_id: true,
       pj_id: true,
       matkul: { select: { id: true, name: true, code: true } },
-      kelas: { select: { name: true } },
+      kelas: {
+        select: {
+          name: true,
+          prodi_id: true,
+          angkatan: true,
+          semester_id: true,
+        },
+      },
     },
   });
 
   if (!kelasMatkul || kelasMatkul.pj_id !== pjId) return null;
   return kelasMatkul;
+}
+
+/** Kelas hanya bisa dinilai selama periodenya aktif untuk cohort-nya. */
+async function kelasMatkulIsActive(kelasMatkul: {
+  kelas: { prodi_id: string; angkatan: number | null; semester_id: string };
+}): Promise<boolean> {
+  const { prodi_id, angkatan, semester_id } = kelasMatkul.kelas;
+  if (angkatan === null) return false;
+  const semester = await activeSemesterForCohort(prodi_id, angkatan);
+  return semester?.id === semester_id;
 }
 
 // ---------------------------------------------------------------------------
@@ -127,6 +149,9 @@ export async function getMatkulsAsPj(): Promise<MatkulPjCard[]> {
         select: {
           id: true,
           name: true,
+          prodi_id: true,
+          angkatan: true,
+          semester_id: true,
           prodi: { select: { name: true } },
           semester: { select: { name: true } },
         },
@@ -135,9 +160,27 @@ export async function getMatkulsAsPj(): Promise<MatkulPjCard[]> {
     orderBy: { matkul: { name: "asc" } },
   });
 
-  if (rows.length === 0) return [];
+  const activeByCohort = await activeSemestersForCohorts(
+    rows
+      .filter((row) => row.kelas.angkatan !== null)
+      .map((row) => ({
+        prodi_id: row.kelas.prodi_id,
+        angkatan: row.kelas.angkatan as number,
+      })),
+  );
 
-  const kelasIds = [...new Set(rows.map((row) => row.kelas_id))];
+  // Sama seperti mobile: kartu input hanya untuk kelas periode aktif cohort.
+  const rowsAktif = rows.filter(
+    (row) =>
+      row.kelas.angkatan !== null &&
+      activeByCohort.get(
+        cohortKey(row.kelas.prodi_id, row.kelas.angkatan as number),
+      )?.id === row.kelas.semester_id,
+  );
+
+  if (rowsAktif.length === 0) return [];
+
+  const kelasIds = [...new Set(rowsAktif.map((row) => row.kelas_id))];
   const hitungan = await prisma.user.groupBy({
     by: ["kelas_id"],
     where: { kelas_id: { in: kelasIds } },
@@ -150,7 +193,7 @@ export async function getMatkulsAsPj(): Promise<MatkulPjCard[]> {
     ]),
   );
 
-  return rows.map((row) => ({
+  return rowsAktif.map((row) => ({
     id: row.id,
     matkulName: row.matkul.name,
     matkulCode: row.matkul.code,
@@ -179,6 +222,7 @@ export async function getMahasiswaInKelasMatkul(
 
   const kelasMatkul = await resolveKelasMatkulAsPj(parsed.data, user.id);
   if (!kelasMatkul) return [];
+  if (!(await kelasMatkulIsActive(kelasMatkul))) return [];
 
   const rows = await prisma.user.findMany({
     where: { kelas_id: kelasMatkul.kelas_id },
@@ -297,6 +341,10 @@ export async function createPoinLog(input: PoinInput): Promise<ActionResult> {
       ok: false,
       error: "Kamu bukan PJ untuk matkul ini. Muat ulang halaman.",
     };
+  }
+
+  if (!(await kelasMatkulIsActive(kelasMatkul))) {
+    return { ok: false, error: KELAS_NONAKTIF_MESSAGE };
   }
 
   // 2. PJ tidak boleh menilai dirinya sendiri (PRD §13.2).
@@ -433,7 +481,15 @@ export async function deletePoinLog(id: string): Promise<ActionResult> {
           kategori: { select: { name: true } },
           kelasMatkul: {
             select: {
-              kelas: { select: { id: true, name: true } },
+              kelas: {
+                select: {
+                  id: true,
+                  name: true,
+                  prodi_id: true,
+                  angkatan: true,
+                  semester_id: true,
+                },
+              },
               matkul: { select: { id: true, name: true } },
             },
           },
@@ -445,6 +501,10 @@ export async function deletePoinLog(id: string): Promise<ActionResult> {
       }
       if (poinLog.pj_id !== user.id) {
         return { ok: false, error: "Kamu tidak berhak hapus poin ini." };
+      }
+
+      if (!(await kelasMatkulIsActive({ kelas: poinLog.kelasMatkul.kelas }))) {
+        return { ok: false, error: KELAS_NONAKTIF_MESSAGE };
       }
 
       // Syarat pemilik pada DELETE menutup celah bila baris berubah bersamaan.

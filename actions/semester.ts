@@ -14,8 +14,8 @@
  *   4. `revalidatePath` halaman semester + dashboard (dashboard menampilkan
  *      statistik master).
  *
- * Aturan "hanya 1 semester aktif" (PRD §9) dijaga transaksi di
- * `setActiveSemester` dan partial unique index di DB (prisma/init.sql).
+ * Aturan "semester aktif" sekarang per (prodi, angkatan): satu baris
+ * `CohortSemester` per cohort. Tidak ada lagi satu periode global.
  */
 import { z } from "zod";
 
@@ -24,6 +24,11 @@ import { mapPrismaKnownError, revalidatePaths, zodFirstError } from "@/lib/actio
 import { auditActor, logAudit } from "@/lib/audit";
 import { requireAdmin } from "@/lib/auth-helpers";
 import { prisma } from "@/lib/prisma";
+import {
+  ANGKATAN_MAX,
+  ANGKATAN_MESSAGE,
+  ANGKATAN_MIN,
+} from "@/lib/semester";
 
 /** Payload form semester — tanggal dari `<input type="date">` (yyyy-mm-dd). */
 const semesterInputSchema = z
@@ -61,6 +66,23 @@ type SemesterInput = {
 
 const REVALIDATE = ["/admin/semester", "/admin/dashboard"] as const;
 
+/** Payload penetapan semester aktif per (prodi, angkatan). */
+const cohortSemesterInputSchema = z.object({
+  prodi_id: z.string().min(1, "Prodi wajib dipilih."),
+  angkatan: z.coerce
+    .number()
+    .int(ANGKATAN_MESSAGE)
+    .min(ANGKATAN_MIN, ANGKATAN_MESSAGE)
+    .max(ANGKATAN_MAX, ANGKATAN_MESSAGE),
+  semester_id: z.string().min(1, "Semester wajib dipilih."),
+});
+
+type CohortSemesterInput = {
+  prodi_id: string;
+  angkatan: number;
+  semester_id: string;
+};
+
 /** Tambah semester baru (default tidak aktif). */
 export async function createSemester(input: SemesterInput): Promise<ActionResult> {
   const admin = await requireAdmin();
@@ -82,7 +104,6 @@ export async function createSemester(input: SemesterInput): Promise<ActionResult
           entity: { type: "Semester", id: created.id, label: name },
           after: {
             name,
-            is_active: created.is_active,
             start_date: start_date.toISOString(),
             end_date: end_date.toISOString(),
           },
@@ -139,13 +160,11 @@ export async function updateSemester(
           entity: { type: "Semester", id, label: name },
           before: {
             name: before.name,
-            is_active: before.is_active,
             start_date: before.start_date.toISOString(),
             end_date: before.end_date.toISOString(),
           },
           after: {
             name,
-            is_active: before.is_active,
             start_date: start_date.toISOString(),
             end_date: end_date.toISOString(),
           },
@@ -173,8 +192,8 @@ export async function updateSemester(
 
 /**
  * Hapus semester. Ditolak bila:
- *   · semester sedang aktif (PRD §9 — jangan sampai tak ada semester aktif);
- *   · masih ada kelas terikat (relasi `onDelete: Restrict`).
+ *   · masih ada kelas terikat (relasi `onDelete: Restrict`);
+ *   · masih menjadi semester aktif salah satu angkatan.
  */
 export async function deleteSemester(id: string): Promise<ActionResult> {
   const admin = await requireAdmin();
@@ -183,19 +202,22 @@ export async function deleteSemester(id: string): Promise<ActionResult> {
   if (!semester) {
     return { ok: false, error: "Semester tidak ditemukan. Mungkin sudah dihapus." };
   }
-  if (semester.is_active) {
-    return {
-      ok: false,
-      error:
-        "Semester aktif tidak bisa dihapus. Aktifkan semester lain terlebih dahulu.",
-    };
-  }
 
   const kelasCount = await prisma.kelas.count({ where: { semester_id: id } });
   if (kelasCount > 0) {
     return {
       ok: false,
       error: `Semester "${semester.name}" masih dipakai ${kelasCount} kelas. Pindahkan atau hapus kelasnya dulu.`,
+    };
+  }
+
+  const cohortCount = await prisma.cohortSemester.count({
+    where: { semester_id: id },
+  });
+  if (cohortCount > 0) {
+    return {
+      ok: false,
+      error: `Semester "${semester.name}" masih menjadi semester aktif ${cohortCount} angkatan. Ganti semester aktifnya dulu.`,
     };
   }
 
@@ -210,7 +232,6 @@ export async function deleteSemester(id: string): Promise<ActionResult> {
           entity: { type: "Semester", id, label: semester.name },
           before: {
             name: semester.name,
-            is_active: semester.is_active,
             start_date: semester.start_date.toISOString(),
             end_date: semester.end_date.toISOString(),
           },
@@ -238,55 +259,76 @@ export async function deleteSemester(id: string): Promise<ActionResult> {
 }
 
 /**
- * Jadikan semester target satu-satunya yang aktif (PRD §9).
- * Transaksi: matikan semua yang aktif, lalu aktifkan target — tidak ada
- * jendela "0 aktif" atau "2 aktif" (dijaga juga oleh partial unique index
- * `Semester_satu_aktif_key` di DB).
+ * Tetapkan semester aktif untuk satu cohort (prodi + angkatan).
+ *
+ * Menggantikan `setActiveSemester` global: tiap angkatan bisa berbeda periode,
+ * dan dua kelas dalam angkatan yang sama otomatis mengikuti pointer ini.
+ * Hanya admin penuh (keputusan produk).
  */
-export async function setActiveSemester(id: string): Promise<ActionResult> {
+export async function setCohortActiveSemester(
+  input: CohortSemesterInput,
+): Promise<ActionResult> {
   const admin = await requireAdmin();
 
-  const target = await prisma.semester.findUnique({ where: { id } });
-  if (!target) {
-    return { ok: false, error: "Semester tidak ditemukan. Mungkin sudah dihapus." };
+  const parsed = cohortSemesterInputSchema.safeParse(input);
+  if (!parsed.success) return { ok: false, error: zodFirstError(parsed.error) };
+
+  const { prodi_id, angkatan, semester_id } = parsed.data;
+
+  const [prodi, semester, before] = await Promise.all([
+    prisma.prodi.findUnique({ where: { id: prodi_id }, select: { name: true } }),
+    prisma.semester.findUnique({
+      where: { id: semester_id },
+      select: { id: true, name: true },
+    }),
+    prisma.cohortSemester.findUnique({
+      where: { prodi_id_angkatan: { prodi_id, angkatan } },
+      select: { id: true, semester: { select: { id: true, name: true } } },
+    }),
+  ]);
+
+  if (!prodi) return { ok: false, error: "Prodi tidak ditemukan." };
+  if (!semester) return { ok: false, error: "Semester tidak ditemukan." };
+  if (before?.semester.id === semester_id) {
+    return {
+      ok: false,
+      error: `Semester "${semester.name}" sudah aktif untuk angkatan ini.`,
+    };
   }
-  if (target.is_active) {
-    return { ok: false, error: `Semester "${target.name}" sudah aktif.` };
-  }
+
+  const label = `${prodi.name} ${angkatan}`;
 
   try {
     await prisma.$transaction(async (tx) => {
-      const previousActive = await tx.semester.findFirst({
-        where: { is_active: true },
-        select: { id: true },
+      const row = await tx.cohortSemester.upsert({
+        where: { prodi_id_angkatan: { prodi_id, angkatan } },
+        update: { semester_id },
+        create: { prodi_id, angkatan, semester_id },
       });
-
-      await tx.semester.updateMany({
-        where: { is_active: true },
-        data: { is_active: false },
-      });
-      await tx.semester.update({ where: { id }, data: { is_active: true } });
 
       await logAudit(
         {
           actor: auditActor(admin),
           action: "SEMESTER_SET_ACTIVE",
-          entity: { type: "Semester", id, label: target.name },
-          before: {
-            name: target.name,
-            is_active: target.is_active,
-            start_date: target.start_date.toISOString(),
-            end_date: target.end_date.toISOString(),
-          },
+          entity: { type: "CohortSemester", id: row.id, label },
+          before: before
+            ? {
+                semester_id: before.semester.id,
+                semester_name: before.semester.name,
+              }
+            : undefined,
           after: {
-            name: target.name,
-            is_active: true,
-            start_date: target.start_date.toISOString(),
-            end_date: target.end_date.toISOString(),
+            prodi_id,
+            prodi_name: prodi.name,
+            angkatan,
+            semester_id: semester.id,
+            semester_name: semester.name,
           },
           metadata: {
-            previous_active_id: previousActive?.id ?? null,
-            new_active_id: id,
+            prodi_id,
+            angkatan,
+            previous_semester_id: before?.semester.id ?? null,
+            new_semester_id: semester.id,
           },
         },
         tx,
@@ -297,12 +339,18 @@ export async function setActiveSemester(id: string): Promise<ActionResult> {
       ok: false,
       error: mapPrismaKnownError(
         error,
-        { P2025: "Semester tidak ditemukan. Mungkin sudah dihapus." },
-        "Gagal mengganti semester aktif. Silakan coba lagi.",
+        {
+          P2025: "Prodi atau semester tidak ditemukan.",
+          P2003: "Prodi atau semester yang dipilih tidak valid.",
+        },
+        "Gagal menetapkan semester aktif. Silakan coba lagi.",
       ),
     };
   }
 
-  revalidatePaths(REVALIDATE);
-  return { ok: true, message: `Semester "${target.name}" sekarang aktif.` };
+  revalidatePaths([...REVALIDATE, "/admin/kelas"]);
+  return {
+    ok: true,
+    message: `Semester aktif ${label} sekarang ${semester.name}.`,
+  };
 }

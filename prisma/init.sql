@@ -89,7 +89,9 @@ CREATE TABLE IF NOT EXISTS "VerificationToken" (
     "expires"    TIMESTAMP(3) NOT NULL
 );
 
--- Semester — hanya satu baris boleh is_active = true (dijaga partial unique index).
+-- Semester — periode akademik. `is_active` adalah penanda global LEGACY;
+-- semester aktif yang dibaca aplikasi ada di "CohortSemester" (per prodi +
+-- angkatan). Partial unique index di bawah dipertahankan untuk migrasi lama.
 CREATE TABLE IF NOT EXISTS "Semester" (
     "id"         TEXT         NOT NULL,
     "name"       TEXT         NOT NULL,
@@ -120,15 +122,31 @@ CREATE TABLE IF NOT EXISTS "Matkul" (
     CONSTRAINT "Matkul_pkey" PRIMARY KEY ("id")
 );
 
--- Kelas — rombongan belajar pada satu prodi & satu semester.
+-- Kelas — rombongan belajar pada satu prodi, satu angkatan, satu semester.
 CREATE TABLE IF NOT EXISTS "Kelas" (
     "id"          TEXT         NOT NULL,
     "name"        TEXT         NOT NULL,
     "prodi_id"    TEXT         NOT NULL,
+    "angkatan"    INTEGER,
     "semester_id" TEXT         NOT NULL,
     "created_at"  TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
     "updated_at"  TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
     CONSTRAINT "Kelas_pkey" PRIMARY KEY ("id")
+);
+
+-- Kolom baru untuk database lama (CREATE TABLE IF NOT EXISTS tidak menambah kolom).
+ALTER TABLE "Kelas" ADD COLUMN IF NOT EXISTS "angkatan" INTEGER;
+
+-- CohortSemester — semester aktif per (prodi, angkatan). Satu baris per cohort;
+-- dua kelas dalam angkatan yang sama otomatis berbagi semester aktif.
+CREATE TABLE IF NOT EXISTS "CohortSemester" (
+    "id"          TEXT         NOT NULL,
+    "prodi_id"    TEXT         NOT NULL,
+    "angkatan"    INTEGER      NOT NULL,
+    "semester_id" TEXT         NOT NULL,
+    "created_at"  TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "updated_at"  TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    CONSTRAINT "CohortSemester_pkey" PRIMARY KEY ("id")
 );
 
 -- KelasMatkul — matkul yang diajarkan di satu kelas, dipegang satu PJ.
@@ -312,8 +330,12 @@ BEGIN
     IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'Matkul_code_key') THEN
         ALTER TABLE "Matkul" ADD CONSTRAINT "Matkul_code_key" UNIQUE ("code");
     END IF;
-    IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'Kelas_name_prodi_id_semester_id_key') THEN
-        ALTER TABLE "Kelas" ADD CONSTRAINT "Kelas_name_prodi_id_semester_id_key" UNIQUE ("name", "prodi_id", "semester_id");
+    IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'Kelas_name_prodi_id_angkatan_semester_id_key') THEN
+        ALTER TABLE "Kelas" DROP CONSTRAINT IF EXISTS "Kelas_name_prodi_id_semester_id_key";
+        ALTER TABLE "Kelas" ADD CONSTRAINT "Kelas_name_prodi_id_angkatan_semester_id_key" UNIQUE ("name", "prodi_id", "angkatan", "semester_id");
+    END IF;
+    IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'CohortSemester_prodi_id_angkatan_key') THEN
+        ALTER TABLE "CohortSemester" ADD CONSTRAINT "CohortSemester_prodi_id_angkatan_key" UNIQUE ("prodi_id", "angkatan");
     END IF;
     IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'KelasMatkul_kelas_id_matkul_id_key') THEN
         ALTER TABLE "KelasMatkul" ADD CONSTRAINT "KelasMatkul_kelas_id_matkul_id_key" UNIQUE ("kelas_id", "matkul_id");
@@ -401,6 +423,22 @@ BEGIN
     IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'Kelas_semester_id_fkey') THEN
         ALTER TABLE "Kelas"
             ADD CONSTRAINT "Kelas_semester_id_fkey"
+            FOREIGN KEY ("semester_id") REFERENCES "Semester" ("id")
+            ON DELETE RESTRICT ON UPDATE CASCADE;
+    END IF;
+
+    -- CohortSemester → Prodi
+    IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'CohortSemester_prodi_id_fkey') THEN
+        ALTER TABLE "CohortSemester"
+            ADD CONSTRAINT "CohortSemester_prodi_id_fkey"
+            FOREIGN KEY ("prodi_id") REFERENCES "Prodi" ("id")
+            ON DELETE RESTRICT ON UPDATE CASCADE;
+    END IF;
+
+    -- CohortSemester → Semester
+    IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'CohortSemester_semester_id_fkey') THEN
+        ALTER TABLE "CohortSemester"
+            ADD CONSTRAINT "CohortSemester_semester_id_fkey"
             FOREIGN KEY ("semester_id") REFERENCES "Semester" ("id")
             ON DELETE RESTRICT ON UPDATE CASCADE;
     END IF;
@@ -593,6 +631,35 @@ CREATE INDEX IF NOT EXISTS "User_first_login_at_idx" ON "User" ("first_login_at"
 -- Master akademik
 CREATE INDEX IF NOT EXISTS "Kelas_prodi_id_idx" ON "Kelas" ("prodi_id");
 CREATE INDEX IF NOT EXISTS "Kelas_semester_id_idx" ON "Kelas" ("semester_id");
+CREATE INDEX IF NOT EXISTS "Kelas_prodi_id_angkatan_idx" ON "Kelas" ("prodi_id", "angkatan");
+CREATE INDEX IF NOT EXISTS "CohortSemester_semester_id_idx" ON "CohortSemester" ("semester_id");
+
+-- RLS CohortSemester — pola sama dengan "PengelolaAssignment": anon/authenticated
+-- tidak butuh akses langsung, runtime memakai policy grant penuh.
+ALTER TABLE "CohortSemester" ENABLE ROW LEVEL SECURITY;
+REVOKE ALL ON "CohortSemester" FROM PUBLIC;
+DO $$
+DECLARE role_name TEXT;
+BEGIN
+  FOREACH role_name IN ARRAY ARRAY['anon', 'authenticated'] LOOP
+    IF EXISTS (SELECT 1 FROM pg_roles WHERE rolname = role_name) THEN
+      EXECUTE format('REVOKE ALL ON "CohortSemester" FROM %I', role_name);
+    END IF;
+  END LOOP;
+
+  IF EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'karsa_runtime') THEN
+    GRANT SELECT, INSERT, UPDATE, DELETE ON "CohortSemester" TO karsa_runtime;
+    IF NOT EXISTS (
+      SELECT 1 FROM pg_policies
+      WHERE schemaname = 'public'
+        AND tablename = 'CohortSemester'
+        AND policyname = 'karsa_runtime_ai'
+    ) THEN
+      CREATE POLICY karsa_runtime_ai ON "CohortSemester"
+        FOR ALL TO karsa_runtime USING (true) WITH CHECK (true);
+    END IF;
+  END IF;
+END $$;
 CREATE INDEX IF NOT EXISTS "KelasMatkul_kelas_id_idx" ON "KelasMatkul" ("kelas_id");
 CREATE INDEX IF NOT EXISTS "KelasMatkul_matkul_id_idx" ON "KelasMatkul" ("matkul_id");
 CREATE INDEX IF NOT EXISTS "KelasMatkul_pj_id_idx" ON "KelasMatkul" ("pj_id");
@@ -726,19 +793,32 @@ VALUES
     ('matkul_pweb', 'Pemrograman Web',           'TIF1102', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
 ON CONFLICT ("code") DO NOTHING;
 
--- --- Kelas TI-01 (terikat Prodi TI + semester aktif) ------------------------
+-- --- Kelas TI-01 (terikat Prodi TI + semester seed, angkatan 2023) ----------
 -- `kelas_id` diresolusi lewat nama supaya tetap benar walau semester di-seed
 -- lewat `npm run db:seed` (id-nya cuid acak).
-INSERT INTO "Kelas" ("id", "name", "prodi_id", "semester_id", "created_at", "updated_at")
+INSERT INTO "Kelas" ("id", "name", "prodi_id", "angkatan", "semester_id", "created_at", "updated_at")
 VALUES (
     'kelas_ti01',
     'TI-01',
     'prodi_ti',
+    2023,
     (SELECT "id" FROM "Semester" WHERE "name" = 'Ganjil 2026/2027'),
     CURRENT_TIMESTAMP,
     CURRENT_TIMESTAMP
 )
-ON CONFLICT ("name", "prodi_id", "semester_id") DO NOTHING;
+ON CONFLICT DO NOTHING;
+
+-- --- Semester aktif cohort TI 2023 ------------------------------------------
+INSERT INTO "CohortSemester" ("id", "prodi_id", "angkatan", "semester_id", "created_at", "updated_at")
+VALUES (
+    'cohort_prodi_ti_2023',
+    'prodi_ti',
+    2023,
+    (SELECT "id" FROM "Semester" WHERE "name" = 'Ganjil 2026/2027'),
+    CURRENT_TIMESTAMP,
+    CURRENT_TIMESTAMP
+)
+ON CONFLICT ("prodi_id", "angkatan") DO NOTHING;
 
 -- --- Test users -------------------------------------------------------------
 --  Nama             Email                                  NIM          Peran

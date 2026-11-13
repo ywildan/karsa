@@ -30,7 +30,7 @@ const STATUS_STYLES: Record<PengelolaAssignmentRow["status"], string> = {
 const STATUS_LABELS: Record<PengelolaAssignmentRow["status"], string> = {
   AKTIF: "Aktif",
   PENDING: "Menunggu login pertama",
-  KEDALUWARSA: "Kedaluwarsa (semester berganti)",
+  KEDALUWARSA: "Kedaluwarsa (kelas pindah semester)",
   DICABUT: "Dicabut",
 };
 
@@ -41,8 +41,7 @@ function targetLabel(row: PengelolaAssignmentRow): string {
 
 export default async function AdminPengelolaPage() {
   await requireAdmin();
-  const { assignments, prodis, kelasOptions, activeSemester } =
-    await getPengelolaAdminData();
+  const { assignments, prodis, kelasOptions } = await getPengelolaAdminData();
 
   return (
     <main className="mx-auto flex w-full max-w-5xl flex-col gap-6 px-4 py-8">
@@ -62,18 +61,7 @@ export default async function AdminPengelolaPage() {
           Tunjuk pengelola baru
         </h2>
         <div className="mt-4">
-          {activeSemester ? (
-            <PengelolaAssignForm
-              prodis={prodis}
-              kelasOptions={kelasOptions}
-              activeSemesterName={activeSemester.name}
-            />
-          ) : (
-            <p className="text-sm text-muted-foreground">
-              Belum ada semester aktif. Aktifkan semester dulu di menu
-              Semester — penunjukan pengelola terikat pada semester aktif.
-            </p>
-          )}
+          <PengelolaAssignForm prodis={prodis} kelasOptions={kelasOptions} />
         </div>
       </section>
 

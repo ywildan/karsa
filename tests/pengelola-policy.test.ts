@@ -12,6 +12,10 @@ import {
 } from "../lib/pengelola";
 
 const ACTIVE_SEMESTER = "semester-active";
+const ACTIVE_BY_KELAS = {
+  "kelas-1": ACTIVE_SEMESTER,
+  "kelas-9": ACTIVE_SEMESTER,
+};
 
 function assignment(
   partial: Partial<PengelolaAssignmentLike>,
@@ -32,24 +36,66 @@ test("derivePengelolaScopes collects active prodi and kelas scopes", () => {
       assignment({ scope_type: "PRODI", prodi_id: "prodi-a" }),
       assignment({ scope_type: "KELAS", kelas_id: "kelas-1", prodi_id: null }),
     ],
-    ACTIVE_SEMESTER,
+    ACTIVE_BY_KELAS,
   );
   assert.deepEqual(scopes.prodi_ids, ["prodi-a"]);
   assert.deepEqual(scopes.kelas_ids, ["kelas-1"]);
   assert.equal(isPengelola(scopes), true);
 });
 
-test("revoked and other-semester assignments grant nothing", () => {
+test("revoked rows and stale kelas assignments grant nothing", () => {
   const scopes = derivePengelolaScopes(
     [
       assignment({ prodi_id: "prodi-a", revoked_at: new Date() }),
-      assignment({ prodi_id: "prodi-b", semester_id: "semester-lama" }),
-      assignment({ scope_type: "KELAS", kelas_id: "kelas-9", semester_id: "semester-lama" }),
+      assignment({
+        scope_type: "KELAS",
+        kelas_id: "kelas-9",
+        semester_id: "semester-lama",
+      }),
     ],
-    ACTIVE_SEMESTER,
+    ACTIVE_BY_KELAS,
   );
   assert.deepEqual(scopes, { prodi_ids: [], kelas_ids: [] });
   assert.equal(isPengelola(scopes), false);
+});
+
+test("prodi assignment survives a period change, kelas assignment does not", () => {
+  const scopes = derivePengelolaScopes(
+    [
+      assignment({
+        scope_type: "KELAS",
+        kelas_id: "kelas-1",
+        semester_id: "semester-lama",
+      }),
+      assignment({
+        scope_type: "KELAS",
+        kelas_id: "kelas-2",
+        semester_id: "semester-lama",
+      }),
+      assignment({
+        scope_type: "PRODI",
+        prodi_id: "prodi-a",
+        semester_id: "semester-lama",
+      }),
+    ],
+    { "kelas-1": "semester-baru", "kelas-2": null },
+  );
+  assert.deepEqual(scopes.kelas_ids, []);
+  assert.deepEqual(scopes.prodi_ids, ["prodi-a"]);
+});
+
+test("kelas assignment without semester binding stays valid", () => {
+  const scopes = derivePengelolaScopes(
+    [
+      assignment({
+        scope_type: "KELAS",
+        kelas_id: "kelas-3",
+        semester_id: null,
+      }),
+    ],
+    { "kelas-3": null },
+  );
+  assert.deepEqual(scopes.kelas_ids, ["kelas-3"]);
 });
 
 test("pending rows (no user linked yet) still derive by their own fields", () => {
@@ -57,7 +103,7 @@ test("pending rows (no user linked yet) still derive by their own fields", () =>
   // scope/revoked/semester. Snapshot hanya memuat baris milik user terkait.
   const scopes = derivePengelolaScopes(
     [assignment({ scope_type: "PRODI", prodi_id: "prodi-a", semester_id: null })],
-    null,
+    {},
   );
   assert.deepEqual(scopes.prodi_ids, ["prodi-a"]);
 });
@@ -69,7 +115,7 @@ test("malformed rows fail closed", () => {
       assignment({ scope_type: "KELAS", kelas_id: null }),
       assignment({ scope_type: "UNIVERSITAS", prodi_id: "prodi-a" }),
     ],
-    ACTIVE_SEMESTER,
+    {},
   );
   assert.deepEqual(scopes, { prodi_ids: [], kelas_ids: [] });
 });
