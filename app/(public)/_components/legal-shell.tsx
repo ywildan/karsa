@@ -60,7 +60,7 @@ export async function LegalShell({ title, summary, active, children }: LegalShel
         </article>
         <p className="mt-8 max-w-3xl text-sm leading-6 text-muted-foreground">
           Ada pertanyaan tentang dokumen ini? Hubungi pengelola Karsa di{" "}
-          <a className="font-semibold text-primary underline underline-offset-4" href="mailto:yuwiaffa@gmail.com">yuwiaffa@gmail.com</a>.
+          <a className="font-semibold text-primary underline underline-offset-4" href="mailto:admin@sikarsa.id">admin@sikarsa.id</a>.
         </p>
       </main>
     </div>
