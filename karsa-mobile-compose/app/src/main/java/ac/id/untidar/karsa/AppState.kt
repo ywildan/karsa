@@ -17,6 +17,7 @@ import ac.id.untidar.karsa.data.SEED_COMMENTS
 import ac.id.untidar.karsa.data.SEED_ENTRIES
 import ac.id.untidar.karsa.auth.AuthController
 import ac.id.untidar.karsa.auth.SessionState
+import ac.id.untidar.karsa.groups.GroupController
 import ac.id.untidar.karsa.lib.LibController
 import ac.id.untidar.karsa.net.AppUser
 import ac.id.untidar.karsa.net.Capabilities
@@ -72,6 +73,7 @@ data class AuditItem(val id: String, val ts: Long, val text: String)
 sealed interface Route {
     data class Article(val id: String) : Route
     data class Chat(val id: String) : Route
+    data class GroupReports(val id: String) : Route
     data class Editor(val id: String? = null, val prefillTitle: String? = null, val prefillBody: String? = null) : Route
     data object MyPosts : Route
     data object Import : Route
@@ -85,6 +87,7 @@ sealed interface Route {
 
 class KarsaState(val auth: AuthController) {
     val lib = LibController(auth)
+    val groups = GroupController(auth)
 
     var phase by mutableStateOf(Phase.Splash)
         private set
@@ -192,6 +195,7 @@ class KarsaState(val auth: AuthController) {
         toast = null
         epoch += 1
         lib.reset()
+        groups.reset()
     }
 
     fun openTab(next: Tab) {

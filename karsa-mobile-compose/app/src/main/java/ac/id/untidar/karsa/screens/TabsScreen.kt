@@ -85,6 +85,7 @@ fun RouteScreen(route: Route) {
         Route.Author -> AuthorScreen()
         is Route.AuthorProfile -> AuthorProfileScreen(route.id)
         is Route.Chat -> ChatScreen(route.id)
+        is Route.GroupReports -> GroupReportsScreen(route.id)
         Route.History -> HistoryScreen()
         Route.Report -> ReportScreen()
         Route.Ranking -> RankingScreen()

@@ -428,6 +428,11 @@ object KarsaIcons {
         "M7 11V7a5 5 0 0 1 10 0v4",
     )
 
+    val LockOpen: List<String> = listOf(
+        "M5 11h14a2 2 0 0 1 2 2v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-7a2 2 0 0 1 2-2z",
+        "M7 11V7a5 5 0 0 1 9.9-1",
+    )
+
     val Image: List<String> = listOf(
         "M 5 3 H 19 A 2 2 0 0 1 21 5 V 19 A 2 2 0 0 1 19 21 H 5 A 2 2 0 0 1 3 19 V 5 A 2 2 0 0 1 5 3 Z",
         "M 7 9 a 2 2 0 1 0 4 0 a 2 2 0 1 0 -4 0",

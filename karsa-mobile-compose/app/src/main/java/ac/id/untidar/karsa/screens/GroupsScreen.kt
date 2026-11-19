@@ -30,7 +30,9 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
@@ -45,6 +47,7 @@ import androidx.compose.ui.platform.LocalClipboardManager
 import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import ac.id.untidar.karsa.LocalApp
 import ac.id.untidar.karsa.Role
@@ -62,7 +65,9 @@ import ac.id.untidar.karsa.data.fmtTime
 import ac.id.untidar.karsa.data.isPjOf
 import ac.id.untidar.karsa.data.pjLabel
 import ac.id.untidar.karsa.data.studentById
+import ac.id.untidar.karsa.groups.GroupRoom
 import ac.id.untidar.karsa.icons.KarsaIcons
+import ac.id.untidar.karsa.net.friendlyError
 import ac.id.untidar.karsa.icons.LucideIcon
 import ac.id.untidar.karsa.theme.Brand100
 import ac.id.untidar.karsa.theme.Brand300
@@ -95,17 +100,21 @@ import ac.id.untidar.karsa.ui.ButtonVariant
 import ac.id.untidar.karsa.ui.DialogTone
 import ac.id.untidar.karsa.ui.EmptyState
 import ac.id.untidar.karsa.ui.EyebrowText
+import ac.id.untidar.karsa.ui.Field
 import ac.id.untidar.karsa.ui.Gate
 import ac.id.untidar.karsa.ui.KarsaButton
 import ac.id.untidar.karsa.ui.KarsaCard
 import ac.id.untidar.karsa.ui.KarsaDialog
+import ac.id.untidar.karsa.ui.KarsaIconButton
 import ac.id.untidar.karsa.ui.KarsaSheet
+import ac.id.untidar.karsa.ui.KarsaTextField
 import ac.id.untidar.karsa.ui.ListSkeleton
 import ac.id.untidar.karsa.ui.LoadStatus
 import ac.id.untidar.karsa.ui.PageHeader
 import ac.id.untidar.karsa.ui.Rise
 import ac.id.untidar.karsa.ui.SearchField
 import ac.id.untidar.karsa.ui.Skeleton
+import ac.id.untidar.karsa.ui.Spinner
 import ac.id.untidar.karsa.ui.Tone
 import ac.id.untidar.karsa.ui.TopBar
 import ac.id.untidar.karsa.ui.rememberLoad
@@ -113,12 +122,16 @@ import ac.id.untidar.karsa.ui.toneFor
 
 private fun senderName(msg: Msg, course: Course, role: Role): String = when {
     msg.from == "me" -> "Kamu"
+    msg.authorName.isNotBlank() -> msg.authorName
     msg.from == "pj" -> if (isPjOf(course, role)) "Kamu" else course.pjOther
     else -> studentById(msg.from).name
 }
 
 private fun isMine(msg: Msg, course: Course, role: Role): Boolean =
     msg.from == "me" || (msg.from == "pj" && isPjOf(course, role))
+
+private fun displayName(msg: Msg, course: Course, role: Role): String =
+    if (msg.authorName.isNotBlank() && msg.from != "me") msg.authorName else senderName(msg, course, role)
 
 private fun nameTone(name: String): Color = when (toneFor(name)) {
     Tone.Brand -> Brand600
@@ -134,19 +147,15 @@ private data class Preview(val text: String, val ts: Long, val italic: Boolean =
 @Composable
 fun GroupList() {
     val state = LocalApp.current
-    val load = rememberLoad()
+    val groups = state.groups
     var q by remember { mutableStateOf("") }
 
-    val list = COURSES.filter { course ->
-        q.isBlank() || "${course.name} ${course.kelas}".lowercase().contains(q.trim().lowercase())
+    LaunchedEffect(Unit) {
+        if (groups.rooms.isEmpty()) groups.loadRooms()
     }
 
-    fun preview(course: Course): Preview {
-        val last = state.chats[course.id].orEmpty().lastOrNull() ?: return Preview("Belum ada pesan", 0)
-        if (last.deleted) return Preview("Pesan ini telah dihapus", last.ts, italic = true)
-        if (last.hidden || last.from in state.blocked) return Preview("Pesan disembunyikan", last.ts, italic = true)
-        val who = senderName(last, course, state.role)
-        return Preview("${if (who == "Kamu") "Kamu" else who.split(" ").first()}: ${last.text}", last.ts)
+    val list = groups.rooms.filter { room ->
+        q.isBlank() || "${room.course.name} ${room.course.kelas}".lowercase().contains(q.trim().lowercase())
     }
 
     Column(Modifier.fillMaxSize().background(Paper)) {
@@ -165,31 +174,39 @@ fun GroupList() {
                 .padding(horizontal = 20.dp)
                 .padding(bottom = 140.dp),
         ) {
-            Gate(status = load.status, onRetry = load.retry, skeleton = { ListSkeleton(count = 4, lines = 1) }) {
-                if (list.isEmpty()) {
-                    KarsaCard {
-                        if (COURSES.isEmpty()) {
-                            EmptyState(
-                                title = "Belum bergabung ke grup",
-                                desc = "Grup otomatis muncul setelah kamu terdaftar di mata kuliah semester ini.",
-                                icon = { LucideIcon(KarsaIcons.MessagesSquare, modifier = Modifier.size(36.dp), tint = Brand600) },
-                            )
-                        } else {
-                            EmptyState(
-                                title = "Grup tidak ditemukan",
-                                desc = "Tidak ada matkul atau kelas bernama “$q”.",
-                                icon = { LucideIcon(KarsaIcons.SearchX, modifier = Modifier.size(36.dp), tint = Brand600) },
-                                action = {
-                                    KarsaButton("Hapus pencarian", onClick = { q = "" }, variant = ButtonVariant.Soft)
-                                },
-                            )
-                        }
+            when {
+                groups.listStatus == LoadStatus.Loading && groups.rooms.isEmpty() -> ListSkeleton(count = 4, lines = 1)
+                groups.listStatus == LoadStatus.Error && groups.rooms.isEmpty() -> KarsaCard {
+                    EmptyState(
+                        title = "Grup belum termuat",
+                        desc = groups.listError ?: "Periksa koneksi lalu coba lagi.",
+                        icon = { LucideIcon(KarsaIcons.TriangleAlert, modifier = Modifier.size(36.dp), tint = Brand600) },
+                        action = {
+                            KarsaButton("Coba lagi", onClick = { groups.loadRooms() }, variant = ButtonVariant.Soft)
+                        },
+                    )
+                }
+                list.isEmpty() -> KarsaCard {
+                    if (groups.rooms.isEmpty()) {
+                        EmptyState(
+                            title = "Belum bergabung ke grup",
+                            desc = "Grup otomatis muncul setelah kamu terdaftar di mata kuliah semester ini.",
+                            icon = { LucideIcon(KarsaIcons.MessagesSquare, modifier = Modifier.size(36.dp), tint = Brand600) },
+                        )
+                    } else {
+                        EmptyState(
+                            title = "Grup tidak ditemukan",
+                            desc = "Tidak ada matkul atau kelas bernama “$q”.",
+                            icon = { LucideIcon(KarsaIcons.SearchX, modifier = Modifier.size(36.dp), tint = Brand600) },
+                            action = {
+                                KarsaButton("Hapus pencarian", onClick = { q = "" }, variant = ButtonVariant.Soft)
+                            },
+                        )
                     }
-                } else {
-                    Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                        list.forEachIndexed { index, course ->
-                            Rise(delayMillis = index * 45) { GroupRow(course = course, preview = preview(course)) }
-                        }
+                }
+                else -> Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                    list.forEachIndexed { index, room ->
+                        Rise(delayMillis = index * 45) { GroupRow(room = room) }
                     }
                 }
             }
@@ -198,10 +215,12 @@ fun GroupList() {
 }
 
 @Composable
-private fun GroupRow(course: Course, preview: Preview) {
+private fun GroupRow(room: GroupRoom) {
     val state = LocalApp.current
+    val course = room.course
+    val preview = room.preview
     val interaction = remember { MutableInteractionSource() }
-    val unread = UNREAD[course.id] ?: 0
+    val unread = 0
     KarsaCard(
         modifier = Modifier
             .fillMaxWidth()
@@ -317,55 +336,151 @@ private fun ActionRow(model: ActionRowModel) {
     }
 }
 
-private val REPORT_REASONS = listOf(
-    "Spam atau promosi",
-    "Ujaran kasar atau pelecehan",
-    "Konten tidak pantas",
-    "Informasi menyesatkan",
-    "Lainnya",
+private data class GroupReportReason(val value: String, val label: String)
+
+private val GROUP_REPORT_REASONS = listOf(
+    GroupReportReason("SPAM", "Spam atau promosi"),
+    GroupReportReason("HARASSMENT", "Ujaran kasar atau pelecehan"),
+    GroupReportReason("INAPPROPRIATE", "Konten tidak pantas"),
+    GroupReportReason("MISINFORMATION", "Informasi menyesatkan"),
+    GroupReportReason("OTHER", "Lainnya"),
 )
 
 @Composable
 fun ChatScreen(id: String) {
     val state = LocalApp.current
-    val load = rememberLoad(delayMillis = 500)
-    val course = COURSES.firstOrNull { it.id == id } ?: return
-    val msgs = state.chats[id].orEmpty()
-    val pj = isPjOf(course, state.role)
-    val canSend = !course.locked || pj
+    val groups = state.groups
+    val chat = remember(id) { groups.chat(id) }
+    val course = chat.course
+    val scope = rememberCoroutineScope()
+    val clipboard = LocalClipboardManager.current
+    val listState = rememberLazyListState()
 
     var text by remember { mutableStateOf("") }
     var editing by remember { mutableStateOf<Msg?>(null) }
     var selected by remember { mutableStateOf<Msg?>(null) }
+    var replyTo by remember { mutableStateOf<Msg?>(null) }
     var reportFor by remember { mutableStateOf<Msg?>(null) }
-    var reason by remember { mutableStateOf("") }
+    var reportReason by remember { mutableStateOf("") }
+    var reportDetails by remember { mutableStateOf("") }
+    var reportSending by remember { mutableStateOf(false) }
+    var hideFor by remember { mutableStateOf<Msg?>(null) }
+    var hideReason by remember { mutableStateOf("") }
+    var hideError by remember { mutableStateOf<String?>(null) }
     var blockFor by remember { mutableStateOf<Msg?>(null) }
+    var unblockFor by remember { mutableStateOf<Msg?>(null) }
     var deleteFor by remember { mutableStateOf<Msg?>(null) }
-    val listState = rememberLazyListState()
-    val scope = rememberCoroutineScope()
-    val clipboard = LocalClipboardManager.current
+    var pinsOpen by remember { mutableStateOf(false) }
+    var previousCount by remember(id) { mutableIntStateOf(0) }
+    val nearBottom by remember {
+        derivedStateOf {
+            val info = listState.layoutInfo
+            val lastVisible = info.visibleItemsInfo.lastOrNull()?.index ?: -1
+            lastVisible >= info.totalItemsCount - 2
+        }
+    }
 
-    val pinned = msgs.lastOrNull { it.pinned && !it.deleted }
-    val pinnedIndex = msgs.indexOfFirst { it.id == pinned?.id }
+    LaunchedEffect(id) {
+        if (chat.messages.isEmpty() && chat.status != LoadStatus.Ready) groups.loadInitial(id)
+    }
+    LaunchedEffect(id) {
+        while (true) {
+            delay(12_000)
+            groups.refresh(id, silent = true)
+        }
+    }
+    LaunchedEffect(chat.status) {
+        if (chat.status == LoadStatus.Ready && chat.messages.isNotEmpty()) {
+            listState.scrollToItem(chat.messages.lastIndex)
+        }
+    }
+    LaunchedEffect(chat.messages.size) {
+        if (chat.messages.isNotEmpty() && (previousCount == 0 || nearBottom)) {
+            listState.animateScrollToItem(chat.messages.lastIndex)
+        }
+        previousCount = chat.messages.size
+    }
 
-    LaunchedEffect(load.status, msgs.size) {
-        if (load.status == LoadStatus.Ready && msgs.isNotEmpty()) {
-            listState.scrollToItem(msgs.lastIndex)
+    if (course == null) {
+        Column(Modifier.fillMaxSize().background(Paper)) {
+            TopBar(onBack = { state.back() }, title = "Grup kelas")
+            Gate(
+                status = chat.status,
+                onRetry = { groups.loadInitial(id) },
+                skeleton = {
+                    Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(16.dp)) {
+                        Skeleton(Modifier.fillMaxWidth(0.7f).height(56.dp), RoundedCornerShape(24.dp))
+                        Skeleton(Modifier.fillMaxWidth(0.5f).height(56.dp), RoundedCornerShape(24.dp))
+                    }
+                },
+            ) {
+                EmptyState(
+                    title = "Grup tidak ditemukan",
+                    desc = "Kembali ke daftar grup lalu pilih kelas kembali.",
+                    icon = { LucideIcon(KarsaIcons.MessagesSquare, modifier = Modifier.size(36.dp), tint = Brand600) },
+                )
+            }
+        }
+        return
+    }
+
+    val msgs = chat.messages
+    val pinned = chat.pinned
+    val canSend = !chat.isLocked || chat.isManager
+
+    fun previewOf(message: Msg): String = when {
+        message.deleted -> "Pesan telah dihapus"
+        message.hidden -> message.hiddenReason ?: "Pesan disembunyikan oleh PJ"
+        message.blocked -> "Pesan dari pengguna yang diblokir"
+        else -> message.text
+    }
+
+    fun toggleLock() {
+        val target = !chat.isLocked
+        scope.launch {
+            try {
+                groups.lock(id, target)
+                state.notify(if (target) "Grup dikunci" else "Grup dibuka", ToastTone.Success)
+            } catch (failure: Exception) {
+                state.notify(friendlyError(failure), ToastTone.Error)
+            }
         }
     }
 
     fun submit() {
         val trimmed = text.trim()
-        if (trimmed.isEmpty()) return
+        if (trimmed.isEmpty() || chat.sending) return
         val target = editing
         if (target != null) {
-            state.editMsg(id, target.id, trimmed)
-            editing = null
-            state.notify("Pesan diperbarui", ToastTone.Success)
+            scope.launch {
+                try {
+                    groups.edit(id, target.id, trimmed)
+                    editing = null
+                    text = ""
+                    state.notify("Pesan diperbarui", ToastTone.Success)
+                } catch (failure: Exception) {
+                    state.notify(friendlyError(failure), ToastTone.Error)
+                }
+            }
         } else {
-            state.sendMsg(id, trimmed)
+            val draft = text
+            val replyId = replyTo?.id
+            scope.launch {
+                try {
+                    groups.send(id, trimmed, replyId)
+                    text = when {
+                        text == draft -> ""
+                        text.startsWith(draft) -> text.removePrefix(draft)
+                        else -> text
+                    }
+                    replyTo = null
+                    val last = groups.chat(id).messages.lastIndex
+                    if (last >= 0) listState.animateScrollToItem(last)
+                } catch (failure: Exception) {
+                    state.notify(friendlyError(failure), ToastTone.Error)
+                }
+            }
         }
-        text = ""
     }
 
     Column(Modifier.fillMaxSize().background(Paper).imePadding()) {
@@ -373,13 +488,47 @@ fun ChatScreen(id: String) {
             onBack = { state.back() },
             leading = { Avatar(name = course.name, size = 40.dp, tone = course.tone, square = true) },
             title = course.name,
-            subtitle = "${course.kelas} · ${course.members} anggota",
+            subtitle = buildString {
+                append(course.kelas)
+                append(" · ")
+                append(course.members)
+                append(" anggota")
+                if (course.pjOther.isNotBlank()) {
+                    append(" · PJ ")
+                    append(course.pjOther)
+                }
+            },
             right = {
-                if (course.locked) LucideIcon(KarsaIcons.Lock, modifier = Modifier.size(16.dp), tint = Muted)
+                Row(horizontalArrangement = Arrangement.spacedBy(2.dp), verticalAlignment = Alignment.CenterVertically) {
+                    if (chat.isManager) {
+                        KarsaIconButton(
+                            onClick = { state.go(Route.GroupReports(id)) },
+                            contentDescription = "Laporan grup",
+                        ) {
+                            LucideIcon(KarsaIcons.Flag, modifier = Modifier.size(18.dp), tint = Ink)
+                        }
+                        KarsaIconButton(
+                            onClick = ::toggleLock,
+                            contentDescription = if (chat.isLocked) "Buka grup" else "Kunci grup",
+                        ) {
+                            LucideIcon(
+                                if (chat.isLocked) KarsaIcons.LockOpen else KarsaIcons.Lock,
+                                modifier = Modifier.size(18.dp),
+                                tint = Ink,
+                            )
+                        }
+                    } else if (chat.isLocked) {
+                        LucideIcon(
+                            KarsaIcons.Lock,
+                            modifier = Modifier.padding(end = 12.dp).size(16.dp),
+                            tint = Muted,
+                        )
+                    }
+                }
             },
         )
 
-        if (pinned != null && load.status == LoadStatus.Ready) {
+        if (pinned.isNotEmpty() && chat.status == LoadStatus.Ready) {
             Row(
                 modifier = Modifier
                     .padding(horizontal = 16.dp)
@@ -388,9 +537,7 @@ fun ChatScreen(id: String) {
                     .clip(RoundedCornerShape(16.dp))
                     .background(Color.White)
                     .border(1.dp, Line, RoundedCornerShape(16.dp))
-                    .clickable {
-                        scope.launch { if (pinnedIndex >= 0) listState.animateScrollToItem(pinnedIndex) }
-                    }
+                    .clickable { pinsOpen = true }
                     .padding(horizontal = 12.dp, vertical = 10.dp),
                 horizontalArrangement = Arrangement.spacedBy(12.dp),
                 verticalAlignment = Alignment.CenterVertically,
@@ -405,21 +552,25 @@ fun ChatScreen(id: String) {
                     LucideIcon(KarsaIcons.Pin, modifier = Modifier.size(16.dp), tint = Brand600)
                 }
                 Column(Modifier.weight(1f)) {
-                    Text("DISEMATKAN", style = sansStyle(11, 700, 1.4f, 0.05f, Brand700))
                     Text(
-                        pinned.text,
+                        if (pinned.size > 1) "DISEMATKAN · ${pinned.size}" else "DISEMATKAN",
+                        style = sansStyle(11, 700, 1.4f, 0.05f, Brand700),
+                    )
+                    Text(
+                        previewOf(pinned.first()),
                         style = sansStyle(13, 400, 1.4f, color = Ink2),
                         maxLines = 1,
                         overflow = TextOverflow.Ellipsis,
                     )
                 }
+                LucideIcon(KarsaIcons.ChevronRight, modifier = Modifier.size(16.dp), tint = Muted)
             }
         }
 
         Box(Modifier.weight(1f).fillMaxWidth().background(Paper2.copy(alpha = 0.6f))) {
             Gate(
-                status = load.status,
-                onRetry = load.retry,
+                status = chat.status,
+                onRetry = { groups.loadInitial(id) },
                 skeleton = {
                     Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(16.dp)) {
                         listOf(60, 78, 52, 70).forEachIndexed { index, width ->
@@ -449,16 +600,37 @@ fun ChatScreen(id: String) {
                         contentPadding = androidx.compose.foundation.layout.PaddingValues(horizontal = 16.dp, vertical = 16.dp),
                         verticalArrangement = Arrangement.spacedBy(10.dp),
                     ) {
-                        itemsIndexed(msgs, key = { _, msg -> msg.id }) { index, msg ->
+                        if (chat.nextCursor != null) {
+                            item(key = "older") {
+                                Row(
+                                    modifier = Modifier.fillMaxWidth().padding(vertical = 6.dp),
+                                    horizontalArrangement = Arrangement.Center,
+                                    verticalAlignment = Alignment.CenterVertically,
+                                ) {
+                                    if (chat.loadingOlder) {
+                                        Spinner(tint = Brand600, modifier = Modifier.size(20.dp))
+                                    } else {
+                                        KarsaButton(
+                                            text = "Muat pesan sebelumnya",
+                                            onClick = { groups.loadOlder(id) },
+                                            variant = ButtonVariant.Ghost,
+                                            size = ButtonSize.Sm,
+                                        )
+                                    }
+                                }
+                            }
+                        }
+                        itemsIndexed(msgs, key = { _, message -> message.id }) { index, message ->
                             val previous = msgs.getOrNull(index - 1)
-                            val newDay = previous == null || dayKey(previous.ts) != dayKey(msg.ts)
+                            val newDay = previous == null || dayKey(previous.ts) != dayKey(message.ts)
                             MessageRow(
-                                msg = msg,
+                                msg = message,
                                 course = course,
                                 showDay = newDay,
-                                blocked = msg.from in state.blocked,
-                                onOpen = { selected = msg },
-                                onShowHidden = { state.hideMsg(id, msg.id, false) },
+                                blocked = message.blocked,
+                                onOpen = {
+                                    if (!message.deleted && !message.hidden) selected = message
+                                },
                             )
                         }
                     }
@@ -491,7 +663,7 @@ fun ChatScreen(id: String) {
                     )
                 }
             } else {
-                if (course.locked) {
+                if (chat.isLocked) {
                     Row(
                         Modifier.padding(bottom = 8.dp, start = 4.dp),
                         horizontalArrangement = Arrangement.spacedBy(6.dp),
@@ -533,6 +705,30 @@ fun ChatScreen(id: String) {
                         }
                     }
                 }
+                if (replyTo != null) {
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(bottom = 8.dp)
+                            .clip(RoundedCornerShape(12.dp))
+                            .background(Brand100)
+                            .padding(horizontal = 12.dp, vertical = 8.dp),
+                        horizontalArrangement = Arrangement.spacedBy(8.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                    ) {
+                        LucideIcon(KarsaIcons.Reply, modifier = Modifier.size(14.dp), tint = Brand700)
+                        Text(
+                            "Membalas ${displayName(replyTo!!, course, state.role)}",
+                            modifier = Modifier.weight(1f),
+                            style = sansStyle(12, 600, 1.4f, color = Brand700),
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis,
+                        )
+                        Box(Modifier.clickable { replyTo = null }) {
+                            LucideIcon(KarsaIcons.X, modifier = Modifier.size(16.dp), tint = Brand700)
+                        }
+                    }
+                }
                 Row(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
                     BasicTextField(
                         value = text,
@@ -549,23 +745,34 @@ fun ChatScreen(id: String) {
                         decorationBox = { inner ->
                             Box(Modifier.fillMaxSize().padding(horizontal = 20.dp), contentAlignment = Alignment.CenterStart) {
                                 if (text.isEmpty()) {
-                                    Text("Tulis pesan…", style = sansStyle(15, 400, 1.5f, color = Muted.copy(alpha = 0.8f)))
+                                    Text(
+                                        if (replyTo != null) "Tulis balasan…" else "Tulis pesan…",
+                                        style = sansStyle(15, 400, 1.5f, color = Muted.copy(alpha = 0.8f)),
+                                    )
                                 }
                                 inner()
                             }
                         },
                     )
-                    val enabled = text.trim().isNotEmpty()
+                    val enabled = text.trim().isNotEmpty() && !chat.sending
                     Box(
                         modifier = Modifier
                             .size(48.dp)
                             .clip(CircleShape)
                             .then(if (enabled) Modifier.brandShadow(CircleShape) else Modifier)
-                            .background(if (enabled) Brand500 else Paper3)
+                            .background(if (enabled || chat.sending) Brand500 else Paper3)
                             .clickable(enabled = enabled, onClick = ::submit),
                         contentAlignment = Alignment.Center,
                     ) {
-                        LucideIcon(KarsaIcons.Send, modifier = Modifier.size(20.dp), tint = if (enabled) Color.White else Muted)
+                        if (chat.sending) {
+                            Spinner(tint = Color.White, modifier = Modifier.size(18.dp))
+                        } else {
+                            LucideIcon(
+                                KarsaIcons.Send,
+                                modifier = Modifier.size(20.dp),
+                                tint = if (enabled) Color.White else Muted,
+                            )
+                        }
                     }
                 }
             }
@@ -576,7 +783,8 @@ fun ChatScreen(id: String) {
     KarsaSheet(open = sel != null, onClose = { selected = null }, title = "Aksi pesan") {
         if (sel != null) {
             val mine = isMine(sel, course, state.role)
-            val selStudent = if (sel.from != "me" && sel.from != "pj") studentById(sel.from) else null
+            val author = displayName(sel, course, state.role)
+            val active = !sel.deleted && !sel.hidden && !sel.blocked
             Column {
                 Column(
                     modifier = Modifier
@@ -586,77 +794,163 @@ fun ChatScreen(id: String) {
                         .border(1.dp, Line, RoundedCornerShape(16.dp))
                         .padding(14.dp),
                 ) {
+                    Text(author, style = sansStyle(12, 700, 1.4f, color = Muted))
                     Text(
-                        senderName(sel, course, state.role),
-                        style = sansStyle(12, 700, 1.4f, color = Muted),
-                    )
-                    Text(
-                        sel.text,
+                        previewOf(sel),
                         style = sansStyle(14, 400, 1.4f, color = Ink2),
                         maxLines = 2,
                         overflow = TextOverflow.Ellipsis,
                     )
                 }
                 Spacer(Modifier.height(12.dp))
-                ActionRow(
-                    ActionRowModel(KarsaIcons.Copy, "Salin teks") {
-                        clipboard.setText(AnnotatedString(sel.text))
-                        selected = null
-                        state.notify("Pesan disalin")
-                    },
-                )
-                if (pj) {
+                if (active) {
                     ActionRow(
-                        ActionRowModel(
-                            if (sel.pinned) KarsaIcons.PinOff else KarsaIcons.Pin,
-                            if (sel.pinned) "Lepas sematan" else "Sematkan pesan",
-                            sub = "Pesan tampil di bagian atas grup",
-                        ) {
-                            state.pinMsg(id, sel.id)
+                        ActionRowModel(KarsaIcons.Copy, "Salin teks") {
+                            clipboard.setText(AnnotatedString(sel.text))
                             selected = null
-                            state.notify(if (sel.pinned) "Sematan dilepas" else "Pesan disematkan")
-                        },
-                    )
-                }
-                if (mine) {
-                    ActionRow(
-                        ActionRowModel(KarsaIcons.Pencil, "Edit pesan") {
-                            editing = sel
-                            text = sel.text
-                            selected = null
+                            state.notify("Pesan disalin")
                         },
                     )
                     ActionRow(
-                        ActionRowModel(KarsaIcons.Trash2, "Hapus pesan", "Diganti penanda “telah dihapus”", danger = true) {
-                            deleteFor = sel
+                        ActionRowModel(KarsaIcons.Reply, "Balas pesan") {
+                            replyTo = sel
+                            editing = null
                             selected = null
                         },
                     )
-                } else {
-                    ActionRow(
-                        ActionRowModel(KarsaIcons.EyeOff, "Sembunyikan pesan", "Hanya disembunyikan dari tampilanmu") {
-                            state.hideMsg(id, sel.id, true)
-                            selected = null
-                            state.notify("Pesan disembunyikan")
-                        },
-                    )
-                    ActionRow(
-                        ActionRowModel(KarsaIcons.Flag, "Laporkan pesan") {
-                            reportFor = sel
-                            reason = ""
-                            selected = null
-                        },
-                    )
-                    if (selStudent != null) {
+                    if (chat.isManager) {
+                        ActionRow(
+                            ActionRowModel(
+                                if (sel.pinned) KarsaIcons.PinOff else KarsaIcons.Pin,
+                                if (sel.pinned) "Lepas sematan" else "Sematkan pesan",
+                                sub = "Pesan tampil di bagian atas grup",
+                            ) {
+                                scope.launch {
+                                    try {
+                                        groups.pin(id, sel.id, !sel.pinned)
+                                        selected = null
+                                        state.notify(if (sel.pinned) "Sematan dilepas" else "Pesan disematkan")
+                                    } catch (failure: Exception) {
+                                        state.notify(friendlyError(failure), ToastTone.Error)
+                                    }
+                                }
+                            },
+                        )
+                    }
+                    if (sel.canEdit) {
+                        ActionRow(
+                            ActionRowModel(KarsaIcons.Pencil, "Edit pesan") {
+                                editing = sel
+                                replyTo = null
+                                text = sel.text
+                                selected = null
+                            },
+                        )
+                    }
+                    if (sel.canDelete) {
+                        ActionRow(
+                            ActionRowModel(KarsaIcons.Trash2, "Hapus pesan", "Diganti penanda “telah dihapus”", danger = true) {
+                                deleteFor = sel
+                                selected = null
+                            },
+                        )
+                    }
+                    if (chat.isManager && !mine) {
+                        ActionRow(
+                            ActionRowModel(KarsaIcons.EyeOff, "Sembunyikan pesan", "Disembunyikan untuk seluruh anggota", danger = true) {
+                                hideReason = ""
+                                hideError = null
+                                hideFor = sel
+                                selected = null
+                            },
+                        )
+                        ActionRow(
+                            ActionRowModel(KarsaIcons.Flag, "Laporkan pesan") {
+                                reportReason = ""
+                                reportDetails = ""
+                                reportFor = sel
+                                selected = null
+                            },
+                        )
+                    } else if (!mine) {
+                        ActionRow(
+                            ActionRowModel(KarsaIcons.Flag, "Laporkan pesan") {
+                                reportReason = ""
+                                reportDetails = ""
+                                reportFor = sel
+                                selected = null
+                            },
+                        )
+                    }
+                    if (!mine && sel.authorId.isNotBlank()) {
                         ActionRow(
                             ActionRowModel(
                                 KarsaIcons.Ban,
-                                "Blokir ${selStudent.name.split(" ").first()}",
+                                "Blokir ${author.split(" ").first()}",
                                 danger = true,
                             ) {
                                 blockFor = sel
                                 selected = null
                             },
+                        )
+                    }
+                } else if (sel.blocked) {
+                    ActionRow(
+                        ActionRowModel(
+                            KarsaIcons.Ban,
+                            "Buka blokir ${author.split(" ").first()}",
+                            "Pesan darinya akan terlihat lagi",
+                        ) {
+                            unblockFor = sel
+                            selected = null
+                        },
+                    )
+                }
+            }
+        }
+    }
+
+    KarsaSheet(open = pinsOpen, onClose = { pinsOpen = false }, title = "Pesan disematkan") {
+        if (pinned.isEmpty()) {
+            EmptyState(
+                title = "Belum ada sematan",
+                desc = "PJ dapat menyematkan pesan penting dari menu pesan.",
+                icon = { LucideIcon(KarsaIcons.Pin, modifier = Modifier.size(36.dp), tint = Brand600) },
+            )
+        } else {
+            Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                pinned.forEach { message ->
+                    Column(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .clip(RoundedCornerShape(16.dp))
+                            .background(Color.White)
+                            .border(1.dp, Line, RoundedCornerShape(16.dp))
+                            .clickable {
+                                pinsOpen = false
+                                val index = chat.messages.indexOfFirst { it.id == message.id }
+                                if (index >= 0) {
+                                    scope.launch { listState.animateScrollToItem(index) }
+                                } else {
+                                    state.notify("Pesan tidak ada di tampilan saat ini")
+                                }
+                            }
+                            .padding(14.dp),
+                    ) {
+                        Text(
+                            displayName(message, course, state.role),
+                            style = sansStyle(12, 700, 1.4f, color = Brand700),
+                        )
+                        Text(
+                            previewOf(message),
+                            style = sansStyle(14, 400, 1.5f, color = Ink2),
+                            maxLines = 2,
+                            overflow = TextOverflow.Ellipsis,
+                        )
+                        Text(
+                            fmtTime(message.ts),
+                            modifier = Modifier.padding(top = 4.dp),
+                            style = sansStyle(11, 400, 1.3f, color = Muted),
                         )
                     }
                 }
@@ -666,69 +960,193 @@ fun ChatScreen(id: String) {
 
     KarsaSheet(
         open = reportFor != null,
-        onClose = { reportFor = null },
+        onClose = {
+            if (!reportSending) {
+                reportFor = null
+                reportReason = ""
+                reportDetails = ""
+            }
+        },
         title = "Laporkan pesan",
         footer = {
             KarsaButton(
-                text = "Kirim laporan",
+                text = if (reportSending) "Mengirim laporan…" else "Kirim laporan",
                 onClick = {
-                    reportFor = null
-                    state.notify("Laporan terkirim. Terima kasih sudah menjaga kelas.", ToastTone.Success)
+                    val target = reportFor
+                    if (target != null && reportReason.isNotBlank() && !reportSending) {
+                        reportSending = true
+                        scope.launch {
+                            try {
+                                val autoHidden = groups.report(
+                                    id = id,
+                                    messageId = target.id,
+                                    reason = reportReason,
+                                    details = reportDetails.trim().ifBlank { null },
+                                )
+                                state.notify(
+                                    if (autoHidden) "Laporan dikirim dan pesan disembunyikan." else "Laporan dikirim.",
+                                    ToastTone.Success,
+                                )
+                                reportFor = null
+                                reportReason = ""
+                                reportDetails = ""
+                            } catch (failure: Exception) {
+                                state.notify(friendlyError(failure), ToastTone.Error)
+                            } finally {
+                                reportSending = false
+                            }
+                        }
+                    }
                 },
                 size = ButtonSize.Lg,
                 full = true,
-                enabled = reason.isNotEmpty(),
+                enabled = reportReason.isNotBlank() && !reportSending,
+                loading = reportSending,
             )
         },
     ) {
-        Text(
-            "Pilih alasan yang paling sesuai. Identitasmu tidak terlihat oleh pelapor lain.",
-            style = sansStyle(14, 400, 1.5f, color = Muted),
-        )
-        Spacer(Modifier.height(12.dp))
-        REPORT_REASONS.forEach { item ->
-            val active = reason == item
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(vertical = 4.dp)
-                    .clip(RoundedCornerShape(16.dp))
-                    .background(if (active) Brand100 else Color.White)
-                    .then(if (active) Modifier else Modifier.border(1.dp, Line, RoundedCornerShape(16.dp)))
-                    .clickable { reason = item }
-                    .padding(horizontal = 16.dp, vertical = 14.dp),
-                horizontalArrangement = Arrangement.spacedBy(12.dp),
-                verticalAlignment = Alignment.CenterVertically,
-            ) {
-                Box(
+        if (reportFor != null) {
+            Text(
+                "Pilih alasan yang paling sesuai. Identitasmu tidak terlihat oleh pelapor lain.",
+                style = sansStyle(14, 400, 1.5f, color = Muted),
+            )
+            Spacer(Modifier.height(12.dp))
+            GROUP_REPORT_REASONS.forEach { item ->
+                val active = reportReason == item.value
+                Row(
                     modifier = Modifier
-                        .size(20.dp)
-                        .clip(CircleShape)
-                        .border(2.dp, if (active) Brand500 else Paper3, CircleShape),
-                    contentAlignment = Alignment.Center,
+                        .fillMaxWidth()
+                        .padding(vertical = 4.dp)
+                        .clip(RoundedCornerShape(16.dp))
+                        .background(if (active) Brand100 else Color.White)
+                        .then(if (active) Modifier else Modifier.border(1.dp, Line, RoundedCornerShape(16.dp)))
+                        .clickable { reportReason = item.value }
+                        .padding(horizontal = 16.dp, vertical = 14.dp),
+                    horizontalArrangement = Arrangement.spacedBy(12.dp),
+                    verticalAlignment = Alignment.CenterVertically,
                 ) {
-                    if (active) Box(Modifier.size(10.dp).clip(CircleShape).background(Brand500))
+                    Box(
+                        modifier = Modifier
+                            .size(20.dp)
+                            .clip(CircleShape)
+                            .border(2.dp, if (active) Brand500 else Paper3, CircleShape),
+                        contentAlignment = Alignment.Center,
+                    ) {
+                        if (active) Box(Modifier.size(10.dp).clip(CircleShape).background(Brand500))
+                    }
+                    Text(
+                        item.label,
+                        style = sansStyle(15, 600, 1.3f, color = if (active) Brand700 else Ink),
+                    )
                 }
-                Text(
-                    item,
-                    style = sansStyle(15, 600, 1.3f, color = if (active) Brand700 else Ink),
+            }
+            Spacer(Modifier.height(14.dp))
+            Field(label = "Keterangan (opsional)") {
+                KarsaTextField(
+                    value = reportDetails,
+                    onValueChange = { if (it.length <= 500) reportDetails = it },
+                    placeholder = "Tambahkan konteks bila perlu",
+                    singleLine = false,
+                    minHeight = 76.dp,
                 )
             }
         }
     }
 
     KarsaDialog(
+        open = hideFor != null,
+        onClose = {
+            hideFor = null
+            hideReason = ""
+            hideError = null
+        },
+        tone = DialogTone.Danger,
+        title = "Sembunyikan pesan",
+        desc = "Pesan akan disembunyikan dari seluruh anggota grup. Alasan wajib diisi.",
+        confirmLabel = "Sembunyikan",
+        onConfirm = {
+            val target = hideFor
+            if (target != null) {
+                if (hideReason.isBlank()) {
+                    hideError = "Tulis alasan penyembunyian."
+                } else {
+                    scope.launch {
+                        try {
+                            groups.hide(id, target.id, hideReason.trim())
+                            hideFor = null
+                            hideReason = ""
+                            hideError = null
+                            state.notify("Pesan disembunyikan dari grup")
+                        } catch (failure: Exception) {
+                            state.notify(friendlyError(failure), ToastTone.Error)
+                        }
+                    }
+                }
+            }
+        },
+        content = {
+            Spacer(Modifier.height(14.dp))
+            Field(label = "Alasan") {
+                KarsaTextField(
+                    value = hideReason,
+                    onValueChange = {
+                        if (it.length <= 120) hideReason = it
+                        hideError = null
+                    },
+                    placeholder = "Misalnya: keluar dari topik kelas",
+                    singleLine = false,
+                    minHeight = 76.dp,
+                )
+            }
+            if (hideError != null) {
+                Spacer(Modifier.height(8.dp))
+                Text(hideError!!, style = sansStyle(12, 500, 1.4f, color = Danger500))
+            }
+        },
+    )
+
+    KarsaDialog(
         open = blockFor != null,
         onClose = { blockFor = null },
         tone = DialogTone.Danger,
-        title = if (blockFor != null) "Blokir ${studentById(blockFor!!.from).name}?" else "",
-        desc = "Pesan darinya akan disembunyikan di semua grup. Kamu bisa membuka blokir lewat PJ kelas.",
+        title = blockFor?.let { "Blokir ${displayName(it, course, state.role)}?" } ?: "",
+        desc = "Pesan darinya akan disembunyikan di semua grup. Kamu bisa membuka blokir kapan saja.",
         confirmLabel = "Blokir",
         onConfirm = {
             val target = blockFor
-            if (target != null) state.blockUser(target.from)
             blockFor = null
-            state.notify("Pengguna diblokir", ToastTone.Neutral)
+            if (target != null && target.authorId.isNotBlank()) {
+                scope.launch {
+                    try {
+                        groups.block(id, target.authorId, blocked = true)
+                        state.notify("Pengguna diblokir")
+                    } catch (failure: Exception) {
+                        state.notify(friendlyError(failure), ToastTone.Error)
+                    }
+                }
+            }
+        },
+    )
+
+    KarsaDialog(
+        open = unblockFor != null,
+        onClose = { unblockFor = null },
+        title = unblockFor?.let { "Buka blokir ${displayName(it, course, state.role)}?" } ?: "",
+        desc = "Pesan dari pengguna ini akan terlihat lagi di semua grup.",
+        confirmLabel = "Buka blokir",
+        onConfirm = {
+            val target = unblockFor
+            unblockFor = null
+            if (target != null && target.authorId.isNotBlank()) {
+                scope.launch {
+                    try {
+                        groups.block(id, target.authorId, blocked = false)
+                        state.notify("Blokir dibuka")
+                    } catch (failure: Exception) {
+                        state.notify(friendlyError(failure), ToastTone.Error)
+                    }
+                }
+            }
         },
     )
 
@@ -741,9 +1159,17 @@ fun ChatScreen(id: String) {
         confirmLabel = "Hapus",
         onConfirm = {
             val target = deleteFor
-            if (target != null) state.deleteMsg(id, target.id)
             deleteFor = null
-            state.notify("Pesan dihapus")
+            if (target != null) {
+                scope.launch {
+                    try {
+                        groups.delete(id, target.id)
+                        state.notify("Pesan dihapus")
+                    } catch (failure: Exception) {
+                        state.notify(friendlyError(failure), ToastTone.Error)
+                    }
+                }
+            }
         },
     )
 }
@@ -755,7 +1181,6 @@ private fun MessageRow(
     showDay: Boolean,
     blocked: Boolean,
     onOpen: () -> Unit,
-    onShowHidden: () -> Unit,
 ) {
     val state = LocalApp.current
     val mine = isMine(msg, course, state.role)
@@ -797,6 +1222,7 @@ private fun MessageRow(
                     modifier = Modifier
                         .clip(RoundedCornerShape(20.dp))
                         .background(Paper3.copy(alpha = 0.5f))
+                        .clickable(onClick = onOpen)
                         .padding(horizontal = 16.dp, vertical = 10.dp),
                     horizontalArrangement = Arrangement.spacedBy(8.dp),
                     verticalAlignment = Alignment.CenterVertically,
@@ -808,21 +1234,15 @@ private fun MessageRow(
                     modifier = Modifier
                         .clip(RoundedCornerShape(20.dp))
                         .background(Paper3.copy(alpha = 0.5f))
-                        .padding(start = 16.dp, end = 8.dp, top = 6.dp, bottom = 6.dp),
-                    horizontalArrangement = Arrangement.spacedBy(12.dp),
+                        .padding(horizontal = 16.dp, vertical = 10.dp),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
                     verticalAlignment = Alignment.CenterVertically,
                 ) {
                     LucideIcon(KarsaIcons.EyeOff, modifier = Modifier.size(14.dp), tint = Muted)
-                    Text("Pesan disembunyikan", style = sansStyle(13, 400, 1.3f, color = Muted))
-                    Box(
-                        Modifier
-                            .clip(CircleShape)
-                            .background(Color.White)
-                            .clickable(onClick = onShowHidden)
-                            .padding(horizontal = 12.dp, vertical = 6.dp),
-                    ) {
-                        Text("Tampilkan", style = sansStyle(12, 700, 1.3f, color = Ink2))
-                    }
+                    Text(
+                        msg.hiddenReason ?: "Pesan disembunyikan oleh PJ",
+                        style = sansStyle(13, 400, 1.3f, color = Muted),
+                    )
                 }
                 else -> {
                     val shape = if (mine) {
@@ -846,11 +1266,32 @@ private fun MessageRow(
                         if (!mine) {
                             Row(horizontalArrangement = Arrangement.spacedBy(6.dp), verticalAlignment = Alignment.CenterVertically) {
                                 Text(name, style = sansStyle(12, 700, 1.4f, color = nameTone(name)))
-                                if (msg.from == "pj") {
+                                if (msg.from == "pj" || msg.isManagerAuthor) {
                                     Badge("PJ", tone = BadgeTone.Brand)
                                 }
                             }
                             Spacer(Modifier.height(2.dp))
+                        }
+                        if (msg.replyToId != null) {
+                            Column(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .clip(RoundedCornerShape(8.dp))
+                                    .background(if (mine) Color.White.copy(alpha = 0.14f) else Paper2)
+                                    .padding(horizontal = 10.dp, vertical = 6.dp),
+                            ) {
+                                Text(
+                                    msg.replyToName ?: "Pesan",
+                                    style = sansStyle(11, 700, 1.3f, color = if (mine) Color.White else Brand700),
+                                )
+                                Text(
+                                    msg.replyToText ?: "Pesan tidak tersedia",
+                                    style = sansStyle(12, 400, 1.4f, color = if (mine) Color.White.copy(alpha = 0.85f) else Ink2),
+                                    maxLines = 2,
+                                    overflow = TextOverflow.Ellipsis,
+                                )
+                            }
+                            Spacer(Modifier.height(6.dp))
                         }
                         Text(
                             msg.text,

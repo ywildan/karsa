@@ -10,6 +10,10 @@ import ac.id.untidar.karsa.lib.LibBootstrapDto
 import ac.id.untidar.karsa.lib.LibCommentDto
 import ac.id.untidar.karsa.lib.LibDocxResult
 import ac.id.untidar.karsa.lib.LibProfileDto
+import ac.id.untidar.karsa.groups.GroupMessageDto
+import ac.id.untidar.karsa.groups.GroupMessagePageDto
+import ac.id.untidar.karsa.groups.GroupReportDto
+import ac.id.untidar.karsa.groups.GroupSummaryDto
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.sync.Mutex
@@ -210,6 +214,118 @@ class ApiClient(private val store: SessionStore) {
 
     suspend fun deleteLibDraft(articleId: String) {
         request("DELETE", "/lib/articles/$articleId")
+    }
+
+    /* ───────────── Grup kelas ───────────── */
+
+    suspend fun groups(): List<GroupSummaryDto> {
+        val data = request("GET", "/groups")
+        return json.decodeFromJsonElement(ListSerializer(GroupSummaryDto.serializer()), data)
+    }
+
+    suspend fun groupMessages(groupId: String, cursor: String? = null): GroupMessagePageDto {
+        val data = request(
+            "GET",
+            "/groups/$groupId/messages",
+            query = if (cursor == null) emptyMap() else mapOf("cursor" to cursor),
+        )
+        return json.decodeFromJsonElement(GroupMessagePageDto.serializer(), data)
+    }
+
+    suspend fun sendGroupMessage(
+        groupId: String,
+        text: String,
+        idempotencyKey: String,
+        replyToId: String?,
+    ): GroupMessageDto {
+        val data = request(
+            "POST",
+            "/groups/$groupId/messages",
+            body = buildJsonObject {
+                put("text", text)
+                if (replyToId != null) put("reply_to_id", replyToId)
+            },
+            extraHeaders = mapOf("Idempotency-Key" to idempotencyKey),
+        )
+        return json.decodeFromJsonElement(GroupMessageDto.serializer(), data)
+    }
+
+    suspend fun editGroupMessage(groupId: String, messageId: String, text: String): GroupMessageDto {
+        val data = request(
+            "PATCH",
+            "/groups/$groupId/messages/$messageId",
+            body = buildJsonObject { put("text", text) },
+        )
+        return json.decodeFromJsonElement(GroupMessageDto.serializer(), data)
+    }
+
+    suspend fun deleteGroupMessage(groupId: String, messageId: String): GroupMessageDto {
+        val data = request("DELETE", "/groups/$groupId/messages/$messageId")
+        return json.decodeFromJsonElement(GroupMessageDto.serializer(), data)
+    }
+
+    suspend fun pinGroupMessage(groupId: String, messageId: String, pinned: Boolean): GroupMessageDto {
+        val data = request(
+            "POST",
+            "/groups/$groupId/messages/$messageId/pin",
+            body = buildJsonObject { put("pinned", pinned) },
+        )
+        return json.decodeFromJsonElement(GroupMessageDto.serializer(), data)
+    }
+
+    suspend fun hideGroupMessage(
+        groupId: String,
+        messageId: String,
+        hidden: Boolean,
+        reason: String? = null,
+    ): GroupMessageDto {
+        val data = request(
+            "POST",
+            "/groups/$groupId/messages/$messageId/hide",
+            body = buildJsonObject {
+                put("hidden", hidden)
+                if (!reason.isNullOrBlank()) put("reason", reason)
+            },
+        )
+        return json.decodeFromJsonElement(GroupMessageDto.serializer(), data)
+    }
+
+    suspend fun reportGroupMessage(
+        groupId: String,
+        messageId: String,
+        reason: String,
+        details: String?,
+    ): Boolean {
+        val data = request(
+            "POST",
+            "/groups/$groupId/messages/$messageId/reports",
+            body = buildJsonObject {
+                put("reason", reason)
+                if (!details.isNullOrBlank()) put("details", details)
+            },
+        )
+        return (data as? JsonObject)?.get("auto_hidden")?.jsonPrimitive?.booleanOrNull == true
+    }
+
+    suspend fun setGroupBlock(userId: String, blocked: Boolean) {
+        request(if (blocked) "PUT" else "DELETE", "/groups/blocks/$userId")
+    }
+
+    suspend fun lockGroup(groupId: String, locked: Boolean) {
+        request("POST", "/groups/$groupId/lock", body = buildJsonObject { put("locked", locked) })
+    }
+
+    suspend fun groupReports(groupId: String): List<GroupReportDto> {
+        val data = request("GET", "/groups/$groupId/reports")
+        return json.decodeFromJsonElement(ListSerializer(GroupReportDto.serializer()), data)
+    }
+
+    suspend fun resolveGroupReport(groupId: String, reportId: String, action: String) {
+        request(
+            "POST",
+            "/groups/$groupId/reports/$reportId/resolve",
+            body = buildJsonObject { put("action", action) },
+        )
     }
 
     suspend fun libAiState(articleId: String, revision: String): LibAiStateDto {

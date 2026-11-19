@@ -458,6 +458,18 @@ data class Msg(
     val deleted: Boolean = false,
     val edited: Boolean = false,
     val hidden: Boolean = false,
+    val authorId: String = "",
+    val authorName: String = "",
+    val isManagerAuthor: Boolean = false,
+    val canEdit: Boolean = false,
+    val canDelete: Boolean = false,
+    val canManage: Boolean = false,
+    val blocked: Boolean = false,
+    val hiddenReason: String? = null,
+    val replyToId: String? = null,
+    val replyToName: String? = null,
+    val replyToText: String? = null,
+    val state: String = "active",
 )
 
 val SEED_CHATS: Map<String, List<Msg>> = mapOf(
