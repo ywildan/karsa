@@ -15,6 +15,7 @@ import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
@@ -255,7 +256,7 @@ fun InputPoin() {
         editing = null
     }
 
-    Box(Modifier.fillMaxSize().background(Paper)) {
+    Box(Modifier.fillMaxSize().background(Paper).imePadding()) {
         Column(Modifier.fillMaxSize()) {
             PageHeader(
                 title = "Input poin",
