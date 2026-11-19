@@ -39,6 +39,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.drawBehind
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.graphics.Color
@@ -101,6 +102,7 @@ import ac.id.untidar.karsa.ui.ListSkeleton
 import ac.id.untidar.karsa.ui.Markdown
 import ac.id.untidar.karsa.ui.Segmented
 import ac.id.untidar.karsa.ui.SegmentedOption
+import ac.id.untidar.karsa.ui.Rise
 import ac.id.untidar.karsa.ui.SelectField
 import ac.id.untidar.karsa.ui.SheetOption
 import ac.id.untidar.karsa.ui.TopBar
@@ -590,7 +592,7 @@ fun ImportScreen() {
     }
 }
 
-private fun Modifier.topLine(): Modifier = androidx.compose.ui.draw.drawBehind {
+private fun Modifier.topLine(): Modifier = drawBehind {
     drawLine(
         Line,
         start = androidx.compose.ui.geometry.Offset(0f, 0f),

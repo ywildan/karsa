@@ -32,6 +32,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.drawBehind
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.text.style.TextOverflow
@@ -643,10 +644,11 @@ private fun CommentItem(comment: Comment, articleAuthor: String, small: Boolean 
     }
 }
 
-private fun Modifier.drawTopBorder(): Modifier = androidx.compose.ui.draw.drawBehind {
+private fun Modifier.drawTopBorder(): Modifier = drawBehind {
     drawLine(Line, start = androidx.compose.ui.geometry.Offset(0f, 0f), end = androidx.compose.ui.geometry.Offset(size.width, 0f), strokeWidth = 1.dp.toPx())
 }
 
-private fun Modifier.drawLeftBorder(): Modifier = androidx.compose.ui.draw.drawBehind {
+private fun Modifier.drawLeftBorder(): Modifier = drawBehind {
     drawLine(Line, start = androidx.compose.ui.geometry.Offset(0f, 0f), end = androidx.compose.ui.geometry.Offset(0f, size.height), strokeWidth = 2.dp.toPx())
 }
+
