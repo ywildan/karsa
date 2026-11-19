@@ -163,7 +163,7 @@ fun GroupList() {
                 .weight(1f)
                 .verticalScroll(rememberScrollState())
                 .padding(horizontal = 20.dp)
-                .padding(bottom = 112.dp),
+                .padding(bottom = 140.dp),
         ) {
             Gate(status = load.status, onRetry = load.retry, skeleton = { ListSkeleton(count = 4, lines = 1) }) {
                 if (list.isEmpty()) {

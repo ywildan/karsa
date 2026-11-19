@@ -274,7 +274,7 @@ fun InputPoin() {
                     .weight(1f)
                     .verticalScroll(scrollState)
                     .padding(horizontal = 20.dp)
-                    .padding(bottom = 250.dp),
+                    .padding(bottom = 300.dp),
             ) {
                 Gate(
                     status = load.status,
@@ -600,7 +600,7 @@ fun InputPoin() {
                     .align(Alignment.BottomCenter)
                     .navigationBarsPadding()
                     .padding(horizontal = 12.dp)
-                    .padding(bottom = 96.dp)
+                    .padding(bottom = 134.dp)
                     .widthIn(max = 480.dp),
             ) {
                 Column(

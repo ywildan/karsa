@@ -143,7 +143,7 @@ fun ActivityHub() {
                 .weight(1f)
                 .verticalScroll(rememberScrollState())
                 .padding(horizontal = 20.dp)
-                .padding(bottom = 112.dp),
+                .padding(bottom = 140.dp),
             verticalArrangement = Arrangement.spacedBy(16.dp),
         ) {
             Gate(
@@ -1068,7 +1068,7 @@ fun PoinkuScreen() {
                 .weight(1f)
                 .verticalScroll(rememberScrollState())
                 .padding(horizontal = 20.dp)
-                .padding(bottom = 112.dp),
+                .padding(bottom = 140.dp),
         ) {
             if (seg == PoinkuTab.Laporan) ReportView() else RankingView(dock = true)
         }

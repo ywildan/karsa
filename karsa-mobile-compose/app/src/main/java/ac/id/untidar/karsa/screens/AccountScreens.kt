@@ -90,7 +90,7 @@ fun AccountScreen() {
                 .weight(1f)
                 .verticalScroll(rememberScrollState())
                 .padding(horizontal = 20.dp)
-                .padding(bottom = 112.dp),
+                .padding(bottom = 140.dp),
             verticalArrangement = Arrangement.spacedBy(24.dp),
         ) {
             Gate(

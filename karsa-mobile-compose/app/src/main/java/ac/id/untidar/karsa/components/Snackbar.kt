@@ -58,7 +58,7 @@ fun BoxScope.SnackbarHost() {
             .align(Alignment.BottomCenter)
             .navigationBarsPadding()
             .padding(horizontal = 16.dp)
-            .padding(bottom = if (aboveBar) 214.dp else 104.dp)
+            .padding(bottom = if (aboveBar) 252.dp else 140.dp)
             .fillMaxWidth(),
     ) {
         key(toast.id) {

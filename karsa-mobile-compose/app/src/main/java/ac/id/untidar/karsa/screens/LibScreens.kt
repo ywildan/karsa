@@ -136,7 +136,7 @@ fun LibHome() {
                 .weight(1f)
                 .verticalScroll(rememberScrollState())
                 .padding(horizontal = 20.dp)
-                .padding(bottom = 112.dp),
+                .padding(bottom = 140.dp),
             verticalArrangement = Arrangement.spacedBy(16.dp),
         ) {
             when (state.authorStatus) {
