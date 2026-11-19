@@ -51,6 +51,7 @@ import ac.id.untidar.karsa.icons.KarsaIcons
 import ac.id.untidar.karsa.icons.LucideIcon
 import ac.id.untidar.karsa.theme.Brand100
 import ac.id.untidar.karsa.theme.Brand600
+import ac.id.untidar.karsa.theme.Brand700
 import ac.id.untidar.karsa.theme.Danger100
 import ac.id.untidar.karsa.theme.Danger500
 import ac.id.untidar.karsa.theme.Espresso
