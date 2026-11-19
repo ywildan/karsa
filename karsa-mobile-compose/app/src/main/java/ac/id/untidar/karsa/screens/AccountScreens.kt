@@ -19,6 +19,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -81,6 +82,12 @@ fun AccountScreen() {
     val state = LocalApp.current
     val load = rememberLoad(delayMillis = 500)
     var confirm by remember { mutableStateOf(false) }
+
+    LaunchedEffect(Unit) {
+        if (state.capabilities.viewKarsaLib && state.lib.bootstrap == null) {
+            state.lib.loadBootstrap()
+        }
+    }
 
     Column(Modifier.fillMaxSize().background(Paper)) {
         PageHeader(title = "Akun", eyebrow = { EyebrowText("Profil") })
@@ -201,7 +208,13 @@ fun AccountScreen() {
                                     )
                                 }
                                 Divider()
-                                InfoRow(KarsaIcons.PenLine, "Akses menulis") {
+                                InfoRow(
+                                    KarsaIcons.PenLine,
+                                    "Akses menulis",
+                                    onClick = {
+                                        state.go(if (state.lib.canWrite) Route.MyPosts else Route.Author)
+                                    },
+                                ) {
                                     val tone = when (state.authorStatus) {
                                         AuthorStatus.Approved -> BadgeTone.Leaf
                                         AuthorStatus.Pending -> BadgeTone.Tide
@@ -220,9 +233,18 @@ fun AccountScreen() {
                                 InfoRow(
                                     KarsaIcons.UserPen,
                                     "Profil penulis",
-                                    onClick = { state.go(Route.Author) },
+                                    onClick = {
+                                        if (state.lib.canWrite && state.lib.uid.isNotBlank()) {
+                                            state.go(Route.AuthorProfile(state.lib.uid))
+                                        } else {
+                                            state.go(Route.Author)
+                                        }
+                                    },
                                 ) {
-                                    Text("Nama, fakultas, prodi, kelas", style = sansStyle(13, 400, 1.4f, color = Muted))
+                                    Text(
+                                        if (state.lib.canWrite) "Tampil di artikel yang kamu terbitkan" else "Nama, fakultas, prodi, kelas",
+                                        style = sansStyle(13, 400, 1.4f, color = Muted),
+                                    )
                                 }
                             }
                         }

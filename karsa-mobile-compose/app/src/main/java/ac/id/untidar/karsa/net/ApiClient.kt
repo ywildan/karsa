@@ -1,11 +1,19 @@
 package ac.id.untidar.karsa.net
 
 import ac.id.untidar.karsa.BuildConfig
+import ac.id.untidar.karsa.lib.LibArticleDto
+import ac.id.untidar.karsa.lib.LibAuthorProfileDto
+import ac.id.untidar.karsa.lib.LibBootstrapDto
+import ac.id.untidar.karsa.lib.LibCommentDto
+import ac.id.untidar.karsa.lib.LibDocxResult
+import ac.id.untidar.karsa.lib.LibProfileDto
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withContext
+import kotlinx.serialization.builtins.ListSerializer
+import kotlinx.serialization.builtins.serializer
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonElement
 import kotlinx.serialization.json.JsonNull
@@ -14,12 +22,14 @@ import kotlinx.serialization.json.JsonPrimitive
 import kotlinx.serialization.json.booleanOrNull
 import kotlinx.serialization.json.buildJsonObject
 import kotlinx.serialization.json.contentOrNull
+import kotlinx.serialization.json.intOrNull
 import kotlinx.serialization.json.jsonObject
 import kotlinx.serialization.json.jsonPrimitive
 import kotlinx.serialization.json.put
 import okhttp3.HttpUrl
 import okhttp3.HttpUrl.Companion.toHttpUrl
 import okhttp3.MediaType.Companion.toMediaType
+import okhttp3.MultipartBody
 import okhttp3.OkHttpClient
 import okhttp3.Request
 import okhttp3.RequestBody.Companion.toRequestBody
@@ -95,6 +105,197 @@ class ApiClient(private val store: SessionStore) {
             // Token lokal sudah dibuang; kegagalan jaringan tidak menghalangi keluar.
         }
     }
+
+    /* ───────────── Karsa Lib ───────────── */
+
+    suspend fun libBootstrap(): LibBootstrapDto {
+        val data = request("GET", "/lib/bootstrap")
+        return json.decodeFromJsonElement(LibBootstrapDto.serializer(), data)
+    }
+
+    suspend fun createLibProfile(
+        displayName: String,
+        facultyId: String,
+        programId: String,
+        classId: String?,
+    ): LibProfileDto {
+        val data = request(
+            "POST",
+            "/lib/profile",
+            body = buildJsonObject {
+                put("display_name", displayName)
+                put("faculty_id", facultyId)
+                put("prodi_id", programId)
+                if (classId != null) put("kelas_id", classId)
+            },
+        )
+        return json.decodeFromJsonElement(LibProfileDto.serializer(), data)
+    }
+
+    suspend fun libFeed(sort: String, query: String): List<LibArticleDto> {
+        val data = request(
+            "GET",
+            "/lib/feed",
+            query = buildMap {
+                put("sort", sort)
+                if (query.isNotBlank()) put("q", query.trim())
+            },
+        )
+        return json.decodeFromJsonElement(ListSerializer(LibArticleDto.serializer()), data)
+    }
+
+    suspend fun libArticle(articleId: String): LibArticleDto {
+        val data = request("GET", "/lib/articles/$articleId")
+        return json.decodeFromJsonElement(LibArticleDto.serializer(), data)
+    }
+
+    suspend fun libComments(articleId: String): List<LibCommentDto> {
+        val data = request("GET", "/lib/articles/$articleId/comments")
+        return json.decodeFromJsonElement(ListSerializer(LibCommentDto.serializer()), data)
+    }
+
+    suspend fun createLibComment(articleId: String, body: String, parentId: String?): LibCommentDto {
+        val data = request(
+            "POST",
+            "/lib/articles/$articleId/comments",
+            body = buildJsonObject {
+                put("body", body)
+                if (parentId != null) put("parent_id", parentId)
+            },
+        )
+        return json.decodeFromJsonElement(LibCommentDto.serializer(), data)
+    }
+
+    suspend fun deleteLibComment(commentId: String) {
+        request("DELETE", "/lib/comments/$commentId")
+    }
+
+    suspend fun libVault(): List<LibArticleDto> {
+        val data = request("GET", "/lib/vault")
+        return json.decodeFromJsonElement(ListSerializer(LibArticleDto.serializer()), data)
+    }
+
+    suspend fun createLibArticle(title: String, body: String): LibArticleDto {
+        val data = request(
+            "POST",
+            "/lib/articles",
+            body = buildJsonObject {
+                put("title", title)
+                put("body", body)
+            },
+        )
+        return json.decodeFromJsonElement(LibArticleDto.serializer(), data)
+    }
+
+    suspend fun updateLibArticle(
+        articleId: String,
+        action: String,
+        title: String? = null,
+        body: String? = null,
+    ): LibArticleDto {
+        val data = request(
+            "PATCH",
+            "/lib/articles/$articleId",
+            body = buildJsonObject {
+                put("action", action)
+                if (title != null) put("title", title)
+                if (body != null) put("body", body)
+            },
+        )
+        return json.decodeFromJsonElement(LibArticleDto.serializer(), data)
+    }
+
+    suspend fun deleteLibDraft(articleId: String) {
+        request("DELETE", "/lib/articles/$articleId")
+    }
+
+    suspend fun libAuthor(authorId: String): LibAuthorProfileDto {
+        val data = request("GET", "/lib/authors/$authorId")
+        return json.decodeFromJsonElement(LibAuthorProfileDto.serializer(), data)
+    }
+
+    suspend fun requestLibAuthor(
+        motivation: String,
+        topics: String,
+        instagram: String?,
+        tiktok: String?,
+    ) {
+        request(
+            "POST",
+            "/lib/author-requests",
+            body = buildJsonObject {
+                put("motivation", motivation)
+                put("topics", topics)
+                if (!instagram.isNullOrBlank()) put("instagram_username", instagram)
+                if (!tiktok.isNullOrBlank()) put("tiktok_username", tiktok)
+                put("accepted_guidelines", true)
+            },
+        )
+    }
+
+    suspend fun reportLibContent(
+        articleId: String?,
+        commentId: String?,
+        reason: String,
+        details: String?,
+    ) {
+        request(
+            "POST",
+            "/lib/reports",
+            body = buildJsonObject {
+                if (articleId != null) put("article_id", articleId)
+                if (commentId != null) put("comment_id", commentId)
+                put("reason", reason)
+                if (!details.isNullOrBlank()) put("details", details)
+            },
+        )
+    }
+
+    suspend fun importLibDocx(fileName: String, bytes: ByteArray): LibDocxResult {
+        var raw = sendMultipart(fileName, bytes)
+        if (raw.code == 401 && refreshTokens()) {
+            raw = sendMultipart(fileName, bytes)
+        }
+        val data = parse(raw) as? JsonObject
+            ?: throw ApiException("Server tidak mengembalikan draf hasil impor.")
+        val article = json.decodeFromJsonElement(LibArticleDto.serializer(), data)
+        val info = data["import_info"] as? JsonObject
+        val dropped = info?.get("dropped_images")?.jsonPrimitive?.intOrNull ?: 0
+        val warnings = info?.get("warnings")
+            ?.let { element -> runCatching { json.decodeFromJsonElement(ListSerializer(String.serializer()), element) }.getOrNull() }
+            .orEmpty()
+        return LibDocxResult(article, dropped, warnings)
+    }
+
+    private suspend fun sendMultipart(fileName: String, bytes: ByteArray): RawResponse =
+        withContext(Dispatchers.IO) {
+            val request = Request.Builder()
+                .url("$apiBase/lib/articles/import-docx")
+                .header("Accept", "application/json")
+                .apply { accessToken?.let { header("Authorization", "Bearer $it") } }
+                .post(
+                    MultipartBody.Builder()
+                        .setType(MultipartBody.FORM)
+                        .addFormDataPart("file", fileName, bytes.toRequestBody(DOCX))
+                        .build(),
+                )
+                .build()
+            try {
+                http.newCall(request).apply {
+                    timeout().timeout(60, TimeUnit.SECONDS)
+                }.execute().use { response ->
+                    RawResponse(response.code, response.body?.string().orEmpty())
+                }
+            } catch (error: Exception) {
+                throw when (error) {
+                    is SocketTimeoutException, is InterruptedIOException -> ApiException(
+                        "Unggahan membutuhkan waktu lebih lama. Coba lagi.",
+                    )
+                    is IOException -> ApiException("Koneksi belum tersedia. Periksa internetmu dan coba lagi.")
+                    else -> error
+                }
+            }
+        }
 
     fun reloadTokens() {
         accessToken = store.accessToken
@@ -258,6 +459,7 @@ class ApiClient(private val store: SessionStore) {
 
     private companion object {
         val JSON = "application/json; charset=utf-8".toMediaType()
+        val DOCX = "application/vnd.openxmlformats-officedocument.wordprocessingml.document".toMediaType()
     }
 }
 

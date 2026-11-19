@@ -273,7 +273,7 @@ fun rankingFor(key: String): List<RankRow> {
 
 /* ───────────── Karsa Lib ───────────── */
 
-enum class ArticleStatus { Draft, Published }
+enum class ArticleStatus { Draft, Published, Archived }
 
 data class Article(
     val id: String,
@@ -286,6 +286,11 @@ data class Article(
     val tag: String,
     val mine: Boolean = false,
     val status: ArticleStatus? = null,
+    val authorId: String = "",
+    val commentsCount: Int = 0,
+    val updatedAt: Long = ts,
+    val aiEnabled: Boolean = false,
+    val aiRevision: String? = null,
 )
 
 data class Comment(
@@ -296,6 +301,7 @@ data class Comment(
     val ts: Long,
     val text: String,
     val mine: Boolean = false,
+    val deleted: Boolean = false,
 )
 
 val SEED_ARTICLES: List<Article> = listOf(

@@ -31,6 +31,7 @@ import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -50,8 +51,10 @@ import androidx.compose.ui.text.TextRange
 import androidx.compose.ui.text.input.TextFieldValue
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import ac.id.untidar.karsa.AuthorStatus
 import ac.id.untidar.karsa.LocalApp
 import ac.id.untidar.karsa.Route
@@ -63,6 +66,9 @@ import ac.id.untidar.karsa.data.ME
 import ac.id.untidar.karsa.data.relTime
 import ac.id.untidar.karsa.icons.KarsaIcons
 import ac.id.untidar.karsa.icons.LucideIcon
+import ac.id.untidar.karsa.lib.LibBootstrapDto
+import ac.id.untidar.karsa.lib.toArticle
+import ac.id.untidar.karsa.net.friendlyError
 import ac.id.untidar.karsa.theme.Brand100
 import ac.id.untidar.karsa.theme.Brand300
 import ac.id.untidar.karsa.theme.Brand50
@@ -100,7 +106,10 @@ import ac.id.untidar.karsa.ui.KarsaCard
 import ac.id.untidar.karsa.ui.KarsaDialog
 import ac.id.untidar.karsa.ui.KarsaTextField
 import ac.id.untidar.karsa.ui.ListSkeleton
+import ac.id.untidar.karsa.ui.LoadStatus
 import ac.id.untidar.karsa.ui.Markdown
+import ac.id.untidar.karsa.ui.MenuEntry
+import ac.id.untidar.karsa.ui.PopMenu
 import ac.id.untidar.karsa.ui.Segmented
 import ac.id.untidar.karsa.ui.SegmentedOption
 import ac.id.untidar.karsa.ui.Rise
@@ -115,12 +124,16 @@ private enum class EditorMode { Tulis, Pratinjau }
 
 private class EditorTool(val icon: List<String>, val label: String, val run: () -> Unit)
 
-private enum class MyPostsFilter(val label: String) { All("Semua"), Draft("Draf"), Published("Terbit") }
+private enum class MyPostsFilter(val label: String) { All("Semua"), Draft("Draf"), Published("Terbit"), Archived("Arsip") }
+
+private data class PendingPostAction(val article: ac.id.untidar.karsa.data.Article, val action: String)
 
 @Composable
 fun EditorScreen(id: String? = null, prefillTitle: String? = null, prefillBody: String? = null) {
     val state = LocalApp.current
-    val existing = state.articles.firstOrNull { it.id == id }
+    val lib = state.lib
+    val scope = rememberCoroutineScope()
+    val existing = lib.vault.firstOrNull { it.id == id } ?: lib.details[id]
     var title by remember { mutableStateOf(TextFieldValue(existing?.title ?: prefillTitle ?: "")) }
     var body by remember { mutableStateOf(TextFieldValue(existing?.body ?: prefillBody ?: "")) }
     var mode by remember { mutableStateOf(EditorMode.Tulis) }
@@ -128,11 +141,13 @@ fun EditorScreen(id: String? = null, prefillTitle: String? = null, prefillBody: 
     var savedTitle by remember { mutableStateOf(title.text) }
     var savedBody by remember { mutableStateOf(body.text) }
     var leave by remember { mutableStateOf(false) }
+    var saving by remember { mutableStateOf(false) }
     val bodyFocus = remember { FocusRequester() }
 
     val dirty = title.text != savedTitle || body.text != savedBody
     val words = body.text.trim().let { if (it.isEmpty()) 0 else it.split(Regex("\\s+")).size }
     val canPublish = title.text.trim().length >= 5 && words >= 10
+    val publishedExisting = existing?.status == ArticleStatus.Published || existing?.status == ArticleStatus.Archived
 
     fun wrap(before: String, after: String = before, placeholder: String = "teks") {
         val text = body.text
@@ -166,24 +181,37 @@ fun EditorScreen(id: String? = null, prefillTitle: String? = null, prefillBody: 
         EditorTool(KarsaIcons.Link2, "Tautan") { wrap("[", "](https://)", "teks tautan") },
     )
 
-    fun saveDraft() {
+    fun persist(publish: Boolean) {
+        if (saving) return
         if (title.text.isBlank() && body.text.isBlank()) {
             state.notify("Tulis judul atau isi dulu sebelum menyimpan draf", ToastTone.Error)
             return
         }
-        draftId = state.saveArticle(draftId, title.text.trim(), body.text, ArticleStatus.Draft)
-        savedTitle = title.text
-        savedBody = body.text
-        state.notify("Draf tersimpan di Tulisan saya", ToastTone.Success)
-    }
-
-    fun publish() {
-        val newId = state.saveArticle(draftId, title.text.trim(), body.text, ArticleStatus.Published)
-        state.notify("Artikel terbit. Selamat!", ToastTone.Success)
-        state.replace(Route.Article(newId))
+        saving = true
+        scope.launch {
+            try {
+                val saved = lib.saveArticle(draftId, title.text.trim(), body.text)
+                draftId = saved.id
+                savedTitle = title.text
+                savedBody = body.text
+                if (publish) {
+                    val article = lib.vaultAction(saved, "PUBLISH")
+                    state.notify("Artikel terbit. Selamat!", ToastTone.Success)
+                    state.replace(Route.Article(article.id))
+                } else {
+                    state.notify("Draf tersimpan di Tulisan saya", ToastTone.Success)
+                }
+                lib.loadVault()
+            } catch (error: Exception) {
+                state.notify(friendlyError(error), ToastTone.Error)
+            } finally {
+                saving = false
+            }
+        }
     }
 
     fun onBack() {
+        if (saving) return
         if (dirty && (title.text.isNotEmpty() || body.text.isNotEmpty())) leave = true else state.back()
     }
 
@@ -193,18 +221,25 @@ fun EditorScreen(id: String? = null, prefillTitle: String? = null, prefillBody: 
     Column(Modifier.fillMaxSize().background(Paper).imePadding()) {
         TopBar(
             onBack = ::onBack,
-            title = if (existing != null) "Sunting draf" else "Tulis artikel",
+            title = when {
+                existing == null -> "Tulis artikel"
+                publishedExisting -> "Sunting artikel"
+                else -> "Sunting draf"
+            },
             subtitle = when {
+                saving -> "Menyimpan…"
                 dirty -> "Belum disimpan"
                 draftId != null -> "Tersimpan"
                 else -> "Draf baru"
             },
             right = {
                 KarsaButton(
-                    text = "Simpan draf",
-                    onClick = ::saveDraft,
+                    text = if (publishedExisting) "Simpan perubahan" else "Simpan draf",
+                    onClick = { persist(false) },
                     variant = ButtonVariant.Soft,
                     size = ButtonSize.Sm,
+                    loading = saving,
+                    enabled = !saving,
                     leading = { LucideIcon(KarsaIcons.Save, modifier = Modifier.size(16.dp), tint = Brand700) },
                 )
             },
@@ -337,12 +372,15 @@ fun EditorScreen(id: String? = null, prefillTitle: String? = null, prefillBody: 
                 Text("$words kata", style = sansStyle(13, 700, 1.3f))
                 Text("${maxOf(1, (words / 200f).toInt())} mnt baca", style = sansStyle(12, 400, 1.3f, color = Muted))
             }
-            KarsaButton(
-                text = "Terbitkan",
-                onClick = ::publish,
-                enabled = canPublish,
-                leading = { LucideIcon(KarsaIcons.Send, modifier = Modifier.size(16.dp), tint = Color.White) },
-            )
+            if (!publishedExisting) {
+                KarsaButton(
+                    text = if (saving) "Memproses…" else "Terbitkan",
+                    onClick = { persist(true) },
+                    enabled = canPublish && !saving,
+                    loading = saving,
+                    leading = { LucideIcon(KarsaIcons.Send, modifier = Modifier.size(16.dp), tint = Color.White) },
+                )
+            }
         }
     }
 
@@ -364,22 +402,69 @@ fun EditorScreen(id: String? = null, prefillTitle: String? = null, prefillBody: 
 @Composable
 fun MyPostsScreen() {
     val state = LocalApp.current
-    val load = rememberLoad(delayMillis = 500)
+    val lib = state.lib
+    val scope = rememberCoroutineScope()
     var seg by remember { mutableStateOf(MyPostsFilter.All) }
-    val mine = state.articles.filter { it.mine }
-    val list = mine.filter {
+    var busy by remember { mutableStateOf<String?>(null) }
+    var pending by remember { mutableStateOf<PendingPostAction?>(null) }
+    val list = lib.vault.filter {
         when (seg) {
             MyPostsFilter.All -> true
             MyPostsFilter.Draft -> it.status == ArticleStatus.Draft
             MyPostsFilter.Published -> it.status == ArticleStatus.Published
+            MyPostsFilter.Archived -> it.status == ArticleStatus.Archived
         }
     }
 
+    LaunchedEffect(Unit) {
+        if (lib.bootstrap == null) lib.loadBootstrap()
+        lib.loadVault()
+    }
+
     fun write() {
-        if (state.authorStatus == AuthorStatus.Approved) {
+        if (lib.canWrite) {
             state.go(Route.Editor())
         } else {
             state.notify("Ajukan akses penulis terlebih dahulu", ToastTone.Error)
+        }
+    }
+
+    fun execute(article: ac.id.untidar.karsa.data.Article, action: String) {
+        if (busy != null) return
+        busy = article.id
+        scope.launch {
+            try {
+                when (action) {
+                    "DELETE" -> {
+                        lib.deleteDraft(article)
+                        state.notify("Draf dihapus.", ToastTone.Success)
+                    }
+                    "ARCHIVE" -> {
+                        lib.vaultAction(article, action)
+                        state.notify("Artikel diarsipkan.", ToastTone.Success)
+                    }
+                    "RESTORE" -> {
+                        lib.vaultAction(article, action)
+                        state.notify("Artikel diterbitkan kembali.", ToastTone.Success)
+                    }
+                    else -> {
+                        lib.vaultAction(article, action)
+                        state.notify("Artikel berhasil diterbitkan.", ToastTone.Success)
+                    }
+                }
+            } catch (error: Exception) {
+                state.notify(friendlyError(error), ToastTone.Error)
+            } finally {
+                busy = null
+            }
+        }
+    }
+
+    fun ask(article: ac.id.untidar.karsa.data.Article, action: String) {
+        if (action == "EDIT") {
+            state.go(Route.Editor(id = article.id))
+        } else {
+            pending = PendingPostAction(article, action)
         }
     }
 
@@ -387,16 +472,42 @@ fun MyPostsScreen() {
         TopBar(
             onBack = { state.back() },
             title = "Tulisan saya",
-            subtitle = "${mine.size} tulisan",
+            subtitle = "${lib.vault.size} tulisan",
             right = {
-                KarsaButton(
-                    text = "Tulis",
-                    onClick = ::write,
-                    size = ButtonSize.Sm,
-                    leading = { LucideIcon(KarsaIcons.PenLine, modifier = Modifier.size(16.dp), tint = Color.White) },
-                )
+                if (lib.canWrite) {
+                    KarsaButton(
+                        text = "Tulis",
+                        onClick = ::write,
+                        size = ButtonSize.Sm,
+                        leading = { LucideIcon(KarsaIcons.PenLine, modifier = Modifier.size(16.dp), tint = Color.White) },
+                    )
+                }
             },
         )
+        if (lib.bootstrapStatus == LoadStatus.Loading && lib.vault.isEmpty()) {
+            Column(Modifier.padding(horizontal = 20.dp)) {
+                ListSkeleton(count = 2, lines = 1)
+            }
+            return@Column
+        }
+        if (!lib.canWrite) {
+            Column(Modifier.padding(20.dp)) {
+                KarsaCard {
+                    EmptyState(
+                        title = "Akses menulis belum aktif",
+                        desc = "Ajukan akses penulis untuk mulai membuat draf dan menerbitkan tulisan.",
+                        icon = { LucideIcon(KarsaIcons.Feather, modifier = Modifier.size(36.dp), tint = Brand600) },
+                        action = {
+                            KarsaButton(
+                                text = "Ajukan akses penulis",
+                                onClick = { state.go(Route.Author) },
+                            )
+                        },
+                    )
+                }
+            }
+            return@Column
+        }
         Column(Modifier.padding(horizontal = 20.dp)) {
             Segmented(
                 options = MyPostsFilter.entries.map { SegmentedOption(it, it.label) },
@@ -412,67 +523,119 @@ fun MyPostsScreen() {
                 .padding(horizontal = 20.dp)
                 .padding(bottom = 24.dp),
         ) {
-            Gate(status = load.status, onRetry = load.retry, skeleton = { ListSkeleton(count = 2, lines = 1) }) {
-                if (list.isEmpty()) {
-                    KarsaCard {
-                        EmptyState(
-                            title = if (mine.isEmpty()) "Belum ada tulisan" else "Tidak ada di kategori ini",
-                            desc = "Catatan kuliah, ringkasan, atau tips belajarmu layak dibaca teman-teman.",
-                            icon = { LucideIcon(KarsaIcons.FileText, modifier = Modifier.size(36.dp), tint = Brand600) },
-                            action = {
-                                KarsaButton(
-                                    text = "Mulai menulis",
-                                    onClick = ::write,
-                                    leading = { LucideIcon(KarsaIcons.PenLine, modifier = Modifier.size(16.dp), tint = Color.White) },
-                                )
-                            },
-                        )
+            when {
+                lib.vaultStatus == LoadStatus.Loading && lib.vault.isEmpty() -> ListSkeleton(count = 2, lines = 1)
+                lib.vaultStatus == LoadStatus.Error && lib.vault.isEmpty() -> KarsaCard {
+                    EmptyState(
+                        title = "Tulisan belum termuat",
+                        desc = "Periksa koneksi lalu coba lagi.",
+                        icon = { LucideIcon(KarsaIcons.TriangleAlert, modifier = Modifier.size(36.dp), tint = Brand600) },
+                        action = {
+                            KarsaButton(
+                                text = "Coba lagi",
+                                onClick = { lib.loadVault() },
+                                variant = ButtonVariant.Soft,
+                            )
+                        },
+                    )
+                }
+                list.isEmpty() -> KarsaCard {
+                    val (title, desc) = when (seg) {
+                        MyPostsFilter.All -> "Belum ada tulisan" to "Catatan kuliah, ringkasan, atau tips belajarmu layak dibaca teman-teman."
+                        MyPostsFilter.Draft -> "Belum ada draf" to "Mulai menulis dengan tombol Tulis."
+                        MyPostsFilter.Published -> "Belum ada artikel terbit" to "Terbitkan drafmu untuk berbagi dengan teman satu prodi."
+                        MyPostsFilter.Archived -> "Arsip masih kosong" to "Artikel yang kamu arsipkan tersimpan di sini."
                     }
-                } else {
-                    Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                        list.forEach { article ->
-                            Rise {
-                                val interaction = remember { androidx.compose.foundation.interaction.MutableInteractionSource() }
-                                KarsaCard(
-                                    modifier = Modifier
-                                        .fillMaxWidth()
-                                        .pressScale(interaction, 0.99f)
-                                        .clickable(
-                                            interactionSource = interaction,
-                                            indication = androidx.compose.foundation.LocalIndication.current,
-                                        ) {
-                                            if (article.status == ArticleStatus.Draft) {
-                                                state.go(Route.Editor(id = article.id))
-                                            } else {
-                                                state.go(Route.Article(article.id))
-                                            }
-                                        },
-                                ) {
-                                    Column(Modifier.padding(16.dp)) {
-                                        Row(
-                                            modifier = Modifier.fillMaxWidth(),
-                                            horizontalArrangement = Arrangement.SpaceBetween,
-                                            verticalAlignment = Alignment.CenterVertically,
-                                        ) {
-                                            val draft = article.status == ArticleStatus.Draft
-                                            Badge(
-                                                if (draft) "DRAF" else "TERBIT",
-                                                tone = if (draft) BadgeTone.Butter else BadgeTone.Leaf,
-                                            )
-                                            Text(relTime(article.ts), style = sansStyle(12, 400, 1.3f, color = Muted))
+                    EmptyState(
+                        title = title,
+                        desc = desc,
+                        icon = { LucideIcon(KarsaIcons.FileText, modifier = Modifier.size(36.dp), tint = Brand600) },
+                        action = {
+                            KarsaButton(
+                                text = "Mulai menulis",
+                                onClick = ::write,
+                                leading = { LucideIcon(KarsaIcons.PenLine, modifier = Modifier.size(16.dp), tint = Color.White) },
+                            )
+                        },
+                    )
+                }
+                else -> Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                    list.forEach { article ->
+                        Rise {
+                            val interaction = remember { androidx.compose.foundation.interaction.MutableInteractionSource() }
+                            val draft = article.status == ArticleStatus.Draft
+                            val archived = article.status == ArticleStatus.Archived
+                            KarsaCard(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .pressScale(interaction, 0.99f)
+                                    .clickable(
+                                        interactionSource = interaction,
+                                        indication = androidx.compose.foundation.LocalIndication.current,
+                                    ) {
+                                        when {
+                                            busy != null -> Unit
+                                            draft -> state.go(Route.Editor(id = article.id))
+                                            archived -> state.notify("Terbitkan kembali untuk membuka artikel ini.")
+                                            else -> state.go(Route.Article(article.id))
                                         }
-                                        Spacer(Modifier.height(12.dp))
-                                        Text(article.title, style = displayStyle(18, 700, 1.25f))
-                                        Spacer(Modifier.height(6.dp))
-                                        Text(
-                                            if (article.status == ArticleStatus.Draft) {
-                                                "Ketuk untuk melanjutkan menulis"
-                                            } else {
-                                                "${article.readers} pembaca · ${state.comments.count { it.articleId == article.id }} komentar"
+                                    },
+                            ) {
+                                Column(Modifier.padding(16.dp)) {
+                                    Row(
+                                        modifier = Modifier.fillMaxWidth(),
+                                        horizontalArrangement = Arrangement.SpaceBetween,
+                                        verticalAlignment = Alignment.CenterVertically,
+                                    ) {
+                                        Badge(
+                                            when {
+                                                draft -> "DRAF"
+                                                archived -> "DIARSIPKAN"
+                                                else -> "TERBIT"
                                             },
-                                            style = sansStyle(12, 600, 1.4f, color = Muted),
+                                            tone = when {
+                                                draft -> BadgeTone.Butter
+                                                archived -> BadgeTone.Neutral
+                                                else -> BadgeTone.Leaf
+                                            },
                                         )
+                                        Row(horizontalArrangement = Arrangement.spacedBy(6.dp), verticalAlignment = Alignment.CenterVertically) {
+                                            Text(relTime(article.updatedAt), style = sansStyle(12, 400, 1.3f, color = Muted))
+                                            if (busy == article.id) {
+                                                ac.id.untidar.karsa.ui.Spinner(
+                                                    tint = Brand600,
+                                                    modifier = Modifier.size(18.dp),
+                                                )
+                                            } else {
+                                                PopMenu(
+                                                    entries = buildList {
+                                                        if (!archived) {
+                                                            add(MenuEntry("Edit tulisan", KarsaIcons.Pencil, { ask(article, "EDIT") }))
+                                                        }
+                                                        when {
+                                                            draft -> {
+                                                                add(MenuEntry("Terbitkan", KarsaIcons.Send, { ask(article, "PUBLISH") }))
+                                                                add(MenuEntry("Hapus draf", KarsaIcons.Trash2, { ask(article, "DELETE") }, danger = true))
+                                                            }
+                                                            archived -> add(MenuEntry("Terbitkan kembali", KarsaIcons.Upload, { ask(article, "RESTORE") }))
+                                                            else -> add(MenuEntry("Arsipkan", KarsaIcons.FileUp, { ask(article, "ARCHIVE") }))
+                                                        }
+                                                    },
+                                                )
+                                            }
+                                        }
                                     }
+                                    Spacer(Modifier.height(12.dp))
+                                    Text(article.title, style = displayStyle(18, 700, 1.25f))
+                                    Spacer(Modifier.height(6.dp))
+                                    Text(
+                                        when {
+                                            draft -> "Ketuk untuk melanjutkan menulis"
+                                            archived -> "Diarsipkan · bisa diterbitkan kembali"
+                                            else -> "${article.readers} pembaca · ${article.commentsCount} komentar"
+                                        },
+                                        style = sansStyle(12, 600, 1.4f, color = Muted),
+                                    )
                                 }
                             }
                         }
@@ -481,6 +644,33 @@ fun MyPostsScreen() {
             }
         }
     }
+
+    val pendingAction = pending
+    KarsaDialog(
+        open = pendingAction != null,
+        onClose = { pending = null },
+        tone = if (pendingAction?.action == "DELETE") DialogTone.Danger else DialogTone.Primary,
+        title = when (pendingAction?.action) {
+            "DELETE" -> "Hapus draf?"
+            "ARCHIVE" -> "Arsipkan artikel?"
+            "RESTORE" -> "Terbitkan kembali?"
+            "PUBLISH" -> "Terbitkan artikel?"
+            else -> ""
+        },
+        desc = when (pendingAction?.action) {
+            "DELETE" -> "Draf ini akan dihapus permanen."
+            "ARCHIVE" -> "Artikel tidak lagi muncul di beranda. Kamu bisa menerbitkannya kembali."
+            "RESTORE" -> "Artikel akan dapat dibaca lagi oleh seluruh mahasiswa di prodimu."
+            "PUBLISH" -> "Artikel akan dapat dibaca oleh seluruh mahasiswa di prodimu."
+            else -> null
+        },
+        confirmLabel = if (pendingAction?.action == "DELETE") "Hapus" else "Lanjutkan",
+        onConfirm = {
+            val action = pending
+            pending = null
+            if (action != null) execute(action.article, action.action)
+        },
+    )
 }
 
 private data class PickedFile(val name: String, val size: Long)
@@ -488,29 +678,56 @@ private data class PickedFile(val name: String, val size: Long)
 @Composable
 fun ImportScreen() {
     val state = LocalApp.current
+    val lib = state.lib
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
     var picked by remember { mutableStateOf<PickedFile?>(null) }
+    var pickedUri by remember { mutableStateOf<Uri?>(null) }
     var busy by remember { mutableStateOf(false) }
 
     val launcher = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
-        if (uri != null) picked = context.contentResolver.pickedMeta(uri)
+        if (uri != null) {
+            picked = context.contentResolver.pickedMeta(uri)
+            pickedUri = uri
+        }
     }
 
     fun runImport() {
         val file = picked ?: return
+        val uri = pickedUri ?: return
+        if (file.size > 5L * 1024 * 1024) {
+            state.notify("Ukuran dokumen melebihi 5 MB.", ToastTone.Error)
+            return
+        }
         busy = true
         scope.launch {
-            delay(1100)
-            val name = file.name.replace(Regex("\\.docx$", RegexOption.IGNORE_CASE), "").replace(Regex("[-_]+"), " ")
-            state.notify("Dokumen berhasil diimpor ke editor", ToastTone.Success)
-            state.replace(
-                Route.Editor(
-                    prefillTitle = name.replaceFirstChar { it.uppercase() },
-                    prefillBody = "## Pendahuluan\n\nIsi dokumen hasil impor tampil di sini. Rapikan judul, tambahkan **penekanan**, lalu simpan sebagai draf.\n\n- Heading dan daftar dipertahankan\n- Gambar tidak ikut diimpor\n\n> Periksa kembali sebelum diterbitkan.",
-                ),
-            )
-            busy = false
+            try {
+                val bytes = withContext(Dispatchers.IO) {
+                    context.contentResolver.openInputStream(uri)?.use { it.readBytes() }
+                } ?: throw IllegalStateException("Berkas tidak dapat dibaca.")
+                val result = lib.importDocx(file.name, bytes)
+                val article = result.article.toArticle(lib.uid, fullBody = true)
+                lib.loadVault()
+                state.notify(
+                    if (result.droppedImages > 0) {
+                        "Dokumen menjadi draf. ${result.droppedImages} gambar belum ikut tersimpan."
+                    } else {
+                        "Dokumen berhasil diimpor sebagai draf."
+                    },
+                    ToastTone.Success,
+                )
+                state.replace(
+                    Route.Editor(
+                        id = article.id,
+                        prefillTitle = article.title,
+                        prefillBody = article.body,
+                    ),
+                )
+            } catch (error: Exception) {
+                state.notify(friendlyError(error), ToastTone.Error)
+            } finally {
+                busy = false
+            }
         }
     }
 
@@ -622,35 +839,20 @@ private fun ContentResolver.pickedMeta(uri: Uri): PickedFile {
 @Composable
 fun AuthorScreen() {
     val state = LocalApp.current
-    var nama by remember { mutableStateOf(state.authorProfile.nama) }
-    var fakultas by remember { mutableStateOf(state.authorProfile.fakultas) }
-    var prodi by remember { mutableStateOf(state.authorProfile.prodi) }
-    var kelas by remember { mutableStateOf(state.authorProfile.kelas) }
-    val prodis = FAKULTAS[fakultas].orEmpty()
-    val valid = nama.trim().length >= 3 && fakultas.isNotEmpty() && prodi.isNotEmpty()
-    val first = state.authorStatus == AuthorStatus.None
+    val lib = state.lib
 
-    fun save() {
-        state.authorProfile = ac.id.untidar.karsa.AuthorProfile(
-            nama = nama.trim(),
-            fakultas = fakultas,
-            prodi = prodi,
-            kelas = kelas,
-        )
-        if (first) {
-            state.authorStatus = AuthorStatus.Pending
-            state.notify("Pengajuan terkirim. Admin prodi akan meninjau.", ToastTone.Success)
-        } else {
-            state.notify("Profil penulis diperbarui", ToastTone.Success)
-        }
-        state.back()
-    }
+    LaunchedEffect(Unit) { if (lib.bootstrap == null) lib.loadBootstrap() }
 
     Column(Modifier.fillMaxSize().background(Paper)) {
         TopBar(
             onBack = { state.back() },
-            title = "Profil penulis",
-            subtitle = if (first) "Lengkapi untuk mengajukan akses" else "Tampil di setiap tulisanmu",
+            title = "Akses menulis",
+            subtitle = when {
+                lib.profile == null -> "Lengkapi profil Karsa Lib"
+                lib.canWrite -> "Penulis aktif"
+                lib.requestStatus == "PENDING" -> "Menunggu tinjauan"
+                else -> "Ajukan akses penulis"
+            },
         )
         Column(
             modifier = Modifier
@@ -659,95 +861,402 @@ fun AuthorScreen() {
                 .padding(horizontal = 20.dp)
                 .padding(top = 8.dp, bottom = 24.dp),
         ) {
-            KarsaCard {
-                Row(Modifier.padding(16.dp), horizontalArrangement = Arrangement.spacedBy(16.dp), verticalAlignment = Alignment.CenterVertically) {
-                    val (tile, tint) = when (state.authorStatus) {
-                        AuthorStatus.Approved -> Leaf100 to Leaf600
-                        AuthorStatus.Pending -> Tide100 to Tide600
-                        AuthorStatus.None -> Butter100 to Butter700
-                    }
-                    Box(
-                        modifier = Modifier.size(48.dp).clip(RoundedCornerShape(16.dp)).background(tile),
-                        contentAlignment = Alignment.Center,
-                    ) {
-                        LucideIcon(KarsaIcons.ShieldCheck, modifier = Modifier.size(24.dp), tint = tint)
-                    }
-                    Column(Modifier.weight(1f)) {
-                        Text("Status akses menulis", style = sansStyle(12, 600, 1.4f, color = Muted))
-                        Text(
-                            when (state.authorStatus) {
-                                AuthorStatus.Approved -> "Disetujui"
-                                AuthorStatus.Pending -> "Menunggu tinjauan"
-                                AuthorStatus.None -> "Belum diajukan"
-                            },
-                            style = displayStyle(18, 700, 1.25f),
-                        )
-                    }
+            when (lib.bootstrapStatus) {
+                LoadStatus.Loading -> ListSkeleton(count = 2, lines = 2)
+                LoadStatus.Error -> KarsaCard {
+                    EmptyState(
+                        title = "Data Karsa Lib belum termuat",
+                        desc = "Periksa koneksi lalu coba lagi.",
+                        icon = { LucideIcon(KarsaIcons.TriangleAlert, modifier = Modifier.size(36.dp), tint = Brand600) },
+                        action = {
+                            KarsaButton(
+                                text = "Coba lagi",
+                                onClick = { lib.loadBootstrap() },
+                                variant = ButtonVariant.Soft,
+                            )
+                        },
+                    )
+                }
+                LoadStatus.Ready -> when {
+                    lib.profile == null -> ProfileSetupContent(onSaved = { state.back() })
+                    lib.canWrite -> WriterHub()
+                    else -> AuthorRequestContent()
+                }
+            }
+        }
+    }
+}
+
+@Composable
+fun ProfileSetupContent(onSaved: () -> Unit) {
+    val state = LocalApp.current
+    val lib = state.lib
+    val bootstrap = lib.bootstrap ?: return
+    val scope = rememberCoroutineScope()
+    var nama by remember { mutableStateOf(lib.profile?.displayName ?: state.displayName) }
+    var facultyId by remember { mutableStateOf(lib.profile?.facultyId ?: "") }
+    var programId by remember { mutableStateOf(lib.profile?.programId ?: "") }
+    var classId by remember { mutableStateOf(lib.profile?.classId ?: "") }
+    var confirm by remember { mutableStateOf(false) }
+    var saving by remember { mutableStateOf(false) }
+    val programs = bootstrap.programs.filter { it.facultyId == facultyId }
+    val classes = bootstrap.classes.filter { it.programId == programId }
+    val facultyName = bootstrap.faculties.firstOrNull { it.id == facultyId }?.name ?: ""
+    val programName = bootstrap.programs.firstOrNull { it.id == programId }?.name ?: ""
+    val valid = nama.trim().length >= 2 && facultyId.isNotBlank() && programId.isNotBlank()
+
+    fun save() {
+        if (!valid || saving) return
+        saving = true
+        scope.launch {
+            try {
+                lib.createProfile(nama.trim(), facultyId, programId, classId.ifBlank { null })
+                state.notify("Profil Karsa Lib tersimpan", ToastTone.Success)
+                confirm = false
+                onSaved()
+            } catch (error: Exception) {
+                state.notify(friendlyError(error), ToastTone.Error)
+            } finally {
+                saving = false
+            }
+        }
+    }
+
+    KarsaCard {
+        Column(Modifier.padding(20.dp)) {
+            Row(horizontalArrangement = Arrangement.spacedBy(14.dp), verticalAlignment = Alignment.CenterVertically) {
+                Box(
+                    modifier = Modifier.size(44.dp).clip(RoundedCornerShape(16.dp)).background(Brand100),
+                    contentAlignment = Alignment.Center,
+                ) {
+                    LucideIcon(KarsaIcons.BookOpen, modifier = Modifier.size(22.dp), tint = Brand600)
+                }
+                Column(Modifier.weight(1f)) {
+                    Text("Siapkan ruang belajarmu", style = displayStyle(18, 700, 1.2f))
+                    Text(
+                        "Pilih identitas program studi agar feed menampilkan artikel yang tepat.",
+                        style = sansStyle(13, 400, 1.5f, color = Muted),
+                    )
                 }
             }
             Spacer(Modifier.height(20.dp))
-            Field(label = "Nama penulis") {
+            Field(label = "Nama yang ditampilkan") {
                 KarsaTextField(
                     value = nama,
-                    onValueChange = { nama = it },
+                    onValueChange = { if (it.length <= 80) nama = it },
                     placeholder = "Nama yang tampil di artikel",
                 )
             }
-            Spacer(Modifier.height(20.dp))
+            Spacer(Modifier.height(18.dp))
             SelectField(
-                value = fakultas,
-                options = FAKULTAS.keys.map { SheetOption(it, it) },
-                onChange = { next ->
-                    fakultas = next
-                    if (prodi !in FAKULTAS[next].orEmpty()) prodi = ""
+                value = facultyId,
+                options = bootstrap.faculties.map { SheetOption(it.id, it.name) },
+                onChange = {
+                    facultyId = it
+                    if (programId !in bootstrap.programs.filter { p -> p.facultyId == it }.map { p -> p.id }) {
+                        programId = ""
+                    }
+                    classId = ""
                 },
                 label = "Fakultas",
                 placeholder = "Pilih fakultas",
+                sheetTitle = "Pilih fakultas",
             )
-            Spacer(Modifier.height(20.dp))
+            Spacer(Modifier.height(18.dp))
             SelectField(
-                value = prodi,
-                options = prodis.map { SheetOption(it, it) },
-                onChange = { prodi = it },
+                value = programId,
+                options = programs.map { SheetOption(it.id, it.name) },
+                onChange = {
+                    programId = it
+                    classId = ""
+                },
                 label = "Program studi",
-                placeholder = if (fakultas.isNotEmpty()) "Pilih program studi" else "Pilih fakultas dulu",
-                disabled = fakultas.isEmpty(),
+                placeholder = if (facultyId.isNotBlank()) "Pilih program studi" else "Pilih fakultas dulu",
+                disabled = facultyId.isBlank(),
+                sheetTitle = "Pilih program studi",
             )
-            Spacer(Modifier.height(20.dp))
+            Spacer(Modifier.height(18.dp))
             SelectField(
-                value = kelas,
-                options = listOf(SheetOption("", "Tanpa kelas")) + KELAS_OPTIONS.map { SheetOption(it, it) },
-                onChange = { kelas = it },
+                value = classId,
+                options = listOf(SheetOption("", "Tidak memilih kelas")) + classes.map {
+                    SheetOption(it.id, lib.classLabel(it))
+                },
+                onChange = { classId = it },
                 label = "Kelas",
-                placeholder = "Pilih kelas",
+                placeholder = if (programId.isNotBlank()) "Pilih kelas" else "Pilih program studi dulu",
+                disabled = programId.isBlank(),
                 optional = true,
+                sheetTitle = "Pilih kelas",
             )
-            Spacer(Modifier.height(20.dp))
+            Spacer(Modifier.height(16.dp))
             Text(
-                "Akun: ${ME.email}. Fakultas dan prodi menentukan pembaca utama tulisanmu.",
+                if (bootstrap.faculties.isEmpty() || bootstrap.programs.isEmpty()) {
+                    "Pilihan fakultas atau prodi belum tersedia. Admin Karsa perlu mengatur data tersebut lebih dulu."
+                } else {
+                    "Fakultas dan program studi tidak dapat diubah setelah disimpan. Pilihan prodi menentukan artikel yang bisa kamu lihat."
+                },
                 modifier = Modifier
                     .fillMaxWidth()
                     .clip(RoundedCornerShape(16.dp))
                     .background(Paper2)
                     .padding(horizontal = 16.dp, vertical = 12.dp),
-                style = sansStyle(13, 400, 1.625f, color = Ink2),
+                style = sansStyle(12, 400, 1.55f, color = Ink2),
             )
-        }
-        Column(
-            Modifier
-                .fillMaxWidth()
-                .background(Paper)
-                .topLine()
-                .navigationBarsPadding()
-                .padding(horizontal = 20.dp, vertical = 12.dp),
-        ) {
+            Spacer(Modifier.height(20.dp))
             KarsaButton(
-                text = if (first) "Ajukan akses penulis" else "Simpan profil",
-                onClick = ::save,
+                text = "Simpan profil",
+                onClick = { confirm = true },
                 size = ButtonSize.Lg,
                 full = true,
-                enabled = valid,
+                enabled = valid && !saving,
+                loading = saving,
             )
+        }
+    }
+
+    KarsaDialog(
+        open = confirm,
+        onClose = { confirm = false },
+        title = "Identitasmu sudah benar?",
+        desc = "$nama\n$facultyName\n$programName\n\nFakultas dan prodi tidak dapat diganti setelah disimpan.",
+        confirmLabel = "Ya, simpan",
+        cancelLabel = "Periksa kembali",
+        onConfirm = { save() },
+    )
+}
+
+@Composable
+private fun WriterHub() {
+    val state = LocalApp.current
+    val lib = state.lib
+    val status = state.authorStatus
+    val (tile, tint) = when (status) {
+        AuthorStatus.Approved -> Leaf100 to Leaf600
+        AuthorStatus.Pending -> Tide100 to Tide600
+        AuthorStatus.None -> Butter100 to Butter700
+    }
+
+    Column(verticalArrangement = Arrangement.spacedBy(16.dp)) {
+        KarsaCard {
+            Row(Modifier.padding(18.dp), horizontalArrangement = Arrangement.spacedBy(16.dp), verticalAlignment = Alignment.CenterVertically) {
+                Box(
+                    modifier = Modifier.size(48.dp).clip(RoundedCornerShape(16.dp)).background(tile),
+                    contentAlignment = Alignment.Center,
+                ) {
+                    LucideIcon(KarsaIcons.ShieldCheck, modifier = Modifier.size(24.dp), tint = tint)
+                }
+                Column(Modifier.weight(1f)) {
+                    Text("Akses menulis aktif", style = sansStyle(12, 600, 1.4f, color = Muted))
+                    Text(state.authorProfile.nama, style = displayStyle(18, 700, 1.25f))
+                    val meta = listOf(state.authorProfile.prodi, state.authorProfile.kelas)
+                        .filter { it.isNotBlank() }
+                        .joinToString(" · ")
+                    if (meta.isNotBlank()) {
+                        Text(meta, style = sansStyle(12, 400, 1.4f, color = Muted))
+                    }
+                }
+            }
+        }
+
+        KarsaButton(
+            text = "Tulis artikel",
+            onClick = { state.go(Route.Editor()) },
+            size = ButtonSize.Lg,
+            full = true,
+            leading = { LucideIcon(KarsaIcons.PenLine, modifier = Modifier.size(18.dp), tint = Color.White) },
+        )
+        KarsaButton(
+            text = "Tulisan saya",
+            onClick = { state.go(Route.MyPosts) },
+            variant = ButtonVariant.Soft,
+            size = ButtonSize.Lg,
+            full = true,
+            leading = { LucideIcon(KarsaIcons.FileText, modifier = Modifier.size(18.dp), tint = Brand700) },
+        )
+        if (lib.uid.isNotBlank()) {
+            KarsaButton(
+                text = "Lihat profil penulis",
+                onClick = { state.go(Route.AuthorProfile(lib.uid)) },
+                variant = ButtonVariant.Outline,
+                size = ButtonSize.Lg,
+                full = true,
+                leading = { LucideIcon(KarsaIcons.UserRound, modifier = Modifier.size(18.dp), tint = Ink) },
+            )
+        }
+    }
+}
+
+@Composable
+private fun AuthorRequestContent() {
+    val state = LocalApp.current
+    val lib = state.lib
+    val scope = rememberCoroutineScope()
+    val pending = lib.requestStatus == "PENDING"
+
+    Column(verticalArrangement = Arrangement.spacedBy(16.dp)) {
+        KarsaCard {
+            Row(Modifier.padding(16.dp), horizontalArrangement = Arrangement.spacedBy(14.dp), verticalAlignment = Alignment.CenterVertically) {
+                Box(
+                    modifier = Modifier.size(44.dp).clip(RoundedCornerShape(16.dp))
+                        .background(if (pending) Tide100 else Butter100),
+                    contentAlignment = Alignment.Center,
+                ) {
+                    LucideIcon(
+                        if (pending) KarsaIcons.Clock else KarsaIcons.Feather,
+                        modifier = Modifier.size(22.dp),
+                        tint = if (pending) Tide600 else Butter700,
+                    )
+                }
+                Column(Modifier.weight(1f)) {
+                    Text(
+                        if (pending) "Permohonan sedang ditinjau" else "Bagikan ilmu untuk satu prodi",
+                        style = displayStyle(17, 700, 1.25f),
+                    )
+                    Text(
+                        if (pending) {
+                            "Kamu tetap bisa membaca dan berdiskusi. Tarik layar untuk memperbarui status."
+                        } else {
+                            "Admin akan meninjau permohonanmu sebelum akses menulis aktif."
+                        },
+                        style = sansStyle(13, 400, 1.5f, color = Muted),
+                    )
+                }
+            }
+        }
+
+        if (lib.decisionNote != null) {
+            Text(
+                lib.decisionNote!!,
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .clip(RoundedCornerShape(16.dp))
+                    .background(Butter100)
+                    .padding(horizontal = 16.dp, vertical = 12.dp),
+                style = sansStyle(13, 500, 1.55f, color = Butter700),
+            )
+        }
+
+        if (!pending) {
+            var motivation by remember { mutableStateOf("") }
+            var topics by remember { mutableStateOf("") }
+            var instagram by remember { mutableStateOf("") }
+            var tiktok by remember { mutableStateOf("") }
+            var guidelines by remember { mutableStateOf(false) }
+            var saving by remember { mutableStateOf(false) }
+            val usernamePattern = Regex("^[a-zA-Z0-9._]{1,30}$")
+            val instagramValid = instagram.isBlank() || usernamePattern.matches(instagram.trim().removePrefix("@"))
+            val tiktokValid = tiktok.isBlank() || usernamePattern.matches(tiktok.trim().removePrefix("@"))
+            val valid = motivation.trim().length >= 20 &&
+                topics.trim().length >= 3 &&
+                guidelines &&
+                instagramValid &&
+                tiktokValid
+
+            fun submit() {
+                if (!valid || saving) return
+                saving = true
+                scope.launch {
+                    try {
+                        lib.requestAuthor(
+                            motivation = motivation.trim(),
+                            topics = topics.trim(),
+                            instagram = instagram.trim().removePrefix("@").ifBlank { null },
+                            tiktok = tiktok.trim().removePrefix("@").ifBlank { null },
+                        )
+                        state.notify("Permohonan terkirim untuk ditinjau.", ToastTone.Success)
+                        state.back()
+                    } catch (error: Exception) {
+                        state.notify(friendlyError(error), ToastTone.Error)
+                    } finally {
+                        saving = false
+                    }
+                }
+            }
+
+            KarsaCard {
+                Column(Modifier.padding(20.dp)) {
+                    Field(label = "Mengapa ingin menjadi penulis?") {
+                        KarsaTextField(
+                            value = motivation,
+                            onValueChange = { if (it.length <= 2000) motivation = it },
+                            placeholder = "Ceritakan alasan dan rencanamu menulis",
+                            singleLine = false,
+                            minHeight = 120.dp,
+                        )
+                    }
+                    Spacer(Modifier.height(18.dp))
+                    Field(label = "Topik yang ingin ditulis") {
+                        KarsaTextField(
+                            value = topics,
+                            onValueChange = { if (it.length <= 500) topics = it },
+                            placeholder = "Misalnya: catatan kuliah, tutorial, pengalaman organisasi",
+                            singleLine = false,
+                            minHeight = 88.dp,
+                        )
+                    }
+                    Spacer(Modifier.height(18.dp))
+                    Field(label = "Username Instagram (opsional)") {
+                        KarsaTextField(
+                            value = instagram,
+                            onValueChange = { if (it.length <= 31) instagram = it },
+                            placeholder = "@username",
+                        )
+                    }
+                    Spacer(Modifier.height(18.dp))
+                    Field(label = "Username TikTok (opsional)") {
+                        KarsaTextField(
+                            value = tiktok,
+                            onValueChange = { if (it.length <= 31) tiktok = it },
+                            placeholder = "@username",
+                        )
+                    }
+                    if (!instagramValid || !tiktokValid) {
+                        Spacer(Modifier.height(8.dp))
+                        Text(
+                            "Isi username dengan huruf, angka, titik, atau garis bawah.",
+                            style = sansStyle(12, 500, 1.4f, color = ac.id.untidar.karsa.theme.Danger500),
+                        )
+                    }
+                    Spacer(Modifier.height(18.dp))
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .clip(RoundedCornerShape(16.dp))
+                            .background(Paper2)
+                            .clickable { guidelines = !guidelines }
+                            .padding(14.dp),
+                        horizontalArrangement = Arrangement.spacedBy(12.dp),
+                        verticalAlignment = Alignment.Top,
+                    ) {
+                        Box(
+                            modifier = Modifier
+                                .size(22.dp)
+                                .clip(RoundedCornerShape(7.dp))
+                                .background(if (guidelines) Brand500 else Color.White)
+                                .border(1.dp, if (guidelines) Brand500 else Line, RoundedCornerShape(7.dp)),
+                            contentAlignment = Alignment.Center,
+                        ) {
+                            if (guidelines) {
+                                LucideIcon(KarsaIcons.Check, modifier = Modifier.size(14.dp), tint = Color.White)
+                            }
+                        }
+                        Text(
+                            "Saya akan mengikuti panduan komunitas Karsa Lib.",
+                            style = sansStyle(13, 500, 1.5f, color = Ink2),
+                        )
+                    }
+                    Spacer(Modifier.height(20.dp))
+                    KarsaButton(
+                        text = "Kirim permohonan",
+                        onClick = ::submit,
+                        size = ButtonSize.Lg,
+                        full = true,
+                        enabled = valid && !saving,
+                        loading = saving,
+                        leading = { LucideIcon(KarsaIcons.Send, modifier = Modifier.size(18.dp), tint = Color.White) },
+                    )
+                }
+            }
         }
     }
 }

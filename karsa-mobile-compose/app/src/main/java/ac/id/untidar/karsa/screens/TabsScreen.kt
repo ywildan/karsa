@@ -83,6 +83,7 @@ fun RouteScreen(route: Route) {
         Route.MyPosts -> MyPostsScreen()
         Route.Import -> ImportScreen()
         Route.Author -> AuthorScreen()
+        is Route.AuthorProfile -> AuthorProfileScreen(route.id)
         is Route.Chat -> ChatScreen(route.id)
         Route.History -> HistoryScreen()
         Route.Report -> ReportScreen()

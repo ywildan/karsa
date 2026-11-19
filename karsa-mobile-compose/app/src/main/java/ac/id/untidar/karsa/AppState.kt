@@ -17,6 +17,7 @@ import ac.id.untidar.karsa.data.SEED_COMMENTS
 import ac.id.untidar.karsa.data.SEED_ENTRIES
 import ac.id.untidar.karsa.auth.AuthController
 import ac.id.untidar.karsa.auth.SessionState
+import ac.id.untidar.karsa.lib.LibController
 import ac.id.untidar.karsa.net.AppUser
 import ac.id.untidar.karsa.net.Capabilities
 
@@ -75,6 +76,7 @@ sealed interface Route {
     data object MyPosts : Route
     data object Import : Route
     data object Author : Route
+    data class AuthorProfile(val id: String) : Route
     data object History : Route
     data object Report : Route
     data object Ranking : Route
@@ -82,6 +84,8 @@ sealed interface Route {
 }
 
 class KarsaState(val auth: AuthController) {
+    val lib = LibController(auth)
+
     var phase by mutableStateOf(Phase.Splash)
         private set
     var splashDone by mutableStateOf(false)
@@ -122,10 +126,19 @@ class KarsaState(val auth: AuthController) {
         private set
     var comments by mutableStateOf(SEED_COMMENTS)
         private set
-    var authorStatus by mutableStateOf(AuthorStatus.None)
-    var authorProfile by mutableStateOf(
-        AuthorProfile(nama = ME.name, fakultas = ME.fakultas, prodi = ME.prodi, kelas = ""),
-    )
+    val authorStatus: AuthorStatus
+        get() = when {
+            lib.canWrite -> AuthorStatus.Approved
+            lib.requestStatus == "PENDING" -> AuthorStatus.Pending
+            else -> AuthorStatus.None
+        }
+    val authorProfile: AuthorProfile
+        get() = AuthorProfile(
+            nama = lib.profile?.displayName ?: displayName,
+            fakultas = lib.profile?.faculty.orEmpty(),
+            prodi = lib.programName,
+            kelas = lib.className,
+        )
 
     private var uid = 100
     private fun nextId(prefix: String): String = prefix + (++uid)
@@ -163,12 +176,6 @@ class KarsaState(val auth: AuthController) {
     private fun enterApp() {
         val profile = auth.user ?: return
         if (phase == Phase.App) return
-        if (profile.capabilities.writeKarsaLib) authorStatus = AuthorStatus.Approved
-        authorProfile = authorProfile.copy(
-            nama = displayName,
-            fakultas = profile.libProfile?.faculty?.takeIf { it.isNotBlank() }
-                ?: authorProfile.fakultas,
-        )
         tab = tabs.firstOrNull() ?: Tab.Akun
         stack = emptyList()
         epoch += 1
@@ -184,6 +191,7 @@ class KarsaState(val auth: AuthController) {
         stack = emptyList()
         toast = null
         epoch += 1
+        lib.reset()
     }
 
     fun openTab(next: Tab) {
