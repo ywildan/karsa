@@ -32,7 +32,6 @@ import ac.id.untidar.karsa.AuthorStatus
 import ac.id.untidar.karsa.BuildConfig
 import ac.id.untidar.karsa.LegalDoc
 import ac.id.untidar.karsa.LocalApp
-import ac.id.untidar.karsa.Phase
 import ac.id.untidar.karsa.Role
 import ac.id.untidar.karsa.Route
 import ac.id.untidar.karsa.data.LEGAL_PRIVACY
@@ -282,7 +281,7 @@ fun AccountScreen() {
         confirmLabel = "Keluar",
         onConfirm = {
             confirm = false
-            state.goPhase(Phase.Login)
+            state.logout()
         },
     )
 }

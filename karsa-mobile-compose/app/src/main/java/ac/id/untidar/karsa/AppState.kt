@@ -155,6 +155,14 @@ class KarsaState {
         toast = null
     }
 
+    fun logout() {
+        phase = Phase.Login
+        tab = Tab.Lib
+        stack = emptyList()
+        toast = null
+        epoch += 1
+    }
+
     /* Poin */
 
     fun addEntry(studentId: String, points: Int, categoryId: String, courseId: String, note: String?) {

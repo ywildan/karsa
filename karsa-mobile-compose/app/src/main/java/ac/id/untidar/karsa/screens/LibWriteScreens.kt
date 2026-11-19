@@ -3,6 +3,7 @@ package ac.id.untidar.karsa.screens
 import android.content.ContentResolver
 import android.net.Uri
 import android.provider.OpenableColumns
+import androidx.activity.compose.BackHandler
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.background
@@ -185,6 +186,9 @@ fun EditorScreen(id: String? = null, prefillTitle: String? = null, prefillBody: 
     fun onBack() {
         if (dirty && (title.text.isNotEmpty() || body.text.isNotEmpty())) leave = true else state.back()
     }
+
+    // System back/gesture must pass through the unsaved-changes dialog too.
+    BackHandler { onBack() }
 
     Column(Modifier.fillMaxSize().background(Paper).imePadding()) {
         TopBar(

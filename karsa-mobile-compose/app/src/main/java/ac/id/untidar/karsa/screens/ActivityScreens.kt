@@ -307,7 +307,7 @@ private fun ReportShortcutCard(total: Int) {
     Column(
         modifier = Modifier
             .fillMaxWidth()
-            .height(180.dp)
+            .height(156.dp)
             .brandShadow(RoundedCornerShape(28.dp))
             .clip(RoundedCornerShape(28.dp))
             .background(Brand500)
@@ -346,7 +346,7 @@ private fun RankingShortcutCard(rank: Int) {
     Column(
         modifier = Modifier
             .fillMaxWidth()
-            .height(180.dp)
+            .height(156.dp)
             .clip(RoundedCornerShape(28.dp))
             .background(Butter100)
             .pressScale(interaction, 0.98f)

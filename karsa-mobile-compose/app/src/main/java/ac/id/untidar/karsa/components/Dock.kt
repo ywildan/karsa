@@ -10,6 +10,7 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxScope
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.navigationBarsPadding
@@ -105,18 +106,38 @@ fun BoxScope.Dock() {
                 verticalArrangement = Arrangement.spacedBy(4.dp),
             ) {
                 if (primary) {
-                    val tileShape = RoundedCornerShape(20.dp)
+                    val ringShape = RoundedCornerShape(22.dp)
+                    val tileShape = RoundedCornerShape(18.dp)
+                    // Negative margin like the prototype's -mt-4: the 36dp slot keeps the
+                    // bar compact while the 62dp ringed tile overflows above it.
                     Box(
-                        modifier = Modifier
-                            .offset(y = (-16).dp)
-                            .size(52.dp)
-                            .brandShadow(tileShape)
-                            .clip(tileShape)
-                            .background(if (active) Brand400 else Brand500)
-                            .border(5.dp, Espresso, tileShape),
-                        contentAlignment = Alignment.Center,
+                        modifier = Modifier.height(36.dp).width(62.dp),
+                        contentAlignment = Alignment.TopCenter,
                     ) {
-                        LucideIcon(meta.paths, modifier = Modifier.size(24.dp), tint = Color.White, strokeWidth = 2.2f)
+                        Box(
+                            modifier = Modifier
+                                .offset(y = (-21).dp)
+                                .size(62.dp)
+                                .brandShadow(ringShape)
+                                .clip(ringShape)
+                                .background(Espresso)
+                                .padding(5.dp),
+                        ) {
+                            Box(
+                                modifier = Modifier
+                                    .fillMaxSize()
+                                    .clip(tileShape)
+                                    .background(if (active) Brand400 else Brand500),
+                                contentAlignment = Alignment.Center,
+                            ) {
+                                LucideIcon(
+                                    meta.paths,
+                                    modifier = Modifier.size(24.dp),
+                                    tint = Color.White,
+                                    strokeWidth = 2.2f,
+                                )
+                            }
+                        }
                     }
                 } else {
                     Box(
@@ -140,7 +161,7 @@ fun BoxScope.Dock() {
                     style = sansStyle(
                         size = 11,
                         weight = 600,
-                        lineHeight = 1f,
+                        lineHeight = 1.1f,
                         trackingEm = 0.025f,
                         color = if (active || primary) Color.White else Color.White.copy(alpha = 0.55f),
                     ),
