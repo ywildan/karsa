@@ -1,3 +1,5 @@
+@file:OptIn(androidx.compose.ui.text.ExperimentalTextApi::class)
+
 package ac.id.untidar.karsa.theme
 
 import androidx.compose.ui.graphics.Color
