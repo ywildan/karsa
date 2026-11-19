@@ -22,7 +22,8 @@ import ac.id.untidar.karsa.components.SnackbarHost
 import ac.id.untidar.karsa.screens.LoginScreen
 import ac.id.untidar.karsa.screens.OnboardingScreen
 import ac.id.untidar.karsa.screens.SplashScreen
-import ac.id.untidar.karsa.screens.TabsScreen
+import ac.id.untidar.karsa.screens.StackHost
+import ac.id.untidar.karsa.screens.TabsHost
 import ac.id.untidar.karsa.theme.Paper
 
 @Composable
@@ -48,9 +49,10 @@ fun KarsaApp() {
                 Phase.Login -> LoginScreen()
                 Phase.App -> {
                     Box(Modifier.fillMaxSize().statusBarsPadding().padding(top = 10.dp)) {
-                        TabsScreen()
+                        TabsHost()
+                        StackHost()
                     }
-                    Dock()
+                    if (state.stack.isEmpty()) Dock()
                     SnackbarHost()
                 }
             }

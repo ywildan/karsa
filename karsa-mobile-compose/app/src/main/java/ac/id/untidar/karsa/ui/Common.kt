@@ -958,9 +958,10 @@ fun EyebrowText(text: String, modifier: Modifier = Modifier) {
 
 /* Rise entrance: opacity 0→1 and translateY 14→0. */
 @Composable
-fun Rise(modifier: Modifier = Modifier, content: @Composable () -> Unit) {
+fun Rise(modifier: Modifier = Modifier, delayMillis: Int = 0, content: @Composable () -> Unit) {
     val anim = remember { androidx.compose.animation.core.Animatable(0f) }
     androidx.compose.runtime.LaunchedEffect(Unit) {
+        if (delayMillis > 0) kotlinx.coroutines.delay(delayMillis.toLong())
         anim.animateTo(
             targetValue = 1f,
             animationSpec = tween(
