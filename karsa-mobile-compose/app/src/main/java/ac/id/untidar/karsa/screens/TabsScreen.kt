@@ -55,7 +55,10 @@ private fun TabScreen(tab: Tab) {
     when (tab) {
         Tab.Lib -> LibHome()
         Tab.Grup -> GroupList()
-        else -> PlaceholderTab(tab)
+        Tab.Input -> InputPoin()
+        Tab.Aktivitas -> ActivityHub()
+        Tab.Poinku -> PoinkuScreen()
+        Tab.Akun -> PlaceholderTab(tab)
     }
 }
 
@@ -81,9 +84,9 @@ fun RouteScreen(route: Route) {
         Route.Import -> ImportScreen()
         Route.Author -> AuthorScreen()
         is Route.Chat -> ChatScreen(route.id)
-        Route.History -> RoutePlaceholder("Riwayat poin", "Aktivitas")
-        Route.Report -> RoutePlaceholder("Laporan saya", "Poin keaktifan semester ini")
-        Route.Ranking -> RoutePlaceholder("Partisipasi teratas", "Sistem Informasi")
+        Route.History -> HistoryScreen()
+        Route.Report -> ReportScreen()
+        Route.Ranking -> RankingScreen()
         is Route.Legal -> RoutePlaceholder(
             if (route.doc == ac.id.untidar.karsa.LegalDoc.Terms) "Syarat Penggunaan" else "Kebijakan Privasi",
             "Legal",
