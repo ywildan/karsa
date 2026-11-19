@@ -11,16 +11,20 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.SideEffect
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.unit.dp
 import androidx.core.view.WindowCompat
+import ac.id.untidar.karsa.auth.KarsaAuth
 import ac.id.untidar.karsa.components.Dock
 import ac.id.untidar.karsa.components.SnackbarHost
 import ac.id.untidar.karsa.screens.LoginScreen
 import ac.id.untidar.karsa.screens.OnboardingScreen
+import ac.id.untidar.karsa.screens.SessionErrorScreen
 import ac.id.untidar.karsa.screens.SplashScreen
 import ac.id.untidar.karsa.screens.StackHost
 import ac.id.untidar.karsa.screens.TabsHost
@@ -28,8 +32,13 @@ import ac.id.untidar.karsa.theme.Paper
 
 @Composable
 fun KarsaApp() {
-    val state = remember { KarsaState() }
+    val context = LocalContext.current
+    val auth = remember { KarsaAuth.get(context) }
+    val state = remember { KarsaState(auth) }
     val view = LocalView.current
+
+    LaunchedEffect(Unit) { auth.initialize() }
+    LaunchedEffect(auth.state) { state.syncAuth() }
 
     CompositionLocalProvider(LocalApp provides state) {
         SideEffect {
@@ -39,7 +48,7 @@ fun KarsaApp() {
             controller.isAppearanceLightNavigationBars = state.phase != Phase.Splash
         }
 
-        val canGoBack = state.phase == Phase.App && (state.stack.isNotEmpty() || state.tab != Tab.Lib)
+        val canGoBack = state.phase == Phase.App && state.canGoBack()
         BackHandler(enabled = canGoBack) { state.back() }
 
         Box(Modifier.fillMaxSize().background(Paper)) {
@@ -47,6 +56,7 @@ fun KarsaApp() {
                 Phase.Splash -> SplashScreen()
                 Phase.Onboarding -> OnboardingScreen()
                 Phase.Login -> LoginScreen()
+                Phase.SessionError -> SessionErrorScreen()
                 Phase.App -> {
                     Box(Modifier.fillMaxSize().statusBarsPadding().padding(top = 10.dp)) {
                         TabsHost()

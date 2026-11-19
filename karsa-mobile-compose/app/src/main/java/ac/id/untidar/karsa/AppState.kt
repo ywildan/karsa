@@ -15,8 +15,12 @@ import ac.id.untidar.karsa.data.SEED_ARTICLES
 import ac.id.untidar.karsa.data.SEED_CHATS
 import ac.id.untidar.karsa.data.SEED_COMMENTS
 import ac.id.untidar.karsa.data.SEED_ENTRIES
+import ac.id.untidar.karsa.auth.AuthController
+import ac.id.untidar.karsa.auth.SessionState
+import ac.id.untidar.karsa.net.AppUser
+import ac.id.untidar.karsa.net.Capabilities
 
-enum class Phase { Splash, Onboarding, Login, App }
+enum class Phase { Splash, Onboarding, Login, SessionError, App }
 
 enum class Role { Pj, Mahasiswa }
 
@@ -29,10 +33,16 @@ enum class Tab(val label: String) {
     Akun("Akun"),
 }
 
-fun tabsFor(role: Role): List<Tab> = if (role == Role.Pj) {
-    listOf(Tab.Lib, Tab.Grup, Tab.Input, Tab.Aktivitas, Tab.Akun)
-} else {
-    listOf(Tab.Lib, Tab.Grup, Tab.Poinku, Tab.Akun)
+fun tabsFor(capabilities: Capabilities, hasClass: Boolean): List<Tab> = buildList {
+    if (capabilities.viewKarsaLib) add(Tab.Lib)
+    if (hasClass) add(Tab.Grup)
+    if (capabilities.recordPoints) {
+        add(Tab.Input)
+        add(Tab.Aktivitas)
+    } else if (capabilities.viewReport || capabilities.viewLeaderboard) {
+        add(Tab.Poinku)
+    }
+    add(Tab.Akun)
 }
 
 enum class ToastTone { Success, Neutral, Error }
@@ -71,13 +81,28 @@ sealed interface Route {
     data class Legal(val doc: LegalDoc) : Route
 }
 
-class KarsaState {
+class KarsaState(val auth: AuthController) {
     var phase by mutableStateOf(Phase.Splash)
         private set
-    var role by mutableStateOf(Role.Pj)
+    var splashDone by mutableStateOf(false)
         private set
     var tab by mutableStateOf(Tab.Lib)
         private set
+
+    val user: AppUser? get() = auth.user
+    val capabilities: Capabilities get() = auth.user?.capabilities ?: Capabilities()
+    val role: Role get() = if (capabilities.recordPoints) Role.Pj else Role.Mahasiswa
+    val hasClass: Boolean get() = !auth.user?.classId.isNullOrEmpty()
+    val tabs: List<Tab> get() = tabsFor(capabilities, hasClass)
+
+    val displayName: String
+        get() = auth.user?.name?.takeIf { it.isNotBlank() }
+            ?: auth.user?.libProfile?.displayName?.takeIf { it.isNotBlank() }
+            ?: "Mahasiswa"
+    val email: String
+        get() = auth.user?.email.orEmpty()
+    val nim: String
+        get() = auth.user?.nim?.takeIf { it.isNotBlank() } ?: "NIM belum tersedia"
     var stack by mutableStateOf<List<Route>>(emptyList())
         private set
     var toast by mutableStateOf<ToastData?>(null)
@@ -109,17 +134,65 @@ class KarsaState {
         phase = next
     }
 
-    fun switchRole(next: Role) {
-        role = next
+    fun finishSplash() {
+        splashDone = true
+        syncAuth()
+    }
+
+    fun syncAuth() {
+        when (auth.state) {
+            SessionState.SignedIn -> if (phase != Phase.App && splashDone) enterApp()
+            SessionState.SignedOut -> when (phase) {
+                Phase.App -> endSession()
+                Phase.Splash -> if (splashDone) goPhase(Phase.Onboarding)
+                Phase.SessionError -> {
+                    auth.clearError()
+                    goPhase(Phase.Login)
+                }
+                else -> Unit
+            }
+            SessionState.Unavailable -> {
+                if (splashDone && (phase == Phase.Splash || phase == Phase.SessionError)) {
+                    goPhase(Phase.SessionError)
+                }
+            }
+            else -> Unit
+        }
+    }
+
+    private fun enterApp() {
+        val profile = auth.user ?: return
+        if (phase == Phase.App) return
+        if (profile.capabilities.writeKarsaLib) authorStatus = AuthorStatus.Approved
+        authorProfile = authorProfile.copy(
+            nama = displayName,
+            fakultas = profile.libProfile?.faculty?.takeIf { it.isNotBlank() }
+                ?: authorProfile.fakultas,
+        )
+        tab = tabs.firstOrNull() ?: Tab.Akun
+        stack = emptyList()
+        epoch += 1
+        toast = null
+        phase = Phase.App
+        val firstName = profile.name?.trim()?.split(" ")?.firstOrNull()?.takeIf { it.isNotEmpty() }
+        notify("Selamat datang, ${firstName ?: "kamu"}!", ToastTone.Success)
+    }
+
+    private fun endSession() {
+        phase = Phase.Login
         tab = Tab.Lib
         stack = emptyList()
+        toast = null
         epoch += 1
     }
 
     fun openTab(next: Tab) {
+        if (next !in tabs) return
         stack = emptyList()
         tab = next
     }
+
+    fun canGoBack(): Boolean = stack.isNotEmpty() || tab != (tabs.firstOrNull() ?: tab)
 
     fun go(route: Route) {
         stack = stack + route
@@ -134,8 +207,9 @@ class KarsaState {
             stack = stack.dropLast(1)
             return true
         }
-        if (tab != Tab.Lib) {
-            tab = Tab.Lib
+        val home = tabs.firstOrNull() ?: return false
+        if (tab != home) {
+            tab = home
             return true
         }
         return false
@@ -156,11 +230,8 @@ class KarsaState {
     }
 
     fun logout() {
-        phase = Phase.Login
-        tab = Tab.Lib
-        stack = emptyList()
-        toast = null
-        epoch += 1
+        endSession()
+        auth.signOut()
     }
 
     /* Poin */

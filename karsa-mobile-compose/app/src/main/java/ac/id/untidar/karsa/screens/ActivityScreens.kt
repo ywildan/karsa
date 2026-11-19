@@ -195,12 +195,18 @@ fun ActivityHub() {
                     HistoryShortcutCard(list)
                 }
 
-                Row(horizontalArrangement = Arrangement.spacedBy(16.dp)) {
-                    Box(Modifier.weight(1f)) {
-                        ReportShortcutCard(total = myTotal())
-                    }
-                    Box(Modifier.weight(1f)) {
-                        RankingShortcutCard(rank)
+                if (state.capabilities.viewReport || state.capabilities.viewLeaderboard) {
+                    Row(horizontalArrangement = Arrangement.spacedBy(16.dp)) {
+                        if (state.capabilities.viewReport) {
+                            Box(Modifier.weight(1f)) {
+                                ReportShortcutCard(total = myTotal())
+                            }
+                        }
+                        if (state.capabilities.viewLeaderboard) {
+                            Box(Modifier.weight(1f)) {
+                                RankingShortcutCard(rank)
+                            }
+                        }
                     }
                 }
             }
@@ -1042,26 +1048,31 @@ private enum class PoinkuTab { Laporan, Peringkat }
 
 @Composable
 fun PoinkuScreen() {
-    var seg by remember { mutableStateOf(PoinkuTab.Laporan) }
+    val state = LocalApp.current
+    val showReport = state.capabilities.viewReport
+    val showLeaderboard = state.capabilities.viewLeaderboard
+    var seg by remember { mutableStateOf(if (showReport) PoinkuTab.Laporan else PoinkuTab.Peringkat) }
     Column(Modifier.fillMaxSize().background(Paper)) {
         PageHeader(
             title = if (seg == PoinkuTab.Laporan) "Poinku" else "Partisipasi teratas",
             eyebrow = { EyebrowText("Poin keaktifan") },
             subtitle = if (seg == PoinkuTab.Laporan) "Rekap kontribusimu di kelas." else "${ME.kelas} · ${ME.prodi}",
         )
-        Column(Modifier.padding(horizontal = 20.dp).padding(bottom = 16.dp)) {
-            Segmented(
-                options = listOf(
-                    SegmentedOption(PoinkuTab.Laporan, "Laporan saya") {
-                        LucideIcon(KarsaIcons.FileBarChart, modifier = Modifier.size(16.dp), tint = Ink2)
-                    },
-                    SegmentedOption(PoinkuTab.Peringkat, "Peringkat") {
-                        LucideIcon(KarsaIcons.Trophy, modifier = Modifier.size(16.dp), tint = Ink2)
-                    },
-                ),
-                value = seg,
-                onChange = { seg = it },
-            )
+        if (showReport && showLeaderboard) {
+            Column(Modifier.padding(horizontal = 20.dp).padding(bottom = 16.dp)) {
+                Segmented(
+                    options = listOf(
+                        SegmentedOption(PoinkuTab.Laporan, "Laporan saya") {
+                            LucideIcon(KarsaIcons.FileBarChart, modifier = Modifier.size(16.dp), tint = Ink2)
+                        },
+                        SegmentedOption(PoinkuTab.Peringkat, "Peringkat") {
+                            LucideIcon(KarsaIcons.Trophy, modifier = Modifier.size(16.dp), tint = Ink2)
+                        },
+                    ),
+                    value = seg,
+                    onChange = { seg = it },
+                )
+            }
         }
         Column(
             modifier = Modifier
@@ -1070,7 +1081,12 @@ fun PoinkuScreen() {
                 .padding(horizontal = 20.dp)
                 .padding(bottom = 140.dp),
         ) {
-            if (seg == PoinkuTab.Laporan) ReportView() else RankingView(dock = true)
+            when {
+                seg == PoinkuTab.Laporan && showReport -> ReportView()
+                seg == PoinkuTab.Peringkat && showLeaderboard -> RankingView(dock = true)
+                showReport -> ReportView()
+                else -> RankingView(dock = true)
+            }
         }
     }
 }

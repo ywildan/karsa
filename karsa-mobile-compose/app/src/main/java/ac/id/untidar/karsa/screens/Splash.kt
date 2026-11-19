@@ -37,7 +37,6 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import kotlinx.coroutines.delay
 import ac.id.untidar.karsa.LocalApp
-import ac.id.untidar.karsa.Phase
 import ac.id.untidar.karsa.components.LogoMark
 import ac.id.untidar.karsa.theme.Brand400
 import ac.id.untidar.karsa.theme.Brand500
@@ -51,7 +50,7 @@ fun SplashScreen() {
     val state = LocalApp.current
     LaunchedEffect(Unit) {
         delay(2600)
-        state.goPhase(Phase.Onboarding)
+        state.finishSplash()
     }
 
     val rise = remember { Animatable(0f) }

@@ -39,7 +39,6 @@ import ac.id.untidar.karsa.LocalApp
 import ac.id.untidar.karsa.Tab
 import ac.id.untidar.karsa.icons.KarsaIcons
 import ac.id.untidar.karsa.icons.LucideIcon
-import ac.id.untidar.karsa.tabsFor
 import ac.id.untidar.karsa.theme.Brand500
 import ac.id.untidar.karsa.theme.Espresso
 import ac.id.untidar.karsa.theme.Paper
@@ -60,9 +59,14 @@ private val TAB_META = mapOf(
 @Composable
 fun BoxScope.Dock() {
     val state = LocalApp.current
-    val tabs = tabsFor(state.role)
+    val tabs = state.tabs
     val hasInput = Tab.Input in tabs
     val sideTabs = tabs.filter { it != Tab.Input }
+    val spacerAfter = when {
+        !hasInput -> -1
+        sideTabs.size >= 4 -> 1
+        else -> 0
+    }
 
     Box(
         modifier = Modifier
@@ -102,7 +106,7 @@ fun BoxScope.Dock() {
                     active = state.tab == tab,
                     onSelect = { state.openTab(tab) },
                 )
-                if (hasInput && index == 1) {
+                if (index == spacerAfter) {
                     // Fixed slot keeps the four side items balanced around the floating button.
                     Spacer(Modifier.width(76.dp))
                 }

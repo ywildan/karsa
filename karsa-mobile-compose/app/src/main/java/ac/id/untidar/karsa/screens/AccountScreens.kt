@@ -36,7 +36,6 @@ import ac.id.untidar.karsa.Role
 import ac.id.untidar.karsa.Route
 import ac.id.untidar.karsa.data.LEGAL_PRIVACY
 import ac.id.untidar.karsa.data.LEGAL_TERMS
-import ac.id.untidar.karsa.data.ME
 import ac.id.untidar.karsa.icons.KarsaIcons
 import ac.id.untidar.karsa.icons.LucideIcon
 import ac.id.untidar.karsa.theme.Brand500
@@ -117,16 +116,16 @@ fun AccountScreen() {
                             Column {
                                 Row(horizontalArrangement = Arrangement.spacedBy(16.dp), verticalAlignment = Alignment.CenterVertically) {
                                     Avatar(
-                                        name = ME.name,
+                                        name = state.displayName,
                                         size = 68.dp,
                                         tone = ac.id.untidar.karsa.ui.Tone.Brand,
                                         border = 4.dp,
                                         borderColor = Color.White.copy(alpha = 0.1f),
                                     )
                                     Column(Modifier.weight(1f)) {
-                                        Text(ME.name, style = displayStyle(22, 700, 1.25f, color = Color.White))
+                                        Text(state.displayName, style = displayStyle(22, 700, 1.25f, color = Color.White))
                                         Text(
-                                            ME.email,
+                                            state.email,
                                             style = sansStyle(13, 400, 1.4f, color = Color.White.copy(alpha = 0.6f)),
                                             maxLines = 1,
                                         )
@@ -147,7 +146,7 @@ fun AccountScreen() {
                                             "NIM",
                                             style = sansStyle(11, 700, 1.4f, 0.1f, Color.White.copy(alpha = 0.5f)),
                                         )
-                                        Text(ME.nim, style = displayStyle(18, 700, 1.2f, 0.02f, Color.White))
+                                        Text(state.nim, style = displayStyle(18, 700, 1.2f, 0.02f, Color.White))
                                     }
                                     val isPj = state.role == Role.Pj
                                     Badge(
@@ -184,7 +183,11 @@ fun AccountScreen() {
                                 }
                                 Divider()
                                 InfoRow(KarsaIcons.Building2, "Fakultas Karsa Lib") {
-                                    Text(state.authorProfile.fakultas, style = sansStyle(13, 400, 1.4f, color = Muted))
+                                    Text(
+                                        state.user?.libProfile?.faculty?.takeIf { it.isNotBlank() }
+                                            ?: state.authorProfile.fakultas,
+                                        style = sansStyle(13, 400, 1.4f, color = Muted),
+                                    )
                                 }
                                 Divider()
                                 InfoRow(KarsaIcons.GraduationCap, "Prodi Karsa Lib") {

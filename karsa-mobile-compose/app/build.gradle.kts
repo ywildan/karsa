@@ -2,6 +2,7 @@ plugins {
     id("com.android.application")
     id("org.jetbrains.kotlin.android")
     id("org.jetbrains.kotlin.plugin.compose")
+    id("org.jetbrains.kotlin.plugin.serialization")
 }
 
 val keystorePath = System.getenv("KARSA_KEYSTORE_FILE")
@@ -21,6 +22,9 @@ android {
         targetSdk = 35
         versionCode = (providers.gradleProperty("karsaVersionCode").orNull ?: "30000").toInt()
         versionName = providers.gradleProperty("karsaVersionName").orNull ?: "3.0.0-slice1"
+
+        val apiBaseUrl = System.getenv("KARSA_API_BASE_URL") ?: "https://www.sikarsa.id"
+        buildConfigField("String", "API_BASE_URL", "\"$apiBaseUrl\"")
     }
 
     buildFeatures {
@@ -70,5 +74,8 @@ dependencies {
     implementation("androidx.compose.ui:ui-graphics")
     implementation("androidx.compose.foundation:foundation")
     implementation("androidx.compose.material3:material3")
+    implementation("androidx.security:security-crypto:1.1.0-alpha06")
+    implementation("com.squareup.okhttp3:okhttp:4.12.0")
+    implementation("org.jetbrains.kotlinx:kotlinx-serialization-json:1.7.3")
     debugImplementation("androidx.compose.ui:ui-tooling")
 }
