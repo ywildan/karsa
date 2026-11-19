@@ -296,7 +296,7 @@ class GroupController(private val auth: AuthController) {
             if (!force && lastId != null && lastId != message.id) return@map room
             room.copy(
                 dto = room.dto.copy(lastMessage = message.toPreviewDto()),
-                preview = message.toPreview(room.course, room.dto.isManager),
+                preview = message.toGroupPreview(),
             )
         }
     }

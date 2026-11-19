@@ -2,8 +2,8 @@ package ac.id.untidar.karsa.groups
 
 import ac.id.untidar.karsa.data.Course
 import ac.id.untidar.karsa.data.Msg
-import ac.id.untidar.karsa.data.Tone
 import ac.id.untidar.karsa.lib.parseTimestamp
+import ac.id.untidar.karsa.ui.Tone
 import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
 
@@ -199,6 +199,17 @@ fun GroupMessageDto.toPreview(course: Course, isManager: Boolean): GroupPreview 
         else -> "$who: ${text.orEmpty()}"
     }
     return GroupPreview(previewText, time, italic = state != "active")
+}
+
+fun Msg.toGroupPreview(): GroupPreview {
+    val who = if (from == "me") "Kamu" else authorName.ifBlank { "Seseorang" }
+    val previewText = when {
+        deleted -> "Pesan telah dihapus"
+        hidden -> hiddenReason ?: "Pesan disembunyikan oleh PJ"
+        blocked -> "Pesan dari pengguna yang diblokir"
+        else -> "$who: $text"
+    }
+    return GroupPreview(previewText, ts, italic = deleted || hidden || blocked)
 }
 
 fun Msg.toPreviewDto(): GroupMessagePreviewDto = GroupMessagePreviewDto(
