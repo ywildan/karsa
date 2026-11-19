@@ -1,7 +1,15 @@
 package ac.id.untidar.karsa.ui
 
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.scaleIn
+import androidx.compose.animation.scaleOut
+import androidx.compose.animation.slideInVertically
+import androidx.compose.animation.slideOutVertically
 import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.CubicBezierEasing
+import androidx.compose.animation.core.MutableTransitionState
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -30,6 +38,7 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.SideEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -360,60 +369,83 @@ class MenuEntry(
 @Composable
 fun PopMenu(entries: List<MenuEntry>, modifier: Modifier = Modifier) {
     var open by remember { mutableStateOf(false) }
-    val offsetPx = with(LocalDensity.current) { 48.dp.roundToPx() }
+    val visible = remember { MutableTransitionState(false) }
+    SideEffect { visible.targetState = open }
+
+    val density = LocalDensity.current
+    val pad = 22.dp
+    val padPx = with(density) { pad.roundToPx() }
+    val anchorPx = with(density) { 48.dp.roundToPx() }
+    val enterSlide = with(density) { 6.dp.roundToPx() }
+    val exitSlide = with(density) { 4.dp.roundToPx() }
+    val shouldRender = open || visible.currentState || !visible.isIdle
+
     Box(modifier) {
         KarsaIconButton(
             onClick = { open = !open },
             contentDescription = "Menu lainnya",
         ) { LucideIcon(KarsaIcons.EllipsisVertical, modifier = Modifier.size(20.dp), tint = Ink) }
-        if (open) {
+
+        if (shouldRender) {
             Popup(
                 alignment = Alignment.TopEnd,
-                offset = IntOffset(0, offsetPx),
+                offset = IntOffset(padPx, anchorPx - padPx),
                 onDismissRequest = { open = false },
                 properties = PopupProperties(focusable = true, dismissOnClickOutside = true),
             ) {
-                val shape = RoundedCornerShape(22.dp)
-                Column(
-                    modifier = Modifier
-                        .width(240.dp)
-                        .popShadow(shape)
-                        .clip(shape)
-                        .background(Color.White)
-                        .border(1.dp, Ink.copy(alpha = 0.05f), shape)
-                        .padding(6.dp),
-                    verticalArrangement = Arrangement.spacedBy(2.dp),
+                AnimatedVisibility(
+                    visibleState = visible,
+                    enter = fadeIn(tween(150)) +
+                        scaleIn(tween(180), initialScale = 0.92f) +
+                        slideInVertically(tween(180)) { -enterSlide },
+                    exit = fadeOut(tween(110)) +
+                        scaleOut(tween(140), targetScale = 0.95f) +
+                        slideOutVertically(tween(140)) { -exitSlide },
                 ) {
-                    entries.forEach { entry ->
-                        Row(
+                    Box(Modifier.padding(pad)) {
+                        val shape = RoundedCornerShape(22.dp)
+                        Column(
                             modifier = Modifier
-                                .fillMaxWidth()
-                                .clip(RoundedCornerShape(16.dp))
-                                .clickable {
-                                    open = false
-                                    entry.onClick()
-                                }
-                                .padding(horizontal = 14.dp, vertical = 12.dp),
-                            horizontalArrangement = Arrangement.spacedBy(12.dp),
-                            verticalAlignment = Alignment.CenterVertically,
+                                .width(240.dp)
+                                .spreadGlow(cornerRadius = 22.dp)
+                                .clip(shape)
+                                .background(Color.White)
+                                .border(1.dp, Ink.copy(alpha = 0.05f), shape)
+                                .padding(6.dp),
+                            verticalArrangement = Arrangement.spacedBy(2.dp),
                         ) {
-                            Box(
-                                modifier = Modifier
-                                    .size(32.dp)
-                                    .clip(RoundedCornerShape(12.dp))
-                                    .background(Paper2),
-                                contentAlignment = Alignment.Center,
-                            ) {
-                                LucideIcon(
-                                    entry.icon,
-                                    modifier = Modifier.size(18.dp),
-                                    tint = if (entry.danger) Danger500 else Ink2,
-                                )
+                            entries.forEach { entry ->
+                                Row(
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .clip(RoundedCornerShape(16.dp))
+                                        .clickable {
+                                            open = false
+                                            entry.onClick()
+                                        }
+                                        .padding(horizontal = 14.dp, vertical = 12.dp),
+                                    horizontalArrangement = Arrangement.spacedBy(12.dp),
+                                    verticalAlignment = Alignment.CenterVertically,
+                                ) {
+                                    Box(
+                                        modifier = Modifier
+                                            .size(32.dp)
+                                            .clip(RoundedCornerShape(12.dp))
+                                            .background(Paper2),
+                                        contentAlignment = Alignment.Center,
+                                    ) {
+                                        LucideIcon(
+                                            entry.icon,
+                                            modifier = Modifier.size(18.dp),
+                                            tint = if (entry.danger) Danger500 else Ink2,
+                                        )
+                                    }
+                                    Text(
+                                        entry.label,
+                                        style = sansStyle(14, 600, 1.3f, color = if (entry.danger) Danger500 else Ink),
+                                    )
+                                }
                             }
-                            Text(
-                                entry.label,
-                                style = sansStyle(14, 600, 1.3f, color = if (entry.danger) Danger500 else Ink),
-                            )
                         }
                     }
                 }

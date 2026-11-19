@@ -38,10 +38,12 @@ import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.drawBehind
 import androidx.compose.ui.draw.drawWithCache
 import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
+import androidx.compose.ui.geometry.CornerRadius
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
@@ -106,6 +108,27 @@ fun Modifier.popShadow(shape: Shape): Modifier = this
         ambientColor = Espresso.copy(alpha = 0.18f),
         spotColor = Espresso.copy(alpha = 0.55f),
     )
+
+/** Pendar lembut bertingkat, dipakai menu melayang sebagai pengganti bayangan keras. */
+fun Modifier.spreadGlow(
+    cornerRadius: Dp = 22.dp,
+    spread: Dp = 18.dp,
+    color: Color = Espresso,
+    layers: Int = 6,
+): Modifier = drawBehind {
+    val spreadPx = spread.toPx()
+    val cornerPx = cornerRadius.toPx()
+    val drop = 3.dp.toPx()
+    for (i in layers downTo 1) {
+        val grow = spreadPx * i / layers
+        drawRoundRect(
+            color = color.copy(alpha = 0.016f * (layers - i + 1)),
+            topLeft = Offset(-grow, -grow + drop),
+            size = Size(size.width + grow * 2, size.height + grow * 2),
+            cornerRadius = CornerRadius(cornerPx + grow, cornerPx + grow),
+        )
+    }
+}
 
 fun Modifier.brandShadow(shape: Shape): Modifier = this
     .shadow(

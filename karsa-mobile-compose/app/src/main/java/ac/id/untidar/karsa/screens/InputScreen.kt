@@ -256,8 +256,8 @@ fun InputPoin() {
         editing = null
     }
 
-    Box(Modifier.fillMaxSize().background(Paper).imePadding()) {
-        Column(Modifier.fillMaxSize()) {
+    Box(Modifier.fillMaxSize().background(Paper)) {
+        Column(Modifier.fillMaxSize().imePadding()) {
             PageHeader(
                 title = "Input poin",
                 eyebrow = {

@@ -1,5 +1,9 @@
 package ac.id.untidar.karsa.screens
 
+import androidx.activity.compose.BackHandler
+import androidx.compose.animation.core.Animatable
+import androidx.compose.animation.core.CubicBezierEasing
+import androidx.compose.animation.core.tween
 import androidx.compose.foundation.LocalIndication
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -38,6 +42,7 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.drawBehind
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.SolidColor
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.text.font.FontStyle
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -484,6 +489,22 @@ fun ArticleScreen(id: String) {
     var deleteTarget by remember { mutableStateOf<Comment?>(null) }
     var reportComment by remember { mutableStateOf<Comment?>(null) }
     var reportArticle by remember { mutableStateOf(false) }
+    val exit = remember { Animatable(0f) }
+    var closing by remember { mutableStateOf(false) }
+
+    fun close() {
+        if (closing) return
+        closing = true
+        scope.launch {
+            exit.animateTo(
+                targetValue = 1f,
+                animationSpec = tween(220, easing = CubicBezierEasing(0.4f, 0f, 0.2f, 1f)),
+            )
+            state.back()
+        }
+    }
+
+    BackHandler { close() }
 
     LaunchedEffect(id) {
         lib.loadArticle(id)
@@ -513,9 +534,18 @@ fun ArticleScreen(id: String) {
         }
     }
 
-    Column(Modifier.fillMaxSize().background(Paper).imePadding()) {
+    Column(
+        Modifier
+            .fillMaxSize()
+            .background(Paper)
+            .imePadding()
+            .graphicsLayer {
+                alpha = 1f - exit.value
+                translationX = 32.dp.toPx() * exit.value
+            },
+    ) {
         TopBar(
-            onBack = { state.back() },
+            onBack = ::close,
             title = "Artikel",
             right = {
                 Row(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
