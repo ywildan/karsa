@@ -64,6 +64,7 @@ import androidx.compose.ui.unit.sp
 import ac.id.untidar.karsa.icons.KarsaIcons
 import ac.id.untidar.karsa.icons.LucideIcon
 import ac.id.untidar.karsa.theme.Brand100
+import ac.id.untidar.karsa.theme.Brand200
 import ac.id.untidar.karsa.theme.Brand400
 import ac.id.untidar.karsa.theme.Brand500
 import ac.id.untidar.karsa.theme.Brand600
@@ -113,7 +114,7 @@ fun Modifier.popShadow(shape: Shape): Modifier = this
 fun Modifier.spreadGlow(
     cornerRadius: Dp = 22.dp,
     spread: Dp = 18.dp,
-    color: Color = Espresso,
+    color: Color = Brand200,
     layers: Int = 6,
 ): Modifier = drawBehind {
     val spreadPx = spread.toPx()
@@ -122,7 +123,7 @@ fun Modifier.spreadGlow(
     for (i in layers downTo 1) {
         val grow = spreadPx * i / layers
         drawRoundRect(
-            color = color.copy(alpha = 0.016f * (layers - i + 1)),
+            color = color.copy(alpha = 0.012f * (layers - i + 1)),
             topLeft = Offset(-grow, -grow + drop),
             size = Size(size.width + grow * 2, size.height + grow * 2),
             cornerRadius = CornerRadius(cornerPx + grow, cornerPx + grow),

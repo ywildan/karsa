@@ -23,6 +23,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.SpanStyle
 import androidx.compose.ui.text.buildAnnotatedString
@@ -90,6 +91,8 @@ private fun inline(text: String): AnnotatedString = buildAnnotatedString {
     if (last < text.length) append(text.substring(last))
 }
 
+fun inlineMarkdown(text: String): AnnotatedString = inline(text)
+
 private sealed interface MdBlock {
     data class H1(val text: String) : MdBlock
     data class H2(val text: String) : MdBlock
@@ -148,75 +151,85 @@ private fun parse(source: String): List<MdBlock> {
 }
 
 @Composable
-fun Markdown(source: String, modifier: Modifier = Modifier) {
+fun Markdown(
+    source: String,
+    modifier: Modifier = Modifier,
+    onBlockPosition: ((index: Int, y: Float) -> Unit)? = null,
+) {
     val blocks = remember(source) { parse(source) }
     Column(modifier) {
-        blocks.forEach { block ->
-            when (block) {
-                is MdBlock.H1 -> Text(
-                    text = inline(block.text),
-                    modifier = Modifier.padding(top = 36.dp, bottom = 12.dp),
-                    style = displayStyle(28, 800, 1.25f, -0.02f, Ink),
-                )
-                is MdBlock.H2 -> Text(
-                    text = inline(block.text),
-                    modifier = Modifier.padding(top = 36.dp, bottom = 12.dp),
-                    style = displayStyle(24, 700, 1.25f, -0.02f, Ink),
-                )
-                is MdBlock.P -> Text(
-                    text = inline(block.text),
-                    modifier = Modifier.padding(vertical = 16.dp),
-                    style = sansStyle(16, 400, 1.8f, color = Ink2),
-                )
-                is MdBlock.Quote -> Row(
-                    modifier = Modifier
-                        .padding(vertical = 24.dp)
-                        .height(IntrinsicSize.Min)
-                        .fillMaxWidth()
-                        .clip(RoundedCornerShape(topStart = 0.dp, bottomStart = 0.dp, topEnd = 24.dp, bottomEnd = 24.dp))
-                        .background(Brand50),
-                ) {
-                    Box(Modifier.width(4.dp).fillMaxHeight().background(Brand400))
-                    Text(
+        blocks.forEachIndexed { index, block ->
+            Box(
+                Modifier.onGloballyPositioned { coordinates ->
+                    onBlockPosition?.invoke(index, coordinates.positionInRoot().y)
+                },
+            ) {
+                when (block) {
+                    is MdBlock.H1 -> Text(
                         text = inline(block.text),
-                        modifier = Modifier.padding(horizontal = 20.dp, vertical = 16.dp).weight(1f),
-                        style = displayStyle(19, 600, 1.375f, color = Brand800),
+                        modifier = Modifier.padding(top = 36.dp, bottom = 12.dp),
+                        style = displayStyle(28, 800, 1.25f, -0.02f, Ink),
                     )
-                }
-                is MdBlock.Bullets -> Column(
-                    modifier = Modifier.padding(vertical = 16.dp),
-                    verticalArrangement = Arrangement.spacedBy(10.dp),
-                ) {
-                    block.items.forEach { item ->
-                        Row(Modifier.fillMaxWidth()) {
-                            Box(
-                                Modifier
-                                    .padding(top = 11.dp)
-                                    .size(6.dp)
-                                    .background(Brand500, CircleShape),
-                            )
-                            Spacer(Modifier.width(12.dp))
-                            Text(
-                                text = inline(item),
-                                style = sansStyle(16, 400, 1.7f, color = Ink2),
-                                modifier = Modifier.weight(1f),
-                            )
+                    is MdBlock.H2 -> Text(
+                        text = inline(block.text),
+                        modifier = Modifier.padding(top = 36.dp, bottom = 12.dp),
+                        style = displayStyle(24, 700, 1.25f, -0.02f, Ink),
+                    )
+                    is MdBlock.P -> Text(
+                        text = inline(block.text),
+                        modifier = Modifier.padding(vertical = 16.dp),
+                        style = sansStyle(16, 400, 1.8f, color = Ink2),
+                    )
+                    is MdBlock.Quote -> Row(
+                        modifier = Modifier
+                            .padding(vertical = 24.dp)
+                            .height(IntrinsicSize.Min)
+                            .fillMaxWidth()
+                            .clip(RoundedCornerShape(topStart = 0.dp, bottomStart = 0.dp, topEnd = 24.dp, bottomEnd = 24.dp))
+                            .background(Brand50),
+                    ) {
+                        Box(Modifier.width(4.dp).fillMaxHeight().background(Brand400))
+                        Text(
+                            text = inline(block.text),
+                            modifier = Modifier.padding(horizontal = 20.dp, vertical = 16.dp).weight(1f),
+                            style = displayStyle(19, 600, 1.375f, color = Brand800),
+                        )
+                    }
+                    is MdBlock.Bullets -> Column(
+                        modifier = Modifier.padding(vertical = 16.dp),
+                        verticalArrangement = Arrangement.spacedBy(10.dp),
+                    ) {
+                        block.items.forEach { item ->
+                            Row(Modifier.fillMaxWidth()) {
+                                Box(
+                                    Modifier
+                                        .padding(top = 11.dp)
+                                        .size(6.dp)
+                                        .background(Brand500, CircleShape),
+                                )
+                                Spacer(Modifier.width(12.dp))
+                                Text(
+                                    text = inline(item),
+                                    style = sansStyle(16, 400, 1.7f, color = Ink2),
+                                    modifier = Modifier.weight(1f),
+                                )
+                            }
                         }
                     }
-                }
-                is MdBlock.Code -> Row(
-                    modifier = Modifier
-                        .padding(vertical = 20.dp)
-                        .fillMaxWidth()
-                        .clip(RoundedCornerShape(16.dp))
-                        .background(Espresso)
-                        .horizontalScroll(rememberScrollState())
-                        .padding(16.dp),
-                ) {
-                    Text(
-                        text = block.text,
-                        style = sansStyle(13, 400, 1.625f, color = Brand100).copy(fontFamily = FontFamily.Monospace),
-                    )
+                    is MdBlock.Code -> Row(
+                        modifier = Modifier
+                            .padding(vertical = 20.dp)
+                            .fillMaxWidth()
+                            .clip(RoundedCornerShape(16.dp))
+                            .background(Espresso)
+                            .horizontalScroll(rememberScrollState())
+                            .padding(16.dp),
+                    ) {
+                        Text(
+                            text = block.text,
+                            style = sansStyle(13, 400, 1.625f, color = Brand100).copy(fontFamily = FontFamily.Monospace),
+                        )
+                    }
                 }
             }
         }

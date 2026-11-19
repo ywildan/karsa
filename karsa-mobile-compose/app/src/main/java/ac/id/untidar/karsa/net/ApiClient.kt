@@ -1,6 +1,9 @@
 package ac.id.untidar.karsa.net
 
 import ac.id.untidar.karsa.BuildConfig
+import ac.id.untidar.karsa.lib.LibAiAskDto
+import ac.id.untidar.karsa.lib.LibAiStateDto
+import ac.id.untidar.karsa.lib.LibAiSummaryDto
 import ac.id.untidar.karsa.lib.LibArticleDto
 import ac.id.untidar.karsa.lib.LibAuthorProfileDto
 import ac.id.untidar.karsa.lib.LibBootstrapDto
@@ -47,7 +50,7 @@ class ApiClient(private val store: SessionStore) {
     }
     private val http = OkHttpClient.Builder()
         .connectTimeout(20, TimeUnit.SECONDS)
-        .readTimeout(20, TimeUnit.SECONDS)
+        .readTimeout(45, TimeUnit.SECONDS)
         .writeTimeout(20, TimeUnit.SECONDS)
         .build()
     private val refreshMutex = Mutex()
@@ -207,6 +210,46 @@ class ApiClient(private val store: SessionStore) {
 
     suspend fun deleteLibDraft(articleId: String) {
         request("DELETE", "/lib/articles/$articleId")
+    }
+
+    suspend fun libAiState(articleId: String, revision: String): LibAiStateDto {
+        val data = request(
+            "GET",
+            "/lib/articles/$articleId/ai",
+            query = mapOf("revision" to revision),
+        )
+        return json.decodeFromJsonElement(LibAiStateDto.serializer(), data)
+    }
+
+    suspend fun libAiSummary(articleId: String, revision: String): LibAiSummaryDto {
+        val data = request(
+            "POST",
+            "/lib/articles/$articleId/ai/summary",
+            body = buildJsonObject { put("revision", revision) },
+            timeoutSeconds = 45,
+        )
+        return json.decodeFromJsonElement(LibAiSummaryDto.serializer(), data)
+    }
+
+    suspend fun askLibAi(
+        articleId: String,
+        revision: String,
+        question: String,
+        requestId: String,
+        webSearch: Boolean,
+    ): LibAiAskDto {
+        val data = request(
+            "POST",
+            "/lib/articles/$articleId/ai/messages",
+            body = buildJsonObject {
+                put("revision", revision)
+                put("question", question)
+                put("request_id", requestId)
+                put("web_search", webSearch)
+            },
+            timeoutSeconds = 45,
+        )
+        return json.decodeFromJsonElement(LibAiAskDto.serializer(), data)
     }
 
     suspend fun libAuthor(authorId: String): LibAuthorProfileDto {

@@ -11,6 +11,7 @@ import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.CubicBezierEasing
 import androidx.compose.animation.core.MutableTransitionState
 import androidx.compose.animation.core.tween
+import androidx.compose.foundation.ScrollState
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -26,6 +27,7 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
+import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
@@ -83,9 +85,11 @@ fun KarsaSheet(
     onClose: () -> Unit,
     title: String? = null,
     footer: (@Composable () -> Unit)? = null,
+    contentScrollState: ScrollState? = null,
     content: @Composable ColumnScope.() -> Unit,
 ) {
     if (!open) return
+    val scrollState = contentScrollState ?: rememberScrollState()
     Dialog(
         onDismissRequest = onClose,
         properties = DialogProperties(usePlatformDefaultWidth = false, decorFitsSystemWindows = false),
@@ -116,7 +120,8 @@ fun KarsaSheet(
                     .heightIn(max = maxHeight * 0.86f)
                     .clip(RoundedCornerShape(topStart = 32.dp, topEnd = 32.dp))
                     .background(Paper)
-                    .navigationBarsPadding(),
+                    .navigationBarsPadding()
+                    .imePadding(),
             ) {
                 Box(
                     Modifier
@@ -142,7 +147,7 @@ fun KarsaSheet(
                 Column(
                     modifier = Modifier
                         .weight(1f, fill = false)
-                        .verticalScroll(rememberScrollState())
+                        .verticalScroll(scrollState)
                         .padding(start = 24.dp, end = 24.dp, top = 8.dp, bottom = 24.dp),
                     content = content,
                 )

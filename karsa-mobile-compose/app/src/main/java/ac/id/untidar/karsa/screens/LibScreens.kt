@@ -43,6 +43,8 @@ import androidx.compose.ui.draw.drawBehind
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.layout.onGloballyPositioned
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.text.font.FontStyle
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -489,8 +491,23 @@ fun ArticleScreen(id: String) {
     var deleteTarget by remember { mutableStateOf<Comment?>(null) }
     var reportComment by remember { mutableStateOf<Comment?>(null) }
     var reportArticle by remember { mutableStateOf(false) }
+    var aiOpen by remember { mutableStateOf(false) }
     val exit = remember { Animatable(0f) }
     var closing by remember { mutableStateOf(false) }
+    val scrollState = rememberScrollState()
+    val blockPositions = remember(id) { mutableMapOf<Int, Float>() }
+    val viewportY = remember { floatArrayOf(0f) }
+    val density = LocalDensity.current
+
+    fun openParagraph(number: Int) {
+        aiOpen = false
+        val y = blockPositions[(number - 1).coerceAtLeast(0)] ?: blockPositions[number] ?: return
+        val target = (y - viewportY[0] + scrollState.value - with(density) { 72.dp.toPx() }).toInt()
+        scope.launch {
+            delay(260)
+            scrollState.animateScrollTo(target.coerceIn(0, scrollState.maxValue))
+        }
+    }
 
     fun close() {
         if (closing) return
@@ -549,6 +566,9 @@ fun ArticleScreen(id: String) {
             title = "Artikel",
             right = {
                 Row(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
+                    if (article != null && article.aiEnabled && !article.aiRevision.isNullOrBlank()) {
+                        IconCircle(KarsaIcons.Sparkles) { aiOpen = true }
+                    }
                     IconCircle(KarsaIcons.Flag) { reportArticle = true }
                     KarsaIconButtonShare { state.notify("Tautan artikel disalin") }
                 }
@@ -557,7 +577,8 @@ fun ArticleScreen(id: String) {
         Column(
             modifier = Modifier
                 .weight(1f)
-                .verticalScroll(rememberScrollState())
+                .verticalScroll(scrollState)
+                .onGloballyPositioned { viewportY[0] = it.positionInRoot().y }
                 .padding(horizontal = 20.dp)
                 .padding(bottom = 24.dp),
         ) {
@@ -618,7 +639,10 @@ fun ArticleScreen(id: String) {
                         }
                         Spacer(Modifier.height(20.dp))
                         Box(Modifier.fillMaxWidth().height(1.dp).background(Line))
-                        Markdown(article.body)
+                        Markdown(
+                            source = article.body,
+                            onBlockPosition = { index, y -> blockPositions[index] = y },
+                        )
 
                         Spacer(Modifier.height(40.dp))
                         Row(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
@@ -831,6 +855,22 @@ fun ArticleScreen(id: String) {
             }
         },
     )
+
+    if (article != null && !article.aiRevision.isNullOrBlank()) {
+        LibAiSheet(
+            open = aiOpen,
+            articleId = id,
+            articleTitle = article.title,
+            revision = article.aiRevision,
+            onClose = { aiOpen = false },
+            onOpenParagraph = ::openParagraph,
+            onArticleChanged = {
+                aiOpen = false
+                lib.loadArticle(id)
+                state.notify("Artikel diperbarui. Materi dimuat ulang.", ToastTone.Success)
+            },
+        )
+    }
 }
 
 @Composable
