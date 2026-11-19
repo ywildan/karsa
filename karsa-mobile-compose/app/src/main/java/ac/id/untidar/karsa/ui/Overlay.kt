@@ -86,6 +86,7 @@ fun KarsaSheet(
     title: String? = null,
     footer: (@Composable () -> Unit)? = null,
     contentScrollState: ScrollState? = null,
+    footerDivider: Boolean = true,
     content: @Composable ColumnScope.() -> Unit,
 ) {
     if (!open) return
@@ -155,9 +156,15 @@ fun KarsaSheet(
                     Column(
                         modifier = Modifier
                             .fillMaxWidth()
-                            .drawBehind {
-                                drawLine(Line, start = androidx.compose.ui.geometry.Offset(0f, 0f), end = androidx.compose.ui.geometry.Offset(size.width, 0f), strokeWidth = 1.dp.toPx())
-                            }
+                            .then(
+                                if (footerDivider) {
+                                    Modifier.drawBehind {
+                                        drawLine(Line, start = androidx.compose.ui.geometry.Offset(0f, 0f), end = androidx.compose.ui.geometry.Offset(size.width, 0f), strokeWidth = 1.dp.toPx())
+                                    }
+                                } else {
+                                    Modifier
+                                },
+                            )
                             .padding(start = 24.dp, end = 24.dp, top = 16.dp, bottom = 24.dp),
                     ) { footer() }
                 }

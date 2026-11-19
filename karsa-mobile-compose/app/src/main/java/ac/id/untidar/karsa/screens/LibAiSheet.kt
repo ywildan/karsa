@@ -3,10 +3,13 @@ package ac.id.untidar.karsa.screens
 import android.content.Context
 import android.content.Intent
 import android.net.Uri
+import androidx.compose.animation.animateColorAsState
+import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.horizontalScroll
+import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -15,6 +18,7 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
+import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
@@ -34,11 +38,13 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import kotlinx.coroutines.delay
@@ -56,11 +62,13 @@ import ac.id.untidar.karsa.theme.Brand600
 import ac.id.untidar.karsa.theme.Brand700
 import ac.id.untidar.karsa.theme.Danger100
 import ac.id.untidar.karsa.theme.Danger500
+import ac.id.untidar.karsa.theme.Espresso
 import ac.id.untidar.karsa.theme.Ink
 import ac.id.untidar.karsa.theme.Ink2
 import ac.id.untidar.karsa.theme.Line
 import ac.id.untidar.karsa.theme.Muted
 import ac.id.untidar.karsa.theme.Paper2
+import ac.id.untidar.karsa.theme.Paper3
 import ac.id.untidar.karsa.theme.Tide100
 import ac.id.untidar.karsa.theme.Tide600
 import ac.id.untidar.karsa.theme.displayStyle
@@ -77,7 +85,6 @@ import ac.id.untidar.karsa.ui.Segmented
 import ac.id.untidar.karsa.ui.SegmentedOption
 import ac.id.untidar.karsa.ui.Spinner
 import ac.id.untidar.karsa.ui.inlineMarkdown
-import java.text.NumberFormat
 import java.util.Locale
 
 private const val PLAN_URL = "https://karsa-landing.vercel.app/paket"
@@ -156,15 +163,14 @@ fun LibAiSheet(
         onClose = onClose,
         title = "Teman baca",
         contentScrollState = scroll,
+        footerDivider = false,
         footer = {
             if (tab == 1 && ai.enabled) {
                 AiComposer(
                     text = text,
                     onTextChange = { if (it.length <= 600) text = it },
                     quotaLeft = tokenLeft,
-                    quotaLimit = quota?.tokenLimit ?: 0,
                     webArmed = webArmed,
-                    webLeft = webLeft,
                     asking = ai.asking,
                     focus = focus,
                     onToggleWeb = ::toggleWeb,
@@ -622,114 +628,169 @@ private fun AiComposer(
     text: String,
     onTextChange: (String) -> Unit,
     quotaLeft: Int,
-    quotaLimit: Int,
     webArmed: Boolean,
-    webLeft: Int,
     asking: Boolean,
     focus: FocusRequester,
     onToggleWeb: () -> Unit,
     onSend: () -> Unit,
     onOpenPlan: () -> Unit,
 ) {
-    Column {
-        Row(verticalAlignment = Alignment.CenterVertically) {
-            Row(
-                modifier = Modifier
-                    .clip(CircleShape)
-                    .background(if (webArmed) Brand100 else Paper2)
-                    .clickable(onClick = onToggleWeb)
-                    .padding(horizontal = 10.dp, vertical = 6.dp),
-                horizontalArrangement = Arrangement.spacedBy(5.dp),
-                verticalAlignment = Alignment.CenterVertically,
-            ) {
-                LucideIcon(
-                    KarsaIcons.Search,
-                    modifier = Modifier.size(13.dp),
-                    tint = if (webArmed) Brand700 else Muted,
-                )
-                Text(
-                    if (webArmed) "Cari web aktif" else "Cari web",
-                    style = sansStyle(11, 600, 1.2f, color = if (webArmed) Brand700 else Muted),
-                )
-            }
-            Spacer(Modifier.weight(1f))
-            val low = quotaLimit > 0 && quotaLeft <= quotaLimit / 5
-            Text(
-                "Sisa ${formatNumber(quotaLeft)} token",
-                style = sansStyle(11, if (low) 700 else 500, 1.2f, color = if (low) Brand700 else Muted),
-            )
-        }
-        Spacer(Modifier.height(8.dp))
+    val canSend = text.isNotBlank() && !asking && quotaLeft > 0
+    val shape = RoundedCornerShape(22.dp)
+    val chipBg by animateColorAsState(
+        targetValue = if (webArmed) Espresso else Paper2,
+        animationSpec = tween(200),
+        label = "chipBg",
+    )
+    val chipFg by animateColorAsState(
+        targetValue = if (webArmed) Color.White else Ink2,
+        animationSpec = tween(200),
+        label = "chipFg",
+    )
+    val sendBg by animateColorAsState(
+        targetValue = if (canSend || asking) Brand600 else Paper3,
+        animationSpec = tween(200),
+        label = "sendBg",
+    )
+    val sendFg by animateColorAsState(
+        targetValue = if (canSend || asking) Color.White else Muted,
+        animationSpec = tween(200),
+        label = "sendFg",
+    )
+
+    Column(Modifier.fillMaxWidth()) {
         if (quotaLeft == 0) {
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .clip(RoundedCornerShape(16.dp))
-                    .background(Paper2)
-                    .padding(horizontal = 14.dp, vertical = 12.dp),
-                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    .shadow(
+                        elevation = 6.dp,
+                        shape = shape,
+                        ambientColor = Ink.copy(alpha = 0.08f),
+                        spotColor = Ink.copy(alpha = 0.12f),
+                    )
+                    .background(Color.White, shape)
+                    .border(1.dp, Line, shape)
+                    .padding(16.dp),
+                horizontalArrangement = Arrangement.spacedBy(10.dp),
                 verticalAlignment = Alignment.CenterVertically,
             ) {
                 LucideIcon(KarsaIcons.Clock, modifier = Modifier.size(16.dp), tint = Muted)
                 Text(
                     "Kuota token bulan ini habis.",
                     modifier = Modifier.weight(1f),
-                    style = sansStyle(12, 500, 1.4f, color = Ink2),
+                    style = sansStyle(13, 500, 1.4f, color = Ink2),
                 )
                 Text(
                     "Lihat paket",
                     modifier = Modifier
                         .clip(CircleShape)
                         .clickable(onClick = onOpenPlan)
-                        .padding(horizontal = 10.dp, vertical = 6.dp),
-                    style = sansStyle(12, 700, 1.2f, color = Brand700),
+                        .padding(horizontal = 8.dp, vertical = 6.dp),
+                    style = sansStyle(13, 700, 1.2f, color = Brand700),
                 )
             }
         } else {
-            Row(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.Bottom) {
-                BasicTextField(
-                    value = text,
-                    onValueChange = onTextChange,
-                    modifier = Modifier
-                        .weight(1f)
-                        .heightIn(min = 48.dp, max = 96.dp)
-                        .clip(RoundedCornerShape(20.dp))
-                        .background(Color.White)
-                        .border(1.dp, Line, RoundedCornerShape(20.dp))
-                        .padding(horizontal = 16.dp, vertical = 14.dp)
-                        .focusRequester(focus),
-                    textStyle = sansStyle(14, 400, 1.5f, color = Ink),
-                    maxLines = 3,
-                    cursorBrush = SolidColor(Brand500),
-                    decorationBox = { inner ->
-                        Box {
-                            if (text.isEmpty()) {
-                                Text(
-                                    "Tanya tentang materi…",
-                                    style = sansStyle(14, 400, 1.5f, color = Muted.copy(alpha = 0.8f)),
-                                )
-                            }
-                            inner()
-                        }
-                    },
-                )
-                val enabled = text.trim().isNotEmpty() && !asking && quotaLeft > 0
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .shadow(
+                        elevation = 6.dp,
+                        shape = shape,
+                        ambientColor = Ink.copy(alpha = 0.08f),
+                        spotColor = Ink.copy(alpha = 0.12f),
+                    )
+                    .background(Color.White, shape)
+                    .border(1.dp, Line, shape)
+                    .padding(start = 16.dp, end = 12.dp, top = 14.dp, bottom = 10.dp),
+            ) {
                 Box(
-                    modifier = Modifier
-                        .size(48.dp)
-                        .clip(CircleShape)
-                        .background(if (enabled || asking) Brand500 else Paper2)
-                        .clickable(enabled = enabled, onClick = onSend),
-                    contentAlignment = Alignment.Center,
+                    modifier = Modifier.fillMaxWidth().padding(end = 4.dp),
+                    contentAlignment = Alignment.TopStart,
                 ) {
-                    if (asking) {
-                        Spinner(tint = Color.White, modifier = Modifier.size(18.dp))
-                    } else {
-                        LucideIcon(
-                            KarsaIcons.Send,
-                            modifier = Modifier.size(20.dp),
-                            tint = if (enabled) Color.White else Muted,
+                    if (text.isEmpty()) {
+                        Text(
+                            "Tanya tentang materi...",
+                            style = sansStyle(15, 400, 1.467f, color = Muted),
                         )
+                    }
+                    BasicTextField(
+                        value = text,
+                        onValueChange = onTextChange,
+                        modifier = Modifier.fillMaxWidth().focusRequester(focus),
+                        textStyle = sansStyle(15, 400, 1.467f, color = Ink),
+                        cursorBrush = SolidColor(Brand600),
+                        minLines = 1,
+                        maxLines = 5,
+                    )
+                }
+                Spacer(Modifier.height(12.dp))
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    Row(
+                        horizontalArrangement = Arrangement.spacedBy(10.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                    ) {
+                        Row(
+                            modifier = Modifier
+                                .clip(CircleShape)
+                                .background(chipBg)
+                                .clickable(
+                                    interactionSource = remember { MutableInteractionSource() },
+                                    indication = null,
+                                    onClick = onToggleWeb,
+                                )
+                                .padding(horizontal = 12.dp, vertical = 6.dp),
+                            horizontalArrangement = Arrangement.spacedBy(5.dp),
+                            verticalAlignment = Alignment.CenterVertically,
+                        ) {
+                            LucideIcon(
+                                KarsaIcons.Search,
+                                modifier = Modifier.size(15.dp),
+                                tint = chipFg,
+                            )
+                            Text("Cari web", style = sansStyle(13, 500, 1.2f, color = chipFg))
+                        }
+                        Row(
+                            horizontalArrangement = Arrangement.spacedBy(3.dp),
+                            verticalAlignment = Alignment.CenterVertically,
+                        ) {
+                            LucideIcon(
+                                KarsaIcons.Zap,
+                                modifier = Modifier.size(14.dp),
+                                tint = Ink2,
+                            )
+                            Text(
+                                "Sisa ${formatTokenCompact(quotaLeft)} Token",
+                                style = sansStyle(13, 400, 1.2f, color = Ink2),
+                            )
+                        }
+                    }
+                    Box(
+                        modifier = Modifier
+                            .size(40.dp)
+                            .clip(CircleShape)
+                            .background(sendBg)
+                            .clickable(
+                                interactionSource = remember { MutableInteractionSource() },
+                                indication = null,
+                                enabled = canSend,
+                                onClick = onSend,
+                            ),
+                        contentAlignment = Alignment.Center,
+                    ) {
+                        if (asking) {
+                            Spinner(tint = Color.White, modifier = Modifier.size(18.dp))
+                        } else {
+                            LucideIcon(
+                                KarsaIcons.Send,
+                                modifier = Modifier.size(18.dp).offset(x = 1.dp),
+                                tint = sendFg,
+                            )
+                        }
                     }
                 }
             }
@@ -743,12 +804,17 @@ private fun AiComposer(
 private fun AiDisclaimer() {
     Text(
         "AI dapat keliru. Periksa kembali artikel dan sumber belajarmu.",
-        style = sansStyle(11, 400, 1.4f, color = Muted),
+        modifier = Modifier.fillMaxWidth(),
+        style = sansStyle(11, 400, 1.4f, color = Ink2.copy(alpha = 0.85f)),
+        textAlign = TextAlign.Center,
     )
 }
 
-private fun formatNumber(value: Int): String =
-    NumberFormat.getNumberInstance(Locale("id", "ID")).format(value)
+private fun formatTokenCompact(value: Int): String = when {
+    value >= 1_000_000 -> String.format(Locale("id", "ID"), "%.1f JT", value / 1_000_000.0)
+    value >= 1_000 -> "${value / 1_000} rb"
+    else -> "$value"
+}
 
 private fun openUrl(context: Context, url: String) {
     val uri = runCatching { Uri.parse(url) }.getOrNull() ?: return

@@ -2,6 +2,10 @@
 package ac.id.untidar.karsa.icons
 
 object KarsaIcons {
+    val Zap: List<String> = listOf(
+        "M4 14a1 1 0 0 1-.78-1.63l9.9-10.2a.5.5 0 0 1 .86.46l-1.92 6.02A1 1 0 0 0 13 10h7a1 1 0 0 1 .78 1.63l-9.9 10.2a.5.5 0 0 1-.86-.46l1.92-6.02A1 1 0 0 0 11 14z",
+    )
+
     val ArrowRight: List<String> = listOf(
         "M5 12h14",
         "m12 5 7 7-7 7",
