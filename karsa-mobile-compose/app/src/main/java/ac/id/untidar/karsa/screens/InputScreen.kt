@@ -69,9 +69,9 @@ import ac.id.untidar.karsa.theme.Muted
 import ac.id.untidar.karsa.theme.Paper
 import ac.id.untidar.karsa.theme.Paper2
 import ac.id.untidar.karsa.theme.Paper3
-import ac.id.untidar.karsa.theme.brandShadow
+import ac.id.untidar.karsa.ui.brandShadow
 import ac.id.untidar.karsa.theme.displayStyle
-import ac.id.untidar.karsa.theme.popShadow
+import ac.id.untidar.karsa.ui.popShadow
 import ac.id.untidar.karsa.theme.sansStyle
 import ac.id.untidar.karsa.ui.Avatar
 import ac.id.untidar.karsa.ui.Badge

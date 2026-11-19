@@ -58,7 +58,7 @@ private fun TabScreen(tab: Tab) {
         Tab.Input -> InputPoin()
         Tab.Aktivitas -> ActivityHub()
         Tab.Poinku -> PoinkuScreen()
-        Tab.Akun -> PlaceholderTab(tab)
+        Tab.Akun -> AccountScreen()
     }
 }
 
@@ -87,10 +87,7 @@ fun RouteScreen(route: Route) {
         Route.History -> HistoryScreen()
         Route.Report -> ReportScreen()
         Route.Ranking -> RankingScreen()
-        is Route.Legal -> RoutePlaceholder(
-            if (route.doc == ac.id.untidar.karsa.LegalDoc.Terms) "Syarat Penggunaan" else "Kebijakan Privasi",
-            "Legal",
-        )
+        is Route.Legal -> LegalScreen(route.doc)
     }
 }
 

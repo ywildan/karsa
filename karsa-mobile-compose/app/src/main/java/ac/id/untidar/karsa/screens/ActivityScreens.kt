@@ -209,8 +209,6 @@ fun ActivityHub() {
 }
 
 @Composable
-
-@Composable
 private fun androidx.compose.foundation.layout.RowScope.StatColumn(value: Int, label: String) {
     Column(Modifier.weight(1f)) {
         Text(
