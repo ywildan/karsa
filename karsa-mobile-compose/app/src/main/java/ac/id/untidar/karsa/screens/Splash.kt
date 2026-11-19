@@ -51,7 +51,7 @@ fun SplashScreen() {
     val state = LocalApp.current
     LaunchedEffect(Unit) {
         delay(2600)
-        state.setPhase(Phase.Onboarding)
+        state.goPhase(Phase.Onboarding)
     }
 
     val rise = remember { Animatable(0f) }

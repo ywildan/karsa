@@ -75,7 +75,7 @@ fun LoginScreen() {
     LaunchedEffect(waiting) {
         if (waiting) {
             delay(2600)
-            state.setPhase(Phase.App)
+            state.goPhase(Phase.App)
             state.notify("Selamat datang kembali, Nadia!", ToastTone.Success)
         }
     }

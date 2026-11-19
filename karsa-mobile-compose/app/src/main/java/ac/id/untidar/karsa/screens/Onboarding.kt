@@ -129,7 +129,7 @@ fun OnboardingScreen() {
             Spacer(Modifier.width(12.dp))
             Text(
                 text = "Lewati",
-                modifier = Modifier.clickable { state.setPhase(Phase.Login) }.padding(4.dp),
+                modifier = Modifier.clickable { state.goPhase(Phase.Login) }.padding(4.dp),
                 style = sansStyle(14, 600, 1.2f, color = Ink2),
             )
         }
@@ -173,7 +173,7 @@ fun OnboardingScreen() {
                 text = if (last) "Mulai sekarang" else "Lanjut",
                 onClick = {
                     if (last) {
-                        state.setPhase(Phase.Login)
+                        state.goPhase(Phase.Login)
                     } else {
                         scope.launch {
                             pager.animateScrollToPage(

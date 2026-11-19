@@ -98,7 +98,7 @@ fun BoxScope.Dock() {
                     .clickable(
                         interactionSource = interaction,
                         indication = null,
-                        onClick = { state.setTab(tab) },
+                        onClick = { state.openTab(tab) },
                     )
                     .padding(vertical = 1.dp),
                 horizontalAlignment = Alignment.CenterHorizontally,

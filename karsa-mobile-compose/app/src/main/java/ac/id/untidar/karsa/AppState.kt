@@ -64,18 +64,18 @@ class KarsaState {
     var epoch by mutableIntStateOf(0)
         private set
 
-    fun setPhase(next: Phase) {
+    fun goPhase(next: Phase) {
         phase = next
     }
 
-    fun setRole(next: Role) {
+    fun switchRole(next: Role) {
         role = next
         tab = Tab.Lib
         stack = emptyList()
         epoch += 1
     }
 
-    fun setTab(next: Tab) {
+    fun openTab(next: Tab) {
         stack = emptyList()
         tab = next
     }
