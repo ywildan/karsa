@@ -54,6 +54,7 @@ fun TabsHost() {
 private fun TabScreen(tab: Tab) {
     when (tab) {
         Tab.Lib -> LibHome()
+        Tab.Grup -> GroupList()
         else -> PlaceholderTab(tab)
     }
 }
@@ -79,7 +80,7 @@ fun RouteScreen(route: Route) {
         Route.MyPosts -> MyPostsScreen()
         Route.Import -> ImportScreen()
         Route.Author -> AuthorScreen()
-        is Route.Chat -> RoutePlaceholder("Grup kelas", "Chat")
+        is Route.Chat -> ChatScreen(route.id)
         Route.History -> RoutePlaceholder("Riwayat poin", "Aktivitas")
         Route.Report -> RoutePlaceholder("Laporan saya", "Poin keaktifan semester ini")
         Route.Ranking -> RoutePlaceholder("Partisipasi teratas", "Sistem Informasi")
