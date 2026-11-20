@@ -207,9 +207,10 @@ class PointsController(private val auth: AuthController) {
     fun loadLeaderboardOptions() {
         if (optionsLoading) return
         if (leaderboardOptions.isNotEmpty()) {
-            if (leaderboardRows.isEmpty() && leaderboardCourse != null) {
-                loadLeaderboard(leaderboardCourse!!)
-            }
+            val selected = leaderboardCourse?.takeIf { id -> leaderboardOptions.any { it.id == id } }
+                ?: leaderboardOptions.firstOrNull()?.id
+            leaderboardCourse = selected
+            if (selected != null) loadLeaderboard(selected)
             return
         }
         optionsLoading = true

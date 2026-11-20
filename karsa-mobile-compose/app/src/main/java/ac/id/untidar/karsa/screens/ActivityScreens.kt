@@ -670,7 +670,7 @@ private fun ReportView() {
     var openId by remember { mutableStateOf<String?>(null) }
 
     LaunchedEffect(Unit) {
-        if (pts.report == null) pts.loadReport()
+        pts.loadReport()
     }
 
     val report = pts.report
