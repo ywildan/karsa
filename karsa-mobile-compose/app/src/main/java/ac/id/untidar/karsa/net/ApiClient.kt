@@ -14,6 +14,13 @@ import ac.id.untidar.karsa.groups.GroupMessageDto
 import ac.id.untidar.karsa.groups.GroupMessagePageDto
 import ac.id.untidar.karsa.groups.GroupReportDto
 import ac.id.untidar.karsa.groups.GroupSummaryDto
+import ac.id.untidar.karsa.points.AssignmentDto
+import ac.id.untidar.karsa.points.LeaderboardOptionDto
+import ac.id.untidar.karsa.points.LeaderboardRowDto
+import ac.id.untidar.karsa.points.PointCategoryDto
+import ac.id.untidar.karsa.points.PointHistoryDto
+import ac.id.untidar.karsa.points.StudentDto
+import ac.id.untidar.karsa.points.StudentReportDto
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.sync.Mutex
@@ -326,6 +333,75 @@ class ApiClient(private val store: SessionStore) {
             "/groups/$groupId/reports/$reportId/resolve",
             body = buildJsonObject { put("action", action) },
         )
+    }
+
+    /* ───────────── Poin & aktivitas ───────────── */
+
+    suspend fun pjAssignments(): List<AssignmentDto> {
+        val data = request("GET", "/pj/assignments")
+        return json.decodeFromJsonElement(ListSerializer(AssignmentDto.serializer()), data)
+    }
+
+    suspend fun assignmentStudents(assignmentId: String): List<StudentDto> {
+        val data = request("GET", "/pj/assignments/$assignmentId/students") as? JsonObject
+            ?: throw ApiException("Daftar mahasiswa tidak dapat dibaca.")
+        val students = data["students"] ?: throw ApiException("Daftar mahasiswa tidak tersedia.")
+        return json.decodeFromJsonElement(ListSerializer(StudentDto.serializer()), students)
+    }
+
+    suspend fun pointCategories(): List<PointCategoryDto> {
+        val data = request("GET", "/point-categories")
+        return json.decodeFromJsonElement(ListSerializer(PointCategoryDto.serializer()), data)
+    }
+
+    suspend fun createPoint(
+        assignmentId: String,
+        studentId: String,
+        categoryId: String,
+        points: Int,
+        note: String?,
+        idempotencyKey: String,
+    ): String {
+        val data = request(
+            "POST",
+            "/points",
+            body = buildJsonObject {
+                put("kelas_matkul_id", assignmentId)
+                put("mahasiswa_id", studentId)
+                put("kategori_id", categoryId)
+                put("poin", points)
+                if (!note.isNullOrBlank()) put("catatan", note.trim())
+            },
+            extraHeaders = mapOf("Idempotency-Key" to idempotencyKey),
+        ) as? JsonObject
+        return data?.get("message")?.jsonPrimitive?.contentOrNull ?: "Poin berhasil dicatat."
+    }
+
+    suspend fun pointHistory(): List<PointHistoryDto> {
+        val data = request("GET", "/points")
+        return json.decodeFromJsonElement(ListSerializer(PointHistoryDto.serializer()), data)
+    }
+
+    suspend fun deletePoint(pointId: String): String {
+        val data = request("DELETE", "/points/$pointId") as? JsonObject
+        return data?.get("message")?.jsonPrimitive?.contentOrNull ?: "Poin berhasil dihapus."
+    }
+
+    suspend fun studentReport(): StudentReportDto {
+        val data = request("GET", "/report")
+        return json.decodeFromJsonElement(StudentReportDto.serializer(), data)
+    }
+
+    suspend fun leaderboardOptions(): List<LeaderboardOptionDto> {
+        val data = request("GET", "/leaderboard/options")
+        return json.decodeFromJsonElement(ListSerializer(LeaderboardOptionDto.serializer()), data)
+    }
+
+    suspend fun leaderboard(assignmentId: String): List<LeaderboardRowDto> {
+        val data = request("GET", "/leaderboard/$assignmentId") as? JsonObject
+            ?: throw ApiException("Peringkat tidak dapat dibaca.")
+        val rows = data["rows"] ?: throw ApiException("Peringkat tidak tersedia.")
+        return json.decodeFromJsonElement(ListSerializer(LeaderboardRowDto.serializer()), rows)
     }
 
     suspend fun libAiState(articleId: String, revision: String): LibAiStateDto {

@@ -21,6 +21,7 @@ import ac.id.untidar.karsa.groups.GroupController
 import ac.id.untidar.karsa.lib.LibController
 import ac.id.untidar.karsa.net.AppUser
 import ac.id.untidar.karsa.net.Capabilities
+import ac.id.untidar.karsa.points.PointsController
 
 enum class Phase { Splash, Onboarding, Login, SessionError, App }
 
@@ -88,6 +89,7 @@ sealed interface Route {
 class KarsaState(val auth: AuthController) {
     val lib = LibController(auth)
     val groups = GroupController(auth)
+    val points = PointsController(auth)
 
     var phase by mutableStateOf(Phase.Splash)
         private set
@@ -196,6 +198,7 @@ class KarsaState(val auth: AuthController) {
         epoch += 1
         lib.reset()
         groups.reset()
+        points.reset()
     }
 
     fun openTab(next: Tab) {

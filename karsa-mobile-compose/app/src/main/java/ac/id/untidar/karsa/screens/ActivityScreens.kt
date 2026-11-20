@@ -26,6 +26,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -63,6 +64,9 @@ import ac.id.untidar.karsa.data.rankingFor
 import ac.id.untidar.karsa.data.studentById
 import ac.id.untidar.karsa.icons.KarsaIcons
 import ac.id.untidar.karsa.icons.LucideIcon
+import ac.id.untidar.karsa.net.friendlyError
+import ac.id.untidar.karsa.points.PointHistoryDto
+import ac.id.untidar.karsa.points.ReportPointDto
 import ac.id.untidar.karsa.theme.Brand100
 import ac.id.untidar.karsa.theme.Brand300
 import ac.id.untidar.karsa.theme.Brand400
@@ -107,6 +111,7 @@ import ac.id.untidar.karsa.ui.KarsaSheet
 import ac.id.untidar.karsa.ui.KawungPattern
 import ac.id.untidar.karsa.ui.IconButtonVariant
 import ac.id.untidar.karsa.ui.ListSkeleton
+import ac.id.untidar.karsa.ui.LoadStatus
 import ac.id.untidar.karsa.ui.PageHeader
 import ac.id.untidar.karsa.ui.PointBadge
 import ac.id.untidar.karsa.ui.Rise
@@ -124,13 +129,24 @@ private fun myTotal(list: List<MyEntry> = MY_ENTRIES): Int = list.sumOf { it.poi
 @Composable
 fun ActivityHub() {
     val state = LocalApp.current
-    val load = rememberLoad()
-    val list = state.entries
-    val students = list.map { it.studentId }.distinct().size
-    val weekPoints = list
-        .filter { System.currentTimeMillis() - it.ts < 7L * 86_400_000L }
-        .sumOf { it.points }
-    val rank = rankingFor("all").indexOfFirst { it.me } + 1
+    val pts = state.points
+    val history = pts.history
+    val week = history.filter { System.currentTimeMillis() - it.ts < 7L * 86_400_000L }
+    val entries = week.size
+    val students = week.map { it.studentName }.distinct().size
+    val weekPoints = week.sumOf { it.poin }
+    val rank = pts.currentRank
+    val loadStatus = if (pts.historyStatus == LoadStatus.Loading && history.isEmpty()) {
+        LoadStatus.Loading
+    } else {
+        LoadStatus.Ready
+    }
+
+    LaunchedEffect(Unit) {
+        pts.loadHistory()
+        pts.loadReport()
+        pts.loadLeaderboardOptions()
+    }
 
     Column(Modifier.fillMaxSize().background(Paper)) {
         PageHeader(
@@ -147,8 +163,12 @@ fun ActivityHub() {
             verticalArrangement = Arrangement.spacedBy(16.dp),
         ) {
             Gate(
-                status = load.status,
-                onRetry = load.retry,
+                status = loadStatus,
+                onRetry = {
+                    pts.loadHistory()
+                    pts.loadReport()
+                    pts.loadLeaderboardOptions()
+                },
                 skeleton = {
                     Column(verticalArrangement = Arrangement.spacedBy(16.dp)) {
                         Skeleton(Modifier.fillMaxWidth().height(208.dp), RoundedCornerShape(28.dp))
@@ -174,7 +194,7 @@ fun ActivityHub() {
                                 )
                                 Spacer(Modifier.height(12.dp))
                                 Row(Modifier.fillMaxWidth()) {
-                                    StatColumn(list.size, "Entri")
+                                    StatColumn(entries, "Entri")
                                     StatColumn(students, "Mahasiswa")
                                     StatColumn(weekPoints, "Total poin")
                                 }
@@ -192,14 +212,14 @@ fun ActivityHub() {
                 }
 
                 Rise(delayMillis = 60) {
-                    HistoryShortcutCard(list)
+                    HistoryShortcutCard(history)
                 }
 
                 if (state.capabilities.viewReport || state.capabilities.viewLeaderboard) {
                     Row(horizontalArrangement = Arrangement.spacedBy(16.dp)) {
                         if (state.capabilities.viewReport) {
                             Box(Modifier.weight(1f)) {
-                                ReportShortcutCard(total = myTotal())
+                                ReportShortcutCard(total = pts.report?.totalPoints ?: 0)
                             }
                         }
                         if (state.capabilities.viewLeaderboard) {
@@ -226,7 +246,7 @@ private fun androidx.compose.foundation.layout.RowScope.StatColumn(value: Int, l
 }
 
 @Composable
-private fun HistoryShortcutCard(list: List<PointEntry>) {
+private fun HistoryShortcutCard(list: List<PointHistoryDto>) {
     val state = LocalApp.current
     val interaction = remember { MutableInteractionSource() }
     KarsaCard(
@@ -275,12 +295,12 @@ private fun HistoryShortcutCard(list: List<PointEntry>) {
                             contentAlignment = Alignment.Center,
                         ) {
                             Text(
-                                "+${entry.points}",
+                                "+${entry.poin}",
                                 style = displayStyle(14, 800, 1f, color = Brand700),
                             )
                         }
                         Text(
-                            studentById(entry.studentId).name,
+                            entry.studentName,
                             modifier = Modifier.weight(1f),
                             style = sansStyle(13, 600, 1.4f),
                             maxLines = 1,
@@ -383,52 +403,63 @@ private fun RankingShortcutCard(rank: Int) {
 @Composable
 fun HistoryScreen() {
     val state = LocalApp.current
-    val load = rememberLoad(delayMillis = 550)
+    val pts = state.points
+    val scope = rememberCoroutineScope()
     var q by remember { mutableStateOf("") }
-    var course by remember { mutableStateOf("all") }
-    var menuFor by remember { mutableStateOf<PointEntry?>(null) }
-    var confirm by remember { mutableStateOf<PointEntry?>(null) }
+    var course by remember { mutableStateOf<String?>(null) }
+    var menuFor by remember { mutableStateOf<PointHistoryDto?>(null) }
+    var confirm by remember { mutableStateOf<PointHistoryDto?>(null) }
 
-    val courses = myCourses(state.role)
-    val base = state.entries
+    LaunchedEffect(Unit) { pts.loadHistory() }
+
+    val base = pts.history
+    val courseNames = base.map { it.courseName }.distinct().sorted()
     val filtered = base.filter { entry ->
-        if (course != "all" && entry.courseId != course) return@filter false
+        if (course != null && entry.courseName != course) return@filter false
         val query = q.trim().lowercase()
         if (query.isEmpty()) return@filter true
-        val student = studentById(entry.studentId)
         if (query.all { it.isDigit() }) {
-            student.nim.endsWith(query) || student.nim.contains(query)
+            entry.studentNim?.contains(query) == true
         } else {
-            student.name.lowercase().contains(query) || categoryLabel(entry.categoryId).lowercase().contains(query)
+            entry.studentName.lowercase().contains(query) ||
+                entry.categoryName.lowercase().contains(query)
         }
-    }
-    val groups = linkedMapOf<Long, MutableList<PointEntry>>()
-    filtered.sortedByDescending { it.ts }.forEach { entry ->
+    }.sortedByDescending { it.ts }
+    val groups = linkedMapOf<Long, MutableList<PointHistoryDto>>()
+    filtered.forEach { entry ->
         groups.getOrPut(dayKey(entry.ts)) { mutableListOf() }.add(entry)
     }
 
-    fun doDelete() {
-        val target = confirm ?: return
-        state.deleteEntry(target.id)
-        state.notify("Entri dihapus dan tercatat di audit log", ToastTone.Neutral)
+    fun delete(target: PointHistoryDto) {
         confirm = null
+        scope.launch {
+            try {
+                pts.deletePoint(target.id)
+                state.notify("Entri dihapus dan tercatat di audit log", ToastTone.Neutral)
+            } catch (failure: Exception) {
+                state.notify(friendlyError(failure), ToastTone.Error)
+            }
+        }
     }
 
     Column(Modifier.fillMaxSize().background(Paper)) {
         TopBar(
             onBack = { state.back() },
             title = "Riwayat poin",
-            subtitle = if (load.status == ac.id.untidar.karsa.ui.LoadStatus.Ready) "${filtered.size} entri" else "Memuat…",
+            subtitle = if (pts.historyStatus == LoadStatus.Ready) "${filtered.size} entri" else "Memuat…",
         )
-        Column(Modifier.padding(horizontal = 20.dp).padding(top = 4.dp, bottom = 12.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+        Column(
+            modifier = Modifier.padding(horizontal = 20.dp).padding(top = 4.dp, bottom = 12.dp),
+            verticalArrangement = Arrangement.spacedBy(12.dp),
+        ) {
             SearchField(value = q, onChange = { q = it }, placeholder = "Nama, akhir NIM, atau kategori")
             Row(
                 modifier = Modifier.horizontalScroll(rememberScrollState()),
                 horizontalArrangement = Arrangement.spacedBy(8.dp),
             ) {
-                Chip("Semua matkul", selected = course == "all", onClick = { course = "all" })
-                courses.forEach { item ->
-                    Chip(item.name, selected = course == item.id, onClick = { course = item.id })
+                Chip("Semua matkul", selected = course == null, onClick = { course = null })
+                courseNames.forEach { name ->
+                    Chip(name, selected = course == name, onClick = { course = name })
                 }
             }
         }
@@ -439,74 +470,79 @@ fun HistoryScreen() {
                 .padding(horizontal = 20.dp)
                 .padding(bottom = 24.dp),
         ) {
-            Gate(status = load.status, onRetry = load.retry, skeleton = { ListSkeleton(count = 4, lines = 1) }) {
-                if (groups.isEmpty()) {
-                    KarsaCard {
-                        if (base.isEmpty()) {
-                            EmptyState(
-                                title = "Belum ada poin tercatat",
-                                desc = "Entri yang kamu input akan muncul di sini, lengkap dengan jam dan catatannya.",
-                                icon = { LucideIcon(KarsaIcons.History, modifier = Modifier.size(36.dp), tint = Brand600) },
-                                action = { KarsaButton("Input poin pertama", onClick = { state.openTab(Tab.Input) }) },
-                            )
-                        } else {
-                            EmptyState(
-                                title = "Tidak ada hasil",
-                                desc = "Coba kata kunci lain, atau ganti filter mata kuliah.",
-                                icon = { LucideIcon(KarsaIcons.ScanSearch, modifier = Modifier.size(36.dp), tint = Brand600) },
-                                action = {
-                                    KarsaButton(
-                                        "Reset filter",
-                                        onClick = {
-                                            q = ""
-                                            course = "all"
-                                        },
-                                        variant = ButtonVariant.Soft,
-                                    )
-                                },
-                            )
-                        }
+            when {
+                pts.historyStatus == LoadStatus.Loading && base.isEmpty() -> ListSkeleton(count = 4, lines = 1)
+                pts.historyStatus == LoadStatus.Error && base.isEmpty() -> KarsaCard {
+                    EmptyState(
+                        title = "Riwayat belum termuat",
+                        desc = pts.historyError ?: "Periksa koneksi lalu coba lagi.",
+                        icon = { LucideIcon(KarsaIcons.TriangleAlert, modifier = Modifier.size(36.dp), tint = Brand600) },
+                        action = {
+                            KarsaButton("Coba lagi", onClick = { pts.loadHistory() }, variant = ButtonVariant.Soft)
+                        },
+                    )
+                }
+                groups.isEmpty() -> KarsaCard {
+                    if (base.isEmpty()) {
+                        EmptyState(
+                            title = "Belum ada poin tercatat",
+                            desc = "Entri yang kamu input akan muncul di sini, lengkap dengan jam dan catatannya.",
+                            icon = { LucideIcon(KarsaIcons.History, modifier = Modifier.size(36.dp), tint = Brand600) },
+                            action = { KarsaButton("Input poin pertama", onClick = { state.openTab(Tab.Input) }) },
+                        )
+                    } else {
+                        EmptyState(
+                            title = "Tidak ada hasil",
+                            desc = "Coba kata kunci lain, atau ganti filter mata kuliah.",
+                            icon = { LucideIcon(KarsaIcons.ScanSearch, modifier = Modifier.size(36.dp), tint = Brand600) },
+                            action = {
+                                KarsaButton(
+                                    "Reset filter",
+                                    onClick = {
+                                        q = ""
+                                        course = null
+                                    },
+                                    variant = ButtonVariant.Soft,
+                                )
+                            },
+                        )
                     }
-                } else {
-                    Column(verticalArrangement = Arrangement.spacedBy(24.dp)) {
-                        groups.forEach { (key, entries) ->
-                            Column {
-                                Row(
-                                    modifier = Modifier.fillMaxWidth().padding(horizontal = 4.dp, vertical = 6.dp),
-                                    horizontalArrangement = Arrangement.SpaceBetween,
-                                    verticalAlignment = Alignment.CenterVertically,
-                                ) {
-                                    Text(dayLabel(key), style = sansStyle(13, 700, 1.4f))
-                                    Text(fmtDayShort(key), style = sansStyle(12, 400, 1.4f, color = Muted))
-                                }
-                                Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                                    entries.forEach { entry ->
-                                        Rise { HistoryEntryCard(entry = entry, onMenu = { menuFor = entry }) }
-                                    }
+                }
+                else -> Column(verticalArrangement = Arrangement.spacedBy(24.dp)) {
+                    groups.forEach { (key, entries) ->
+                        Column {
+                            Row(
+                                modifier = Modifier.fillMaxWidth().padding(horizontal = 4.dp, vertical = 6.dp),
+                                horizontalArrangement = Arrangement.SpaceBetween,
+                                verticalAlignment = Alignment.CenterVertically,
+                            ) {
+                                Text(dayLabel(key), style = sansStyle(13, 700, 1.4f))
+                                Text(fmtDayShort(key), style = sansStyle(12, 400, 1.4f, color = Muted))
+                            }
+                            Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                                entries.forEach { entry ->
+                                    Rise { HistoryEntryCard(entry = entry, onMenu = { menuFor = entry }) }
                                 }
                             }
                         }
                     }
                 }
-                if (load.status == ac.id.untidar.karsa.ui.LoadStatus.Ready) {
-                    Spacer(Modifier.height(24.dp))
-                    Row(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .clip(RoundedCornerShape(16.dp))
-                            .background(Butter100.copy(alpha = 0.7f))
-                            .padding(horizontal = 16.dp, vertical = 14.dp),
-                        horizontalArrangement = Arrangement.spacedBy(12.dp),
-                    ) {
-                        LucideIcon(KarsaIcons.ShieldAlert, modifier = Modifier.size(16.dp).padding(top = 2.dp), tint = Butter700)
-                        Text(
-                            buildString {
-                                append("Setiap penghapusan tercatat di audit log dan dapat ditinjau dosen.")
-                                if (state.audit.isNotEmpty()) append(" ${state.audit.size} penghapusan sesi ini.")
-                            },
-                            style = sansStyle(13, 400, 1.625f, color = Butter700),
-                        )
-                    }
+            }
+            if (pts.historyStatus == LoadStatus.Ready) {
+                Spacer(Modifier.height(24.dp))
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .clip(RoundedCornerShape(16.dp))
+                        .background(Butter100.copy(alpha = 0.7f))
+                        .padding(horizontal = 16.dp, vertical = 14.dp),
+                    horizontalArrangement = Arrangement.spacedBy(12.dp),
+                ) {
+                    LucideIcon(KarsaIcons.ShieldAlert, modifier = Modifier.size(16.dp).padding(top = 2.dp), tint = Butter700)
+                    Text(
+                        "Setiap penghapusan tercatat di audit log dan dapat ditinjau dosen.",
+                        style = sansStyle(13, 400, 1.625f, color = Butter700),
+                    )
                 }
             }
         }
@@ -526,11 +562,11 @@ fun HistoryScreen() {
                     horizontalArrangement = Arrangement.spacedBy(12.dp),
                     verticalAlignment = Alignment.CenterVertically,
                 ) {
-                    PointBadge(menuEntry.points)
+                    PointBadge(menuEntry.poin)
                     Column(Modifier.weight(1f)) {
-                        Text(studentById(menuEntry.studentId).name, style = sansStyle(14, 700, 1.3f))
+                        Text(menuEntry.studentName, style = sansStyle(14, 700, 1.3f))
                         Text(
-                            "${categoryLabel(menuEntry.categoryId)} · ${courseById(menuEntry.courseId).name}",
+                            "${menuEntry.categoryName} · ${menuEntry.courseName}",
                             style = sansStyle(12, 400, 1.4f, color = Muted),
                             maxLines = 1,
                             overflow = TextOverflow.Ellipsis,
@@ -570,27 +606,30 @@ fun HistoryScreen() {
         tone = DialogTone.Danger,
         title = "Hapus entri poin ini?",
         desc = confirm?.let {
-            "+${it.points} untuk ${studentById(it.studentId).name} akan dihapus. Tindakan ini tercatat di audit log dan tidak bisa dibatalkan."
+            "+${it.poin} untuk ${it.studentName} akan dihapus. Tindakan ini tercatat di audit log dan tidak bisa dibatalkan."
         },
         confirmLabel = "Hapus",
-        onConfirm = ::doDelete,
+        onConfirm = { confirm?.let(::delete) },
     )
 }
 
 @Composable
-private fun HistoryEntryCard(entry: PointEntry, onMenu: () -> Unit) {
+private fun HistoryEntryCard(entry: PointHistoryDto, onMenu: () -> Unit) {
     KarsaCard {
         Column(Modifier.padding(16.dp)) {
             Row(horizontalArrangement = Arrangement.spacedBy(12.dp), verticalAlignment = Alignment.Top) {
-                PointBadge(entry.points)
+                PointBadge(entry.poin)
                 Column(Modifier.weight(1f)) {
                     Text(
-                        studentById(entry.studentId).name,
+                        entry.studentName,
                         style = sansStyle(15, 700, 1.25f),
                         maxLines = 1,
                         overflow = TextOverflow.Ellipsis,
                     )
-                    Text(maskNim(studentById(entry.studentId).nim), style = sansStyle(12, 400, 1.4f, color = Muted))
+                    Text(
+                        entry.studentNim?.takeIf { it.isNotBlank() } ?: "NIM belum ada",
+                        style = sansStyle(12, 400, 1.4f, color = Muted),
+                    )
                 }
                 KarsaIconButton(
                     onClick = onMenu,
@@ -602,17 +641,17 @@ private fun HistoryEntryCard(entry: PointEntry, onMenu: () -> Unit) {
             }
             Spacer(Modifier.height(12.dp))
             Text(
-                "${categoryLabel(entry.categoryId)} · ${courseById(entry.courseId).name}",
+                "${entry.categoryName} · ${entry.courseName}",
                 style = sansStyle(13, 600, 1.4f, color = Ink2),
             )
             Text(
-                "${courseById(entry.courseId).kelas} · ${fmtTime(entry.ts)}",
+                "${entry.className} · ${fmtTime(entry.ts)}",
                 style = sansStyle(12, 400, 1.4f, color = Muted),
             )
-            if (entry.note != null) {
+            if (entry.catatan != null) {
                 Spacer(Modifier.height(12.dp))
                 Text(
-                    "“${entry.note}”",
+                    "“${entry.catatan}”",
                     modifier = Modifier
                         .fillMaxWidth()
                         .clip(RoundedCornerShape(12.dp))
@@ -627,136 +666,156 @@ private fun HistoryEntryCard(entry: PointEntry, onMenu: () -> Unit) {
 
 @Composable
 private fun ReportView() {
-    val load = rememberLoad(delayMillis = 550)
+    val pts = LocalApp.current.points
     var openId by remember { mutableStateOf<String?>(null) }
-    val groups = COURSES.map { course ->
-        val entries = MY_ENTRIES.filter { it.courseId == course.id }.sortedByDescending { it.ts }
-        Triple(course, entries, myTotal(entries))
-    }.filter { it.second.isNotEmpty() }.sortedByDescending { it.third }
-    val maxSum = maxOf(1, groups.maxOfOrNull { it.third } ?: 1)
-    val expanded = openId ?: groups.firstOrNull()?.first?.id
+
+    LaunchedEffect(Unit) {
+        if (pts.report == null) pts.loadReport()
+    }
+
+    val report = pts.report
+    val courses = report?.courses.orEmpty().sortedByDescending { it.totalPoints }
+    val maxSum = maxOf(1, courses.maxOfOrNull { it.totalPoints } ?: 1)
+    val expanded = openId ?: courses.firstOrNull()?.id
+    val totalEntries = courses.sumOf { it.history.size }
+    val subtitle = listOfNotNull(
+        report?.kelas?.name?.takeIf { it.isNotBlank() },
+        report?.prodi?.name?.takeIf { it.isNotBlank() },
+        report?.semester?.name?.takeIf { it.isNotBlank() }?.let { "Semester $it" },
+    ).joinToString(" · ").ifBlank { "${ME.kelas} · ${ME.prodi}" }
 
     Column {
-        Gate(
-            status = load.status,
-            onRetry = load.retry,
-            skeleton = {
-                Column(verticalArrangement = Arrangement.spacedBy(16.dp)) {
-                    Skeleton(Modifier.fillMaxWidth().height(208.dp), RoundedCornerShape(32.dp))
-                    ListSkeleton(count = 2, lines = 1)
-                }
-            },
-        ) {
-            Rise {
-                Column(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .brandShadow(RoundedCornerShape(32.dp))
-                        .clip(RoundedCornerShape(32.dp))
-                        .background(Brand500)
-                        .padding(24.dp),
-                ) {
-                    Box(Modifier.fillMaxWidth()) {
-                        KawungPattern(Modifier.matchParentSize(), color = Color.White, alpha = 0.16f)
-                        Box(
-                            Modifier
-                                .align(Alignment.TopEnd)
-                                .padding(end = 0.dp)
-                                .size(176.dp)
-                                .background(
-                                    androidx.compose.ui.graphics.Brush.radialGradient(
-                                        listOf(Brand300.copy(alpha = 0.5f), Color.Transparent),
+        when {
+            pts.reportStatus == LoadStatus.Loading && report == null -> Column(verticalArrangement = Arrangement.spacedBy(16.dp)) {
+                Skeleton(Modifier.fillMaxWidth().height(208.dp), RoundedCornerShape(32.dp))
+                ListSkeleton(count = 2, lines = 1)
+            }
+            pts.reportStatus == LoadStatus.Error && report == null -> KarsaCard {
+                EmptyState(
+                    title = "Laporan belum termuat",
+                    desc = pts.reportError ?: "Periksa koneksi lalu coba lagi.",
+                    icon = { LucideIcon(KarsaIcons.TriangleAlert, modifier = Modifier.size(36.dp), tint = Brand600) },
+                    action = { KarsaButton("Coba lagi", onClick = { pts.loadReport() }, variant = ButtonVariant.Soft) },
+                )
+            }
+            else -> {
+                Rise {
+                    Column(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .brandShadow(RoundedCornerShape(32.dp))
+                            .clip(RoundedCornerShape(32.dp))
+                            .background(Brand500)
+                            .padding(24.dp),
+                    ) {
+                        Box(Modifier.fillMaxWidth()) {
+                            KawungPattern(Modifier.matchParentSize(), color = Color.White, alpha = 0.16f)
+                            Box(
+                                Modifier
+                                    .align(Alignment.TopEnd)
+                                    .size(176.dp)
+                                    .background(
+                                        androidx.compose.ui.graphics.Brush.radialGradient(
+                                            listOf(Brand300.copy(alpha = 0.5f), Color.Transparent),
+                                        ),
+                                        CircleShape,
                                     ),
-                                    CircleShape,
-                                ),
-                        )
-                        Column {
-                            Text("Total poin keaktifan", style = sansStyle(14, 600, 1.4f, color = Color.White.copy(alpha = 0.85f)))
-                            Text(
-                                "${myTotal()}",
-                                style = displayStyle(56, 800, 1f, -0.02f, Color.White),
                             )
-                            Spacer(Modifier.height(16.dp))
-                            Text(
-                                "${ME.kelas} · ${ME.prodi} · Semester ${ME.semester}",
-                                style = sansStyle(13, 600, 1.4f, color = Color.White.copy(alpha = 0.9f)),
-                            )
-                            Spacer(Modifier.height(16.dp))
-                            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                                Pill("${groups.size} matkul")
-                                Pill("${MY_ENTRIES.size} kontribusi")
+                            Column {
+                                Text("Total poin keaktifan", style = sansStyle(14, 600, 1.4f, color = Color.White.copy(alpha = 0.85f)))
+                                Text(
+                                    "${report?.totalPoints ?: 0}",
+                                    style = displayStyle(56, 800, 1f, -0.02f, Color.White),
+                                )
+                                Spacer(Modifier.height(16.dp))
+                                Text(
+                                    subtitle,
+                                    style = sansStyle(13, 600, 1.4f, color = Color.White.copy(alpha = 0.9f)),
+                                )
+                                Spacer(Modifier.height(16.dp))
+                                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                                    Pill("${courses.size} matkul")
+                                    Pill("$totalEntries kontribusi")
+                                }
                             }
                         }
                     }
                 }
-            }
 
-            Spacer(Modifier.height(28.dp))
-            Text("Per mata kuliah", modifier = Modifier.padding(horizontal = 4.dp), style = displayStyle(18, 700))
-            Spacer(Modifier.height(12.dp))
+                Spacer(Modifier.height(28.dp))
+                Text("Per mata kuliah", modifier = Modifier.padding(horizontal = 4.dp), style = displayStyle(18, 700))
+                Spacer(Modifier.height(12.dp))
 
-            if (groups.isEmpty()) {
-                KarsaCard {
-                    EmptyState(
-                        title = "Belum ada poin",
-                        desc = "Poin dari PJ kelas akan muncul di sini setelah dicatat.",
-                        icon = { LucideIcon(KarsaIcons.FileBarChart, modifier = Modifier.size(36.dp), tint = Brand600) },
-                    )
-                }
-            } else {
-                Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                    groups.forEach { (course, entries, sum) ->
-                        val isOpen = expanded == course.id
-                        KarsaCard(Modifier.fillMaxWidth()) {
-                            Column {
-                                Row(
-                                    modifier = Modifier
-                                        .fillMaxWidth()
-                                        .clickable { openId = if (isOpen) "" else course.id }
-                                        .padding(16.dp),
-                                    horizontalArrangement = Arrangement.spacedBy(12.dp),
-                                    verticalAlignment = Alignment.CenterVertically,
-                                ) {
-                                    Avatar(name = course.name, size = 44.dp, tone = course.tone, square = true)
-                                    Column(Modifier.weight(1f)) {
-                                        Text(
-                                            course.name,
-                                            style = sansStyle(15, 700, 1.25f),
-                                            maxLines = 1,
-                                            overflow = TextOverflow.Ellipsis,
-                                        )
-                                        Spacer(Modifier.height(8.dp))
-                                        Box(
-                                            Modifier
-                                                .fillMaxWidth()
-                                                .height(6.dp)
-                                                .clip(CircleShape)
-                                                .background(Paper2),
-                                        ) {
+                if (courses.isEmpty()) {
+                    KarsaCard {
+                        EmptyState(
+                            title = "Belum ada laporan",
+                            desc = "Kelas atau semester aktif angkatanmu belum tersedia.",
+                            icon = { LucideIcon(KarsaIcons.FileBarChart, modifier = Modifier.size(36.dp), tint = Brand600) },
+                        )
+                    }
+                } else {
+                    Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                        courses.forEach { course ->
+                            val isOpen = expanded == course.id
+                            KarsaCard(Modifier.fillMaxWidth()) {
+                                Column {
+                                    Row(
+                                        modifier = Modifier
+                                            .fillMaxWidth()
+                                            .clickable { openId = if (isOpen) "" else course.id }
+                                            .padding(16.dp),
+                                        horizontalArrangement = Arrangement.spacedBy(12.dp),
+                                        verticalAlignment = Alignment.CenterVertically,
+                                    ) {
+                                        Avatar(name = course.matkul.name, size = 44.dp, square = true)
+                                        Column(Modifier.weight(1f)) {
+                                            Text(
+                                                course.matkul.name,
+                                                style = sansStyle(15, 700, 1.25f),
+                                                maxLines = 1,
+                                                overflow = TextOverflow.Ellipsis,
+                                            )
+                                            val meta = listOfNotNull(
+                                                course.matkul.code.takeIf { it.isNotBlank() },
+                                                course.pj?.name?.let { "PJ $it" },
+                                            ).joinToString(" · ")
+                                            if (meta.isNotBlank()) {
+                                                Text(meta, style = sansStyle(11, 500, 1.3f, color = Muted))
+                                            }
+                                            Spacer(Modifier.height(8.dp))
                                             Box(
                                                 Modifier
-                                                    .fillMaxWidth((sum.toFloat() / maxSum).coerceIn(0.02f, 1f))
+                                                    .fillMaxWidth()
                                                     .height(6.dp)
                                                     .clip(CircleShape)
-                                                    .background(Brand500),
-                                            )
+                                                    .background(Paper2),
+                                            ) {
+                                                Box(
+                                                    Modifier
+                                                        .fillMaxWidth((course.totalPoints.toFloat() / maxSum).coerceIn(0.02f, 1f))
+                                                        .height(6.dp)
+                                                        .clip(CircleShape)
+                                                        .background(Brand500),
+                                                )
+                                            }
                                         }
+                                        Column(horizontalAlignment = Alignment.End) {
+                                            Text("${course.totalPoints}", style = displayStyle(24, 800, 1f))
+                                            Text("${course.history.size} entri", style = sansStyle(11, 400, 1.3f, color = Muted))
+                                        }
+                                        val rotation by animateFloatAsState(if (isOpen) 180f else 0f, tween(200), label = "chevron")
+                                        LucideIcon(
+                                            KarsaIcons.ChevronDown,
+                                            modifier = Modifier.size(20.dp).graphicsLayer { rotationZ = rotation },
+                                            tint = Muted,
+                                        )
                                     }
-                                    Column(horizontalAlignment = Alignment.End) {
-                                        Text("$sum", style = displayStyle(24, 800, 1f))
-                                        Text("${entries.size} entri", style = sansStyle(11, 400, 1.3f, color = Muted))
-                                    }
-                                    val rotation by animateFloatAsState(if (isOpen) 180f else 0f, tween(200), label = "chevron")
-                                    LucideIcon(
-                                        KarsaIcons.ChevronDown,
-                                        modifier = Modifier.size(20.dp).graphicsLayer { rotationZ = rotation },
-                                        tint = Muted,
-                                    )
-                                }
-                                if (isOpen) {
-                                    Column(Modifier.fillMaxWidth().background(Paper.copy(alpha = 0.6f))) {
-                                        Box(Modifier.fillMaxWidth().height(1.dp).background(Line))
-                                        entries.forEach { entry -> ReportEntryRow(entry) }
+                                    if (isOpen) {
+                                        Column(Modifier.fillMaxWidth().background(Paper.copy(alpha = 0.6f))) {
+                                            Box(Modifier.fillMaxWidth().height(1.dp).background(Line))
+                                            course.history.forEach { entry -> ReportEntryRow(entry) }
+                                        }
                                     }
                                 }
                             }
@@ -769,22 +828,22 @@ private fun ReportView() {
 }
 
 @Composable
-private fun ReportEntryRow(entry: MyEntry) {
+private fun ReportEntryRow(entry: ReportPointDto) {
     Row(
         modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 14.dp),
         horizontalArrangement = Arrangement.spacedBy(12.dp),
         verticalAlignment = Alignment.Top,
     ) {
-        PointBadge(entry.points)
+        PointBadge(entry.poin)
         Column(Modifier.weight(1f)) {
-            Text(categoryLabel(entry.categoryId), style = sansStyle(14, 600, 1.375f))
+            Text(entry.categoryName, style = sansStyle(14, 600, 1.375f))
             Text(
                 "${fmtDate(entry.ts)} · ${fmtTime(entry.ts)}",
                 style = sansStyle(12, 400, 1.4f, color = Muted),
             )
-            if (entry.note != null) {
+            if (entry.catatan != null) {
                 Text(
-                    "“${entry.note}”",
+                    "“${entry.catatan}”",
                     modifier = Modifier.padding(top = 6.dp),
                     style = sansStyle(13, 400, 1.625f, color = Ink2),
                 )
@@ -807,12 +866,26 @@ private fun Pill(text: String) {
 
 @Composable
 fun RankingView(dock: Boolean = false) {
-    val load = rememberLoad(delayMillis = 600)
-    var filter by remember { mutableStateOf("all") }
+    val pts = LocalApp.current.points
     var flash by remember { mutableStateOf(false) }
     val scope = rememberCoroutineScope()
-    val rows = rankingFor(filter)
+
+    LaunchedEffect(Unit) { pts.loadLeaderboardOptions() }
+
+    val options = pts.leaderboardOptions
+    val selected = pts.leaderboardCourse
+    val apiRows = pts.leaderboardRows
+    val rows = apiRows.map { row ->
+        RankRow(
+            id = row.nim ?: row.nama,
+            name = row.nama,
+            nim = row.nim.orEmpty(),
+            total = row.totalPoin,
+            me = row.isCurrentUser,
+        )
+    }
     val myIdx = rows.indexOfFirst { it.me }
+    val myRank = apiRows.firstOrNull { it.isCurrentUser }?.rank ?: (myIdx + 1)
     val top3 = rows.take(3)
     val rest = rows.drop(3)
 
@@ -825,20 +898,28 @@ fun RankingView(dock: Boolean = false) {
     }
 
     Column {
-        Row(
-            modifier = Modifier.horizontalScroll(rememberScrollState()),
-            horizontalArrangement = Arrangement.spacedBy(8.dp),
-        ) {
-            Chip("Semua matkul", selected = filter == "all", onClick = { filter = "all" })
-            RANK_COURSES.forEach { id ->
-                Chip(courseById(id).name, selected = filter == id, onClick = { filter = id })
+        if (options.isNotEmpty()) {
+            Row(
+                modifier = Modifier.horizontalScroll(rememberScrollState()),
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+            ) {
+                options.forEach { option ->
+                    Chip(
+                        option.name,
+                        selected = selected == option.id,
+                        onClick = { pts.selectLeaderboard(option.id) },
+                    )
+                }
             }
+            Spacer(Modifier.height(20.dp))
         }
-        Spacer(Modifier.height(20.dp))
 
         Gate(
-            status = load.status,
-            onRetry = load.retry,
+            status = pts.leaderboardStatus,
+            onRetry = {
+                val current = selected
+                if (current != null) pts.loadLeaderboard(current) else pts.loadLeaderboardOptions()
+            },
             skeleton = {
                 Column(verticalArrangement = Arrangement.spacedBy(16.dp)) {
                     Skeleton(Modifier.fillMaxWidth().height(256.dp), RoundedCornerShape(32.dp))
@@ -846,98 +927,107 @@ fun RankingView(dock: Boolean = false) {
                 }
             },
         ) {
-            if (rows.isEmpty()) {
-                KarsaCard {
+            when {
+                options.isEmpty() -> KarsaCard {
                     EmptyState(
-                        title = "Peringkat belum tersedia",
-                        desc = "Peringkat muncul setelah poin keaktifan kelas tercatat.",
+                        title = "Belum ada mata kuliah",
+                        desc = "Peringkat akan tersedia setelah mata kuliah ditambahkan ke kelasmu.",
                         icon = { LucideIcon(KarsaIcons.Users, modifier = Modifier.size(36.dp), tint = Brand600) },
                     )
                 }
-            } else {
-                Rise {
-                    Column(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .cardShadow(RoundedCornerShape(32.dp))
-                            .clip(RoundedCornerShape(32.dp))
-                            .background(Color.White)
-                            .padding(start = 16.dp, end = 16.dp, top = 32.dp),
-                    ) {
-                        Box(Modifier.fillMaxWidth()) {
-                            KawungPattern(Modifier.matchParentSize(), color = Ink, alpha = 0.07f)
-                            Row(Modifier.fillMaxWidth().height(230.dp), verticalAlignment = Alignment.Bottom) {
-                                PodiumCell(row = top3.getOrNull(1), rank = 2, height = 96.dp, barColor = Espresso, barText = Color.White, avatarSize = 52.dp, flash = flash)
-                                PodiumCell(row = top3.getOrNull(0), rank = 1, height = 128.dp, barColor = Brand500, barText = Color.White, avatarSize = 62.dp, flash = flash)
-                                PodiumCell(row = top3.getOrNull(2), rank = 3, height = 72.dp, barColor = Butter100, barText = Butter700, avatarSize = 52.dp, flash = flash)
-                            }
-                        }
-                    }
+                rows.isEmpty() -> KarsaCard {
+                    EmptyState(
+                        title = "Peringkat belum tersedia",
+                        desc = "Belum ada data partisipasi untuk mata kuliah ini.",
+                        icon = { LucideIcon(KarsaIcons.Users, modifier = Modifier.size(36.dp), tint = Brand600) },
+                    )
                 }
-
-                Spacer(Modifier.height(28.dp))
-                Text("Peringkat lainnya", modifier = Modifier.padding(horizontal = 4.dp), style = displayStyle(18, 700))
-                Spacer(Modifier.height(12.dp))
-                Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                    rest.forEachIndexed { index, row ->
-                        val scale by animateFloatAsState(
-                            if (row.me && flash) 1.03f else 1f,
-                            tween(250),
-                            label = "flashScale",
-                        )
-                        val shape = RoundedCornerShape(22.dp)
-                        Row(
+                else -> {
+                    Rise {
+                        Column(
                             modifier = Modifier
                                 .fillMaxWidth()
-                                .graphicsLayer { scaleX = scale; scaleY = scale }
-                                .clip(shape)
-                                .background(if (row.me && flash) Brand50 else Color.White)
-                                .border(
-                                    if (row.me) 2.dp else 1.dp,
-                                    if (row.me) Brand500 else Ink.copy(alpha = 0.05f),
-                                    shape,
-                                )
-                                .padding(start = 12.dp, end = 16.dp, top = 12.dp, bottom = 12.dp),
-                            horizontalArrangement = Arrangement.spacedBy(12.dp),
-                            verticalAlignment = Alignment.CenterVertically,
+                                .cardShadow(RoundedCornerShape(32.dp))
+                                .clip(RoundedCornerShape(32.dp))
+                                .background(Color.White)
+                                .padding(start = 16.dp, end = 16.dp, top = 32.dp),
                         ) {
-                            Text(
-                                "${index + 4}",
-                                modifier = Modifier.width(32.dp),
-                                style = displayStyle(18, 800, 1f, color = Muted),
-                                textAlign = androidx.compose.ui.text.style.TextAlign.Center,
-                            )
-                            Avatar(name = row.name, size = 40.dp)
-                            Column(Modifier.weight(1f)) {
-                                Row(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
-                                    Text(
-                                        row.name,
-                                        style = sansStyle(14, 700, 1.3f),
-                                        maxLines = 1,
-                                        overflow = TextOverflow.Ellipsis,
-                                        modifier = Modifier.weight(1f, fill = false),
-                                    )
-                                    if (row.me) Badge("KAMU", tone = BadgeTone.Solid)
+                            Box(Modifier.fillMaxWidth()) {
+                                KawungPattern(Modifier.matchParentSize(), color = Ink, alpha = 0.07f)
+                                Row(Modifier.fillMaxWidth().height(230.dp), verticalAlignment = Alignment.Bottom) {
+                                    PodiumCell(row = top3.getOrNull(1), rank = 2, height = 96.dp, barColor = Espresso, barText = Color.White, avatarSize = 52.dp, flash = flash)
+                                    PodiumCell(row = top3.getOrNull(0), rank = 1, height = 128.dp, barColor = Brand500, barText = Color.White, avatarSize = 62.dp, flash = flash)
+                                    PodiumCell(row = top3.getOrNull(2), rank = 3, height = 72.dp, barColor = Butter100, barText = Butter700, avatarSize = 52.dp, flash = flash)
                                 }
-                                Text(
-                                    if (row.me) row.nim else maskNim(row.nim),
-                                    style = sansStyle(12, 400, 1.4f, color = Muted),
-                                )
                             }
-                            Text("${row.total}", style = displayStyle(20, 800, 1f))
                         }
                     }
-                }
 
-                Spacer(Modifier.height(20.dp))
-                Box(Modifier.fillMaxWidth(), contentAlignment = Alignment.Center) {
-                    KarsaButton(
-                        text = "Lihat posisiku · #${myIdx + 1}",
-                        onClick = ::findMe,
-                        variant = ButtonVariant.Dark,
-                        size = ButtonSize.Lg,
-                        leading = { LucideIcon(KarsaIcons.ScanSearch, modifier = Modifier.size(20.dp), tint = Color.White) },
-                    )
+                    Spacer(Modifier.height(28.dp))
+                    Text("Peringkat lainnya", modifier = Modifier.padding(horizontal = 4.dp), style = displayStyle(18, 700))
+                    Spacer(Modifier.height(12.dp))
+                    Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                        rest.forEachIndexed { index, row ->
+                            val scale by animateFloatAsState(
+                                if (row.me && flash) 1.03f else 1f,
+                                tween(250),
+                                label = "flashScale",
+                            )
+                            val shape = RoundedCornerShape(22.dp)
+                            val rankNumber = apiRows.getOrNull(index + 3)?.rank ?: (index + 4)
+                            Row(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .graphicsLayer { scaleX = scale; scaleY = scale }
+                                    .clip(shape)
+                                    .background(if (row.me && flash) Brand50 else Color.White)
+                                    .border(
+                                        if (row.me) 2.dp else 1.dp,
+                                        if (row.me) Brand500 else Ink.copy(alpha = 0.05f),
+                                        shape,
+                                    )
+                                    .padding(start = 12.dp, end = 16.dp, top = 12.dp, bottom = 12.dp),
+                                horizontalArrangement = Arrangement.spacedBy(12.dp),
+                                verticalAlignment = Alignment.CenterVertically,
+                            ) {
+                                Text(
+                                    "$rankNumber",
+                                    modifier = Modifier.width(32.dp),
+                                    style = displayStyle(18, 800, 1f, color = Muted),
+                                    textAlign = androidx.compose.ui.text.style.TextAlign.Center,
+                                )
+                                Avatar(name = row.name, size = 40.dp)
+                                Column(Modifier.weight(1f)) {
+                                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
+                                        Text(
+                                            row.name,
+                                            style = sansStyle(14, 700, 1.3f),
+                                            maxLines = 1,
+                                            overflow = TextOverflow.Ellipsis,
+                                            modifier = Modifier.weight(1f, fill = false),
+                                        )
+                                        if (row.me) Badge("KAMU", tone = BadgeTone.Solid)
+                                    }
+                                    Text(
+                                        (if (row.me) row.nim else maskNim(row.nim)).ifBlank { "NIM belum ada" },
+                                        style = sansStyle(12, 400, 1.4f, color = Muted),
+                                    )
+                                }
+                                Text("${row.total}", style = displayStyle(20, 800, 1f))
+                            }
+                        }
+                    }
+
+                    Spacer(Modifier.height(20.dp))
+                    Box(Modifier.fillMaxWidth(), contentAlignment = Alignment.Center) {
+                        KarsaButton(
+                            text = "Lihat posisiku · #$myRank",
+                            onClick = ::findMe,
+                            variant = ButtonVariant.Dark,
+                            size = ButtonSize.Lg,
+                            leading = { LucideIcon(KarsaIcons.ScanSearch, modifier = Modifier.size(20.dp), tint = Color.White) },
+                        )
+                    }
                 }
             }
         }
