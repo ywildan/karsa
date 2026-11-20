@@ -44,24 +44,13 @@ import kotlinx.coroutines.launch
 import ac.id.untidar.karsa.LocalApp
 import ac.id.untidar.karsa.Tab
 import ac.id.untidar.karsa.ToastTone
-import ac.id.untidar.karsa.data.COURSES
-import ac.id.untidar.karsa.data.ME
-import ac.id.untidar.karsa.data.MY_ENTRIES
-import ac.id.untidar.karsa.data.MyEntry
-import ac.id.untidar.karsa.data.PointEntry
-import ac.id.untidar.karsa.data.RANK_COURSES
 import ac.id.untidar.karsa.data.RankRow
-import ac.id.untidar.karsa.data.categoryLabel
-import ac.id.untidar.karsa.data.courseById
 import ac.id.untidar.karsa.data.dayKey
 import ac.id.untidar.karsa.data.dayLabel
 import ac.id.untidar.karsa.data.fmtDate
 import ac.id.untidar.karsa.data.fmtDayShort
 import ac.id.untidar.karsa.data.fmtTime
 import ac.id.untidar.karsa.data.maskNim
-import ac.id.untidar.karsa.data.myCourses
-import ac.id.untidar.karsa.data.rankingFor
-import ac.id.untidar.karsa.data.studentById
 import ac.id.untidar.karsa.icons.KarsaIcons
 import ac.id.untidar.karsa.icons.LucideIcon
 import ac.id.untidar.karsa.net.friendlyError
@@ -123,8 +112,6 @@ import ac.id.untidar.karsa.ui.TopBar
 import ac.id.untidar.karsa.ui.cardShadow
 import ac.id.untidar.karsa.ui.popShadow
 import ac.id.untidar.karsa.ui.rememberLoad
-
-private fun myTotal(list: List<MyEntry> = MY_ENTRIES): Int = list.sumOf { it.points }
 
 @Composable
 fun ActivityHub() {
@@ -666,7 +653,8 @@ private fun HistoryEntryCard(entry: PointHistoryDto, onMenu: () -> Unit) {
 
 @Composable
 private fun ReportView() {
-    val pts = LocalApp.current.points
+    val state = LocalApp.current
+    val pts = state.points
     var openId by remember { mutableStateOf<String?>(null) }
 
     LaunchedEffect(Unit) {
@@ -682,7 +670,7 @@ private fun ReportView() {
         report?.kelas?.name?.takeIf { it.isNotBlank() },
         report?.prodi?.name?.takeIf { it.isNotBlank() },
         report?.semester?.name?.takeIf { it.isNotBlank() }?.let { "Semester $it" },
-    ).joinToString(" · ").ifBlank { "${ME.kelas} · ${ME.prodi}" }
+    ).joinToString(" · ").ifBlank { state.academicLine }
 
     Column {
         when {
@@ -1120,7 +1108,7 @@ fun RankingScreen() {
         TopBar(
             onBack = { state.back() },
             title = "Partisipasi teratas",
-            subtitle = "${ME.kelas} · ${ME.prodi}",
+            subtitle = state.academicLine.takeIf { it.isNotBlank() },
         )
         Column(
             modifier = Modifier
@@ -1142,11 +1130,15 @@ fun PoinkuScreen() {
     val showReport = state.capabilities.viewReport
     val showLeaderboard = state.capabilities.viewLeaderboard
     var seg by remember { mutableStateOf(if (showReport) PoinkuTab.Laporan else PoinkuTab.Peringkat) }
+    LaunchedEffect(showReport, showLeaderboard) {
+        if (seg == PoinkuTab.Laporan && !showReport) seg = PoinkuTab.Peringkat
+        if (seg == PoinkuTab.Peringkat && !showLeaderboard) seg = PoinkuTab.Laporan
+    }
     Column(Modifier.fillMaxSize().background(Paper)) {
         PageHeader(
             title = if (seg == PoinkuTab.Laporan) "Poinku" else "Partisipasi teratas",
             eyebrow = { EyebrowText("Poin keaktifan") },
-            subtitle = if (seg == PoinkuTab.Laporan) "Rekap kontribusimu di kelas." else "${ME.kelas} · ${ME.prodi}",
+            subtitle = if (seg == PoinkuTab.Laporan) "Rekap kontribusimu di kelas." else state.academicLine.takeIf { it.isNotBlank() },
         )
         if (showReport && showLeaderboard) {
             Column(Modifier.padding(horizontal = 20.dp).padding(bottom = 16.dp)) {

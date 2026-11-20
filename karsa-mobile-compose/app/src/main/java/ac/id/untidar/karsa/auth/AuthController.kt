@@ -6,6 +6,7 @@ import android.net.Uri
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
+import ac.id.untidar.karsa.data.LEGAL_VERSION
 import ac.id.untidar.karsa.net.ApiClient
 import ac.id.untidar.karsa.net.ApiException
 import ac.id.untidar.karsa.net.AppUser
@@ -41,6 +42,8 @@ class AuthController(context: Context) {
     var error by mutableStateOf<String?>(null)
         private set
     var exchanging by mutableStateOf(false)
+        private set
+    var refreshing by mutableStateOf(false)
         private set
 
     val waitingForBrowser: Boolean
@@ -142,6 +145,19 @@ class AuthController(context: Context) {
         }
     }
 
+    suspend fun refreshUser(): String? {
+        if (state != SessionState.SignedIn || refreshing) return null
+        refreshing = true
+        return try {
+            user = api.me()
+            null
+        } catch (failure: Exception) {
+            friendlyError(failure)
+        } finally {
+            refreshing = false
+        }
+    }
+
     fun clearError() {
         error = null
     }
@@ -236,10 +252,6 @@ class AuthController(context: Context) {
         val digest = MessageDigest.getInstance("SHA-256")
             .digest(value.toByteArray(Charsets.US_ASCII))
         return Base64.getUrlEncoder().withoutPadding().encodeToString(digest)
-    }
-
-    private companion object {
-        const val LEGAL_VERSION = "1.1"
     }
 }
 

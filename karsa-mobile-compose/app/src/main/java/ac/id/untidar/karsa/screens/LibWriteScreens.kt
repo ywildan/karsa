@@ -62,7 +62,6 @@ import ac.id.untidar.karsa.ToastTone
 import ac.id.untidar.karsa.data.ArticleStatus
 import ac.id.untidar.karsa.data.FAKULTAS
 import ac.id.untidar.karsa.data.KELAS_OPTIONS
-import ac.id.untidar.karsa.data.ME
 import ac.id.untidar.karsa.data.relTime
 import ac.id.untidar.karsa.icons.KarsaIcons
 import ac.id.untidar.karsa.icons.LucideIcon

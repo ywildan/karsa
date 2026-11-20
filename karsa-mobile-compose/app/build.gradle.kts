@@ -21,7 +21,7 @@ android {
         minSdk = 26
         targetSdk = 35
         versionCode = (providers.gradleProperty("karsaVersionCode").orNull ?: "30000").toInt()
-        versionName = providers.gradleProperty("karsaVersionName").orNull ?: "3.0.0-slice1"
+        versionName = providers.gradleProperty("karsaVersionName").orNull ?: "3.0.0"
 
         val apiBaseUrl = System.getenv("KARSA_API_BASE_URL") ?: "https://www.sikarsa.id"
         buildConfigField("String", "API_BASE_URL", "\"$apiBaseUrl\"")

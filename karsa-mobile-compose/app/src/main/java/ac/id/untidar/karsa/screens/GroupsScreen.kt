@@ -58,13 +58,11 @@ import ac.id.untidar.karsa.data.Course
 import ac.id.untidar.karsa.data.Msg
 import ac.id.untidar.karsa.data.UNREAD
 import ac.id.untidar.karsa.data.chatStamp
-import ac.id.untidar.karsa.data.courseById
 import ac.id.untidar.karsa.data.dayKey
 import ac.id.untidar.karsa.data.dayLabel
 import ac.id.untidar.karsa.data.fmtTime
 import ac.id.untidar.karsa.data.isPjOf
 import ac.id.untidar.karsa.data.pjLabel
-import ac.id.untidar.karsa.data.studentById
 import ac.id.untidar.karsa.groups.GroupRoom
 import ac.id.untidar.karsa.icons.KarsaIcons
 import ac.id.untidar.karsa.net.friendlyError
@@ -124,7 +122,7 @@ private fun senderName(msg: Msg, course: Course, role: Role): String = when {
     msg.from == "me" -> "Kamu"
     msg.authorName.isNotBlank() -> msg.authorName
     msg.from == "pj" -> if (isPjOf(course, role)) "Kamu" else course.pjOther
-    else -> studentById(msg.from).name
+    else -> "Anggota"
 }
 
 private fun isMine(msg: Msg, course: Course, role: Role): Boolean =

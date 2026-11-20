@@ -45,15 +45,7 @@ import kotlinx.coroutines.launch
 import ac.id.untidar.karsa.LocalApp
 import ac.id.untidar.karsa.Route
 import ac.id.untidar.karsa.ToastTone
-import ac.id.untidar.karsa.data.CATEGORIES
 import ac.id.untidar.karsa.data.POINT_LABELS
-import ac.id.untidar.karsa.data.Student
-import ac.id.untidar.karsa.data.SearchResult
-import ac.id.untidar.karsa.data.courseById
-import ac.id.untidar.karsa.data.maskNim
-import ac.id.untidar.karsa.data.myCourses
-import ac.id.untidar.karsa.data.searchStudents
-import ac.id.untidar.karsa.data.studentById
 import ac.id.untidar.karsa.icons.KarsaIcons
 import ac.id.untidar.karsa.icons.LucideIcon
 import ac.id.untidar.karsa.net.friendlyError

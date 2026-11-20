@@ -1,20 +1,9 @@
 package ac.id.untidar.karsa
 
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import androidx.compose.runtime.staticCompositionLocalOf
-import ac.id.untidar.karsa.data.Article
-import ac.id.untidar.karsa.data.ArticleStatus
-import ac.id.untidar.karsa.data.Comment
-import ac.id.untidar.karsa.data.ME
-import ac.id.untidar.karsa.data.Msg
-import ac.id.untidar.karsa.data.PointEntry
-import ac.id.untidar.karsa.data.SEED_ARTICLES
-import ac.id.untidar.karsa.data.SEED_CHATS
-import ac.id.untidar.karsa.data.SEED_COMMENTS
-import ac.id.untidar.karsa.data.SEED_ENTRIES
 import ac.id.untidar.karsa.auth.AuthController
 import ac.id.untidar.karsa.auth.SessionState
 import ac.id.untidar.karsa.groups.GroupController
@@ -69,8 +58,6 @@ data class AuthorProfile(
     val kelas: String,
 )
 
-data class AuditItem(val id: String, val ts: Long, val text: String)
-
 sealed interface Route {
     data class Article(val id: String) : Route
     data class Chat(val id: String) : Route
@@ -112,25 +99,19 @@ class KarsaState(val auth: AuthController) {
         get() = auth.user?.email.orEmpty()
     val nim: String
         get() = auth.user?.nim?.takeIf { it.isNotBlank() } ?: "NIM belum tersedia"
+    val academicLine: String
+        get() {
+            val kelas = lib.className.takeIf { it.isNotBlank() }
+                ?: points.report?.kelas?.name?.takeIf { it.isNotBlank() }
+            val prodi = lib.programName.takeIf { it.isNotBlank() }
+                ?: points.report?.prodi?.name?.takeIf { it.isNotBlank() }
+            return listOfNotNull(kelas, prodi).joinToString(" · ")
+        }
     var stack by mutableStateOf<List<Route>>(emptyList())
         private set
     var toast by mutableStateOf<ToastData?>(null)
         private set
-    var epoch by mutableIntStateOf(0)
-        private set
 
-    var entries by mutableStateOf(SEED_ENTRIES)
-        private set
-    var audit by mutableStateOf<List<AuditItem>>(emptyList())
-        private set
-    var chats by mutableStateOf(SEED_CHATS)
-        private set
-    var blocked by mutableStateOf<List<String>>(emptyList())
-        private set
-    var articles by mutableStateOf(SEED_ARTICLES)
-        private set
-    var comments by mutableStateOf(SEED_COMMENTS)
-        private set
     val authorStatus: AuthorStatus
         get() = when {
             lib.canWrite -> AuthorStatus.Approved
@@ -144,9 +125,6 @@ class KarsaState(val auth: AuthController) {
             prodi = lib.programName,
             kelas = lib.className,
         )
-
-    private var uid = 100
-    private fun nextId(prefix: String): String = prefix + (++uid)
 
     fun goPhase(next: Phase) {
         phase = next
@@ -183,7 +161,6 @@ class KarsaState(val auth: AuthController) {
         if (phase == Phase.App) return
         tab = tabs.firstOrNull() ?: Tab.Akun
         stack = emptyList()
-        epoch += 1
         toast = null
         phase = Phase.App
         val firstName = profile.name?.trim()?.split(" ")?.firstOrNull()?.takeIf { it.isNotEmpty() }
@@ -195,7 +172,6 @@ class KarsaState(val auth: AuthController) {
         tab = Tab.Lib
         stack = emptyList()
         toast = null
-        epoch += 1
         lib.reset()
         groups.reset()
         points.reset()
@@ -207,13 +183,35 @@ class KarsaState(val auth: AuthController) {
         tab = next
     }
 
+    fun ensureTab() {
+        if (phase != Phase.App) return
+        stack = stack.filter { canOpen(it) }
+        if (tab !in tabs) {
+            tab = tabs.firstOrNull() ?: Tab.Akun
+            stack = emptyList()
+        }
+    }
+
     fun canGoBack(): Boolean = stack.isNotEmpty() || tab != (tabs.firstOrNull() ?: tab)
 
+    fun canOpen(route: Route): Boolean = when (route) {
+        is Route.Article, is Route.AuthorProfile, Route.Author -> capabilities.viewKarsaLib
+        is Route.Editor, Route.MyPosts, Route.Import -> capabilities.writeKarsaLib
+        is Route.Chat -> hasClass
+        is Route.GroupReports -> groups.rooms.any { it.dto.id == route.id && it.dto.isManager }
+        Route.History -> capabilities.recordPoints
+        Route.Report -> capabilities.viewReport || capabilities.recordPoints
+        Route.Ranking -> capabilities.viewLeaderboard || capabilities.recordPoints
+        is Route.Legal -> true
+    }
+
     fun go(route: Route) {
+        if (!canOpen(route)) return
         stack = stack + route
     }
 
     fun replace(route: Route) {
+        if (!canOpen(route)) return
         stack = stack.dropLast(1) + route
     }
 
@@ -247,93 +245,6 @@ class KarsaState(val auth: AuthController) {
     fun logout() {
         endSession()
         auth.signOut()
-    }
-
-    /* Poin */
-
-    fun addEntry(studentId: String, points: Int, categoryId: String, courseId: String, note: String?) {
-        entries = listOf(
-            PointEntry(
-                id = nextId("e"),
-                ts = System.currentTimeMillis(),
-                studentId = studentId,
-                points = points,
-                categoryId = categoryId,
-                courseId = courseId,
-                note = note,
-            ),
-        ) + entries
-    }
-
-    fun deleteEntry(id: String) {
-        val target = entries.firstOrNull { it.id == id }
-        if (target != null) {
-            audit = listOf(
-                AuditItem(nextId("au"), System.currentTimeMillis(), "Hapus entri +${target.points} (${target.categoryId})"),
-            ) + audit
-        }
-        entries = entries.filterNot { it.id == id }
-    }
-
-    /* Chat */
-
-    private fun patchMsg(courseId: String, id: String, transform: (Msg) -> Msg) {
-        val list = chats[courseId] ?: return
-        chats = chats + (courseId to list.map { if (it.id == id) transform(it) else it })
-    }
-
-    fun sendMsg(courseId: String, text: String) {
-        val list = chats[courseId].orEmpty()
-        chats = chats + (courseId to (list + Msg(nextId("msg"), "me", text, System.currentTimeMillis())))
-    }
-
-    fun editMsg(courseId: String, id: String, text: String) = patchMsg(courseId, id) { it.copy(text = text, edited = true) }
-
-    fun deleteMsg(courseId: String, id: String) = patchMsg(courseId, id) { it.copy(deleted = true, text = "", pinned = false) }
-
-    fun hideMsg(courseId: String, id: String, hidden: Boolean) = patchMsg(courseId, id) { it.copy(hidden = hidden) }
-
-    fun pinMsg(courseId: String, id: String) = patchMsg(courseId, id) { it.copy(pinned = !it.pinned) }
-
-    fun blockUser(id: String) {
-        if (id !in blocked) blocked = blocked + id
-    }
-
-    /* Karsa Lib */
-
-    fun saveArticle(id: String?, title: String, body: String, status: ArticleStatus): String {
-        val targetId = id ?: nextId("a")
-        val existing = articles.firstOrNull { it.id == targetId }
-        val base = Article(
-            id = targetId,
-            title = title.ifBlank { "Tanpa judul" },
-            body = body,
-            author = authorProfile.nama,
-            prodi = authorProfile.prodi,
-            ts = System.currentTimeMillis(),
-            readers = existing?.readers ?: 0,
-            tag = authorProfile.prodi,
-            mine = true,
-            status = status,
-        )
-        articles = if (existing != null) {
-            articles.map { if (it.id == targetId) base else it }
-        } else {
-            listOf(base) + articles
-        }
-        return targetId
-    }
-
-    fun addComment(articleId: String, text: String, parentId: String?) {
-        comments = comments + Comment(
-            id = nextId("k"),
-            articleId = articleId,
-            parentId = parentId,
-            author = ME.name,
-            ts = System.currentTimeMillis(),
-            text = text,
-            mine = true,
-        )
     }
 }
 

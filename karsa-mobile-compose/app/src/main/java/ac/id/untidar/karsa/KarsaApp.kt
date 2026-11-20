@@ -39,6 +39,7 @@ fun KarsaApp() {
 
     LaunchedEffect(Unit) { auth.initialize() }
     LaunchedEffect(auth.state) { state.syncAuth() }
+    LaunchedEffect(auth.user) { state.ensureTab() }
 
     CompositionLocalProvider(LocalApp provides state) {
         SideEffect {

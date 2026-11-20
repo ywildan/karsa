@@ -522,27 +522,115 @@ val KELAS_OPTIONS: List<String> = listOf("SI-4A", "SI-4B", "SI-4C")
 
 /* ───────────── Dokumen hukum ───────────── */
 
-data class LegalSection(val h: String, val p: String)
-data class LegalDocument(val title: String, val updated: String, val sections: List<LegalSection>)
+const val LEGAL_VERSION = "1.1"
+const val LEGAL_EFFECTIVE = "6 Oktober 2026"
+const val LEGAL_CONTACT = "admin@sikarsa.id"
+
+data class LegalSection(val h: String, val p: List<String>)
+
+data class LegalDocument(
+    val title: String,
+    val summary: String,
+    val version: String,
+    val effective: String,
+    val sections: List<LegalSection>,
+)
 
 val LEGAL_TERMS = LegalDocument(
     title = "Syarat Penggunaan",
-    updated = "Diperbarui 2 Januari 2026",
+    summary = "Aturan sederhana agar pencatatan poin, percakapan kelas, dan berbagi pengetahuan di Karsa tetap dapat dipercaya.",
+    version = LEGAL_VERSION,
+    effective = LEGAL_EFFECTIVE,
     sections = listOf(
-        LegalSection("1. Penggunaan akun", "SiKarsa hanya untuk civitas akademika. Kamu bertanggung jawab atas aktivitas yang dilakukan melalui akunmu dan tidak boleh membagikan akses kepada orang lain."),
-        LegalSection("2. Pencatatan poin keaktifan", "PJ kelas mencatat poin berdasarkan kontribusi nyata di kelas. Setiap perubahan atau penghapusan entri tercatat di audit log dan dapat ditinjau oleh dosen pengampu."),
-        LegalSection("3. Konten Karsa Lib dan grup", "Tulisan dan pesan harus menghormati sesama, bebas dari plagiarisme, ujaran kebencian, dan spam. Konten yang dilaporkan dapat disembunyikan atau dihapus oleh pengelola."),
-        LegalSection("4. Sanksi", "Pelanggaran dapat berakibat pembatasan akses menulis, pemblokiran dari grup, hingga pelaporan ke pihak program studi."),
+        LegalSection(
+            "1. Tentang Karsa dan akun",
+            listOf(
+                "Karsa adalah layanan pendukung kegiatan mahasiswa yang menyediakan pencatatan poin keaktifan, laporan, peringkat, grup kelas, dan Karsa Lib. Informasi di Karsa bukan pengganti dokumen akademik resmi universitas.",
+                "Untuk masuk ke aplikasi mobile, gunakan akun Google mahasiswa UNTIDAR milikmu sendiri dengan alamat @students.untidar.ac.id. Akses ke fitur tertentu bergantung pada data kelas, penugasan PJ, program studi, dan izin penulis yang tercatat di sistem. Jangan meminjamkan akun atau mencoba memakai identitas orang lain.",
+            ),
+        ),
+        LegalSection(
+            "2. Poin, laporan, dan grup kelas",
+            listOf(
+                "PJ mata kuliah hanya boleh mencatat poin berdasarkan kegiatan yang benar-benar terjadi untuk kelas dan mata kuliah yang ditugaskan. Dilarang membuat catatan palsu, menggandakan poin, atau memanipulasi laporan dan peringkat.",
+                "Grup dipakai untuk komunikasi yang relevan dengan kelas. Jangan mengirim spam, ancaman, pelecehan, data pribadi orang lain tanpa izin, atau materi yang melanggar hak pihak lain. Pesan dapat dilaporkan dan ditinjau oleh pengelola. Beberapa tindakan pada grup, termasuk penguncian, penyematan, dan moderasi, tersedia sesuai peran pengguna.",
+            ),
+        ),
+        LegalSection(
+            "3. Karsa Lib dan konten pengguna",
+            listOf(
+                "Artikel Karsa Lib ditampilkan kepada pengguna dari program studi yang sama dengan penulis saat artikel diterbitkan. Pengguna yang memperoleh akses penulis dapat membuat draf, menerbitkan, memperbarui, dan mengarsipkan artikel teks. Akses penulis diberikan atau dicabut oleh admin setelah peninjauan.",
+                "Penulis bertanggung jawab atas keakuratan tulisan dan hak untuk membagikannya. Jangan memuat plagiarisme, ujaran kebencian, pelecehan, spam, atau informasi pribadi orang lain tanpa izin. Penulis tetap bertanggung jawab atas kontennya dan memberi Karsa izin untuk menyimpan serta menampilkannya selama konten tersedia di layanan.",
+                "Pembaca dapat berkomentar dan membalas komentar sesuai fitur yang tersedia. Komentar tidak dapat diedit, tetapi dapat dihapus oleh pemiliknya. Artikel atau komentar dapat dilaporkan; laporan ditinjau oleh admin sebelum tindakan moderasi. Mengarsipkan artikel menghentikan tampilnya artikel di beranda program studi.",
+                "Bila Teman baca AI tersedia, fitur ini membantu merangkum dan menjelaskan materi artikel. Jawaban AI dapat keliru dan tidak menjamin isi artikel benar. Periksa kembali artikel serta sumber belajar yang relevan. Pemakaian dibatasi dengan kuota harian; jangan mencoba mengakali pembatasan atau memasukkan data pribadi dan rahasia ke dalam pertanyaan.",
+            ),
+        ),
+        LegalSection(
+            "4. Moderasi dan pembatasan akses",
+            listOf(
+                "Pengelola dapat meninjau laporan, menghapus atau menyembunyikan konten yang melanggar ketentuan, mengarsipkan artikel, serta membatasi akses fitur ketika diperlukan untuk keamanan layanan. Kami berupaya menilai laporan secara wajar, tetapi keputusan moderasi dapat bergantung pada konteks yang tersedia.",
+                "Jika kamu menemukan kesalahan data atau keberatan atas tindakan moderasi, hubungi pengelola melalui alamat kontak di bawah halaman ini dengan penjelasan yang relevan.",
+            ),
+        ),
+        LegalSection(
+            "5. Ketersediaan dan perubahan layanan",
+            listOf(
+                "Karsa dapat mengalami gangguan jaringan, pemeliharaan, atau perubahan fitur. Data dan tampilan dapat berubah ketika ada pembetulan atau pengembangan layanan. Kami akan memperbarui dokumen ini bila aturan penggunaan berubah secara penting dan menampilkan tanggal berlakunya.",
+                "Informasi mengenai data yang diproses, pembagian akses, dan permintaan terkait data pribadi tersedia dalam Kebijakan Privasi.",
+            ),
+        ),
     ),
 )
 
 val LEGAL_PRIVACY = LegalDocument(
     title = "Kebijakan Privasi",
-    updated = "Diperbarui 2 Januari 2026",
+    summary = "Penjelasan tentang data yang digunakan Karsa untuk menjalankan fitur akademik, grup kelas, dan Karsa Lib.",
+    version = LEGAL_VERSION,
+    effective = LEGAL_EFFECTIVE,
     sections = listOf(
-        LegalSection("Data yang kami simpan", "Nama, email kampus, NIM, program studi, kelas, serta aktivitas yang kamu lakukan di dalam aplikasi seperti poin, tulisan, dan pesan grup."),
-        LegalSection("Penyamaran NIM", "NIM milik mahasiswa lain selalu ditampilkan sebagian (misalnya 23•••••061). NIM lengkap hanya terlihat oleh pemiliknya."),
-        LegalSection("Penggunaan data", "Data digunakan untuk rekap keaktifan akademik, peringkat partisipasi, serta personalisasi konten Karsa Lib di program studimu. Kami tidak menjual data kepada pihak ketiga."),
-        LegalSection("Hak kamu", "Kamu dapat meminta koreksi data lewat PJ kelas atau admin program studi, dan keluar dari aplikasi kapan saja."),
+        LegalSection(
+            "1. Data yang digunakan",
+            listOf(
+                "Saat kamu masuk dengan Google, Karsa menerima informasi akun yang diperlukan untuk login, seperti nama, alamat email, foto profil, dan pengenal akun Google. Sistem dapat menyimpan token autentikasi dan informasi sesi agar proses masuk berjalan. Karsa tidak meminta atau menyimpan kata sandi Google-mu.",
+                "Untuk fitur akademik, kami memproses NIM bila tersedia, kelas, program studi, semester, mata kuliah, penugasan PJ, kategori dan riwayat poin, laporan, serta peringkat. Untuk Karsa Lib, kami memproses nama tampilan, fakultas, program studi, kelas opsional, permohonan penulis, artikel, komentar, dan laporan konten.",
+                "Untuk grup kelas, kami menyimpan pesan, balasan, laporan, status blokir, penyematan, dan tindakan moderasi. Kami juga mencatat informasi teknis seperlunya, seperti waktu sesi, nama perangkat yang dikirim aplikasi, versi dokumen yang disetujui saat login, serta log aktivitas penting untuk keamanan dan audit.",
+                "Bila Teman baca AI artikel diaktifkan dan kamu menggunakannya, Karsa memproses isi artikel, pertanyaan, jawaban AI, rujukan paragraf, dan jumlah pemakaian harian. Percakapan dicatat untuk akun dan artikel terkait, tidak ditampilkan kepada pembaca lain. Ringkasan artikel dapat dipakai bersama oleh pembaca yang berhak mengakses artikel tersebut.",
+            ),
+        ),
+        LegalSection(
+            "2. Tujuan penggunaan",
+            listOf(
+                "Data dipakai untuk memverifikasi akun, memberi akses sesuai peran dan kelas/program studi, mencatat poin, menampilkan laporan dan peringkat, menyediakan percakapan grup, menjalankan Karsa Lib, menangani laporan, serta menjaga keamanan layanan.",
+                "Saat artikel dibuka, Karsa mencatat satu pembacaan untuk kombinasi akun dan artikel tersebut. Membuka artikel yang sama lagi tidak menambah jumlah pembacanya. Catatan ini digunakan untuk menampilkan jumlah pembaca artikel dan ringkasan profil penulis.",
+            ),
+        ),
+        LegalSection(
+            "3. Siapa yang dapat melihat data",
+            listOf(
+                "Pengguna hanya mendapat akses sesuai fitur dan perannya. Anggota kelas dapat melihat ruang grup kelas yang tersedia. Artikel terbit, nama penulis, komentar, dan jumlah pembaca ditampilkan kepada pengguna Karsa Lib dari program studi yang sama. Admin dapat mengakses data yang diperlukan untuk pengelolaan, peninjauan permohonan penulis, audit, dan moderasi laporan.",
+                "Karsa menggunakan penyedia layanan untuk autentikasi Google, hosting aplikasi, penyimpanan database, dan—bila diaktifkan—pengiriman email pemberitahuan laporan artikel kepada pengelola. Data tidak digunakan untuk menjual profil pengguna atau menayangkan iklan yang dipersonalisasi.",
+                "Saat kamu meminta ringkasan baru atau bertanya kepada Teman baca, isi artikel dan pertanyaan yang diperlukan, termasuk konteks percakapan terbaru, dikirim ke penyedia AI yang digunakan Karsa. Karsa tidak menambahkan nama akun, email, NIM, dan token login sebagai informasi akun dalam prompt. Jangan memasukkan data pribadi atau rahasia dalam pertanyaan. Pengolahan dan penyimpanan oleh penyedia AI mengikuti ketentuan penyedia yang digunakan.",
+            ),
+        ),
+        LegalSection(
+            "4. Penyimpanan, penghapusan, dan keamanan",
+            listOf(
+                "Data disimpan selama diperlukan untuk menyediakan layanan dan menyelesaikan kebutuhan keamanan, audit, atau administrasi akademik yang relevan. Artikel yang diarsipkan dan catatan laporan dapat tetap tersimpan agar riwayat moderasi dapat ditinjau. Ketika komentar dihapus, teks komentar tidak lagi ditampilkan, tetapi informasi penghapusan dan konteks balasan/laporan tertentu dapat tetap tersimpan.",
+                "Kami menggunakan kontrol akses berdasarkan peran, pemeriksaan di server, dan koneksi terenkripsi untuk membatasi akses yang tidak berwenang. Tidak ada sistem yang sepenuhnya bebas risiko; jangan membagikan akun Google atau perangkat yang masih dalam keadaan masuk.",
+            ),
+        ),
+        LegalSection(
+            "5. Permintaan terkait data dan akun",
+            listOf(
+                "Kamu dapat meminta informasi, koreksi, atau penghapusan akun dan data terkait dengan mengirim email ke admin@sikarsa.id. Sertakan alamat email akun Karsa dan jenis permintaan; pengelola dapat meminta verifikasi kepemilikan akun sebelum menindaklanjutinya.",
+                "Permintaan penghapusan ditinjau untuk menentukan data yang dapat dihapus dan data yang perlu dipertahankan karena alasan keamanan, audit, atau kewajiban yang berlaku. Pengelola akan menjelaskan tindak lanjut serta alasan bila ada data yang tidak dapat langsung dihapus. Jangan kirim kata sandi atau token login melalui email.",
+            ),
+        ),
+        LegalSection(
+            "6. Perubahan kebijakan",
+            listOf(
+                "Kebijakan ini akan diperbarui jika cara Karsa memproses data berubah secara penting. Versi dan tanggal berlaku ditampilkan di atas halaman. Untuk aturan penggunaan fitur, lihat Syarat Penggunaan.",
+            ),
+        ),
     ),
 )
