@@ -1,5 +1,9 @@
 package ac.id.untidar.karsa.screens
 
+import androidx.activity.compose.BackHandler
+import androidx.compose.animation.core.Animatable
+import androidx.compose.animation.core.CubicBezierEasing
+import androidx.compose.animation.core.tween
 import androidx.compose.foundation.LocalIndication
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -43,6 +47,7 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.drawBehind
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.SolidColor
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.platform.LocalClipboardManager
 import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.style.TextOverflow
@@ -353,6 +358,22 @@ fun ChatScreen(id: String) {
     val scope = rememberCoroutineScope()
     val clipboard = LocalClipboardManager.current
     val listState = rememberLazyListState()
+    val exit = remember { Animatable(0f) }
+    var closing by remember { mutableStateOf(false) }
+
+    fun close() {
+        if (closing) return
+        closing = true
+        scope.launch {
+            exit.animateTo(
+                targetValue = 1f,
+                animationSpec = tween(220, easing = CubicBezierEasing(0.4f, 0f, 0.2f, 1f)),
+            )
+            state.back()
+        }
+    }
+
+    BackHandler { close() }
 
     var text by remember { mutableStateOf("") }
     var editing by remember { mutableStateOf<Msg?>(null) }
@@ -400,8 +421,16 @@ fun ChatScreen(id: String) {
     }
 
     if (course == null) {
-        Column(Modifier.fillMaxSize().background(Paper)) {
-            TopBar(onBack = { state.back() }, title = "Grup kelas")
+        Column(
+            Modifier
+                .fillMaxSize()
+                .background(Paper)
+                .graphicsLayer {
+                    alpha = 1f - exit.value
+                    translationX = 32.dp.toPx() * exit.value
+                },
+        ) {
+            TopBar(onBack = ::close, title = "Grup kelas")
             Gate(
                 status = chat.status,
                 onRetry = { groups.loadInitial(id) },
@@ -481,9 +510,18 @@ fun ChatScreen(id: String) {
         }
     }
 
-    Column(Modifier.fillMaxSize().background(Paper).imePadding()) {
+    Column(
+        Modifier
+            .fillMaxSize()
+            .background(Paper)
+            .imePadding()
+            .graphicsLayer {
+                alpha = 1f - exit.value
+                translationX = 32.dp.toPx() * exit.value
+            },
+    ) {
         TopBar(
-            onBack = { state.back() },
+            onBack = ::close,
             leading = { Avatar(name = course.name, size = 40.dp, tone = course.tone, square = true) },
             title = course.name,
             subtitle = buildString {
