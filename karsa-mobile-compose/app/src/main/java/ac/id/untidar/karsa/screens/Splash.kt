@@ -61,6 +61,7 @@ import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.graphics.drawscope.rotate
 import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
@@ -68,6 +69,7 @@ import kotlinx.coroutines.delay
 import ac.id.untidar.karsa.LocalApp
 import ac.id.untidar.karsa.icons.KarsaIcons
 import ac.id.untidar.karsa.icons.LucideIcon
+import ac.id.untidar.karsa.theme.Brand50
 import ac.id.untidar.karsa.theme.Brand400
 import ac.id.untidar.karsa.theme.Brand500
 import ac.id.untidar.karsa.theme.Brand600
@@ -114,6 +116,13 @@ fun SplashScreen() {
         }
     }
 
+    val screenHeight = LocalConfiguration.current.screenHeightDp
+    val cardHeight = when {
+        screenHeight < 620 -> 190.dp
+        screenHeight < 720 -> 212.dp
+        else -> (screenHeight * 0.34f).dp.coerceAtMost(300.dp)
+    }
+
     Box(Modifier.fillMaxSize().background(Paper)) {
         Box(
             Modifier
@@ -127,8 +136,9 @@ fun SplashScreen() {
                 modifier = Modifier
                     .fillMaxSize()
                     .statusBarsPadding()
-                    .padding(top = 28.dp),
+                    .padding(horizontal = 20.dp),
                 horizontalAlignment = Alignment.CenterHorizontally,
+                verticalArrangement = Arrangement.Center,
             ) {
                 Box(contentAlignment = Alignment.Center) {
                     Box(Modifier.size(96.dp).border(3.dp, Color.White.copy(alpha = 0.35f), CircleShape))
@@ -162,7 +172,7 @@ fun SplashScreen() {
                 .navigationBarsPadding()
                 .padding(horizontal = 20.dp, vertical = 20.dp),
         ) {
-            Box(Modifier.fillMaxWidth().height(196.dp)) {
+            Box(Modifier.fillMaxWidth().height(cardHeight)) {
                 Box(
                     Modifier
                         .matchParentSize()
@@ -400,6 +410,7 @@ private fun BigCard(modifier: Modifier = Modifier, content: @Composable ColumnSc
 
 @Composable
 private fun InputPoinCard(modifier: Modifier = Modifier) = BigCard(modifier) {
+    val compact = LocalConfiguration.current.screenHeightDp < 720
     Column(Modifier.fillMaxSize().padding(16.dp)) {
         Row(Modifier.fillMaxWidth(), Arrangement.SpaceBetween, Alignment.CenterVertically) {
             Text("Input poin", style = displayStyle(17, 800, 1.1f))
@@ -418,6 +429,10 @@ private fun InputPoinCard(modifier: Modifier = Modifier) = BigCard(modifier) {
         StepRow("Mata kuliah", "Bahasa Indonesia · K1")
         Spacer(Modifier.height(10.dp))
         StepRow("Mahasiswa", "Rani Wulandari · NIM ••••1204")
+        if (!compact) {
+            Spacer(Modifier.height(10.dp))
+            StepRow("Kategori", "Bertanya · +4 poin")
+        }
         Spacer(Modifier.height(14.dp))
         Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
             (1..4).forEach { n ->
@@ -436,6 +451,24 @@ private fun InputPoinCard(modifier: Modifier = Modifier) = BigCard(modifier) {
                     )
                 }
             }
+        }
+        if (!compact) {
+            Spacer(Modifier.weight(1f))
+            Row(
+                Modifier
+                    .fillMaxWidth()
+                    .height(44.dp)
+                    .clip(RoundedCornerShape(16.dp))
+                    .background(Espresso)
+                    .padding(horizontal = 16.dp),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Text("Simpan poin", style = sansStyle(13, 700, 1.2f, color = Color.White))
+                Text("+4", style = displayStyle(15, 800, 1f, color = Butter400))
+            }
+        } else {
+            Spacer(Modifier.weight(1f))
         }
     }
 }
@@ -459,16 +492,39 @@ private fun StepRow(title: String, sub: String) {
 
 @Composable
 private fun PodiumCard(modifier: Modifier = Modifier) = BigCard(modifier) {
-    Box(Modifier.fillMaxSize().padding(16.dp)) {
+    val compact = LocalConfiguration.current.screenHeightDp < 720
+    val bar2 = if (compact) 50.dp else 64.dp
+    val bar1 = if (compact) 72.dp else 92.dp
+    val bar3 = if (compact) 32.dp else 46.dp
+    val avatar2 = if (compact) 34.dp else 36.dp
+    val avatar1 = if (compact) 42.dp else 44.dp
+    Column(Modifier.fillMaxSize().padding(16.dp)) {
         Text("Partisipasi teratas", style = displayStyle(17, 800, 1.1f))
+        Spacer(Modifier.weight(1f))
         Row(
-            Modifier.align(Alignment.BottomCenter),
-            horizontalArrangement = Arrangement.spacedBy(8.dp),
+            Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.Center,
             verticalAlignment = Alignment.Bottom,
         ) {
-            PodiumColumn("DA", "Dimas", 52.dp, Espresso, Color.White, Plum100, Plum600, "2", 64.dp, 36.dp, 20)
-            PodiumColumn("RW", "Rani", 76.dp, Brand500, Color.White, Butter100, Brand600, "1", 66.dp, 44.dp, 30, crown = true)
-            PodiumColumn("KM", "Kamu", 34.dp, Butter100, Butter700, Leaf100, Leaf500, "3", 64.dp, 36.dp, 20, ring = true)
+            PodiumColumn("DA", "Dimas", bar2, Espresso, Color.White, Plum100, Plum600, "2", 64.dp, avatar2, 20)
+            Spacer(Modifier.width(8.dp))
+            PodiumColumn("RW", "Rani", bar1, Brand500, Color.White, Butter100, Brand600, "1", 66.dp, avatar1, 30, crown = true)
+            Spacer(Modifier.width(8.dp))
+            PodiumColumn("KM", "Kamu", bar3, Butter100, Butter700, Leaf100, Leaf500, "3", 64.dp, avatar2, 20, ring = true)
+        }
+        if (!compact) {
+            Spacer(Modifier.height(12.dp))
+            Row(
+                Modifier
+                    .fillMaxWidth()
+                    .height(30.dp)
+                    .clip(RoundedCornerShape(15.dp))
+                    .background(Paper2),
+                horizontalArrangement = Arrangement.Center,
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Text("SI-4A · 24 mahasiswa · 3 PJ", style = sansStyle(10, 600, 1.2f, color = Ink.copy(alpha = 0.6f)))
+            }
         }
     }
 }
@@ -522,6 +578,7 @@ private fun PodiumColumn(
 
 @Composable
 private fun MateriCard(modifier: Modifier = Modifier) = BigCard(modifier) {
+    val compact = LocalConfiguration.current.screenHeightDp < 720
     Column(Modifier.fillMaxSize().padding(16.dp)) {
         Row(Modifier.fillMaxWidth(), Arrangement.SpaceBetween, Alignment.CenterVertically) {
             Text("Materi kelas", style = displayStyle(17, 800, 1.1f))
@@ -533,10 +590,27 @@ private fun MateriCard(modifier: Modifier = Modifier) = BigCard(modifier) {
         }
         Spacer(Modifier.height(14.dp))
         MateriRow("Bab 3 · Teks Eksposisi", "PDF", 1f)
-        Spacer(Modifier.height(12.dp))
+        Spacer(Modifier.height(10.dp))
         MateriRow("Bab 4 · Kalimat Efektif", "Slide", 0.7f)
-        Spacer(Modifier.height(12.dp))
+        Spacer(Modifier.height(10.dp))
         MateriRow("Bab 5 · Ejaan & Tanda Baca", "Video", 0.35f)
+        Spacer(Modifier.height(10.dp))
+        MateriRow("Bab 6 · Karya Ilmiah", "PDF", 0.2f)
+        if (!compact) {
+            Spacer(Modifier.weight(1f))
+            Box(
+                Modifier
+                    .fillMaxWidth()
+                    .height(34.dp)
+                    .clip(RoundedCornerShape(17.dp))
+                    .background(Butter100),
+                contentAlignment = Alignment.Center,
+            ) {
+                Text("Unduh semua materi", style = sansStyle(11, 700, 1.2f, color = Butter700))
+            }
+        } else {
+            Spacer(Modifier.weight(1f))
+        }
     }
 }
 
@@ -571,6 +645,7 @@ private fun MateriRow(title: String, tag: String, progress: Float) {
 
 @Composable
 private fun DiskusiCard(modifier: Modifier = Modifier) = BigCard(modifier) {
+    val compact = LocalConfiguration.current.screenHeightDp < 720
     Column(Modifier.fillMaxSize().padding(16.dp)) {
         Row(Modifier.fillMaxWidth(), Arrangement.SpaceBetween, Alignment.CenterVertically) {
             Text("Diskusi kelas", style = displayStyle(17, 800, 1.1f))
@@ -612,15 +687,57 @@ private fun DiskusiCard(modifier: Modifier = Modifier) = BigCard(modifier) {
                 Text("Fakta bisa dibuktikan", style = sansStyle(11, 600, 1.35f, color = Color.White))
             }
         }
-        Spacer(Modifier.height(8.dp))
+        if (!compact) {
+            Spacer(Modifier.height(8.dp))
+            Row(verticalAlignment = Alignment.Bottom) {
+                Box(
+                    Modifier.size(28.dp).background(Plum100, CircleShape),
+                    contentAlignment = Alignment.Center,
+                ) {
+                    Text("DA", style = sansStyle(9, 800, 1f, color = Plum600))
+                }
+                Spacer(Modifier.width(8.dp))
+                Box(
+                    Modifier
+                        .clip(RoundedCornerShape(16.dp))
+                        .background(Paper2)
+                        .padding(horizontal = 12.dp, vertical = 8.dp),
+                ) {
+                    Text("Baik, Bu. Saya catat.", style = sansStyle(11, 500, 1.35f))
+                }
+            }
+        }
+        Spacer(Modifier.height(10.dp))
         Box(Modifier.background(Butter100, CircleShape).padding(horizontal = 10.dp, vertical = 4.dp)) {
             Text("+5 poin diskusi", style = sansStyle(10, 700, 1.2f, color = Butter700))
+        }
+        if (!compact) {
+            Spacer(Modifier.weight(1f))
+            Row(
+                Modifier
+                    .fillMaxWidth()
+                    .height(38.dp)
+                    .clip(RoundedCornerShape(19.dp))
+                    .background(Paper2)
+                    .padding(horizontal = 14.dp),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Text("Tulis balasan…", style = sansStyle(11, 400, 1.2f, color = Muted))
+                Spacer(Modifier.weight(1f))
+                Box(Modifier.size(24.dp).background(Brand500, CircleShape), contentAlignment = Alignment.Center) {
+                    LucideIcon(KarsaIcons.Send, Modifier.size(12.dp), tint = Color.White, strokeWidth = 2.2f)
+                }
+            }
+        } else {
+            Spacer(Modifier.weight(1f))
         }
     }
 }
 
 @Composable
 private fun RekapCard(modifier: Modifier = Modifier) = BigCard(modifier) {
+    val compact = LocalConfiguration.current.screenHeightDp < 720
+    val chartHeight = if (compact) 70.dp else 100.dp
     Column(Modifier.fillMaxSize().padding(16.dp)) {
         Row(Modifier.fillMaxWidth(), Arrangement.SpaceBetween, Alignment.CenterVertically) {
             Text("Rekap poin", style = displayStyle(17, 800, 1.1f))
@@ -635,7 +752,7 @@ private fun RekapCard(modifier: Modifier = Modifier) = BigCard(modifier) {
                 Text("total poin keaktifan", style = sansStyle(10, 400, 1.3f, color = Ink.copy(alpha = 0.55f)))
             }
             Row(
-                Modifier.height(70.dp),
+                Modifier.height(chartHeight),
                 horizontalArrangement = Arrangement.spacedBy(6.dp),
                 verticalAlignment = Alignment.Bottom,
             ) {
@@ -644,12 +761,37 @@ private fun RekapCard(modifier: Modifier = Modifier) = BigCard(modifier) {
                     Box(
                         Modifier
                             .width(14.dp)
-                            .height((70f * value / 100f).dp)
+                            .height(chartHeight * (value / 100f))
                             .clip(RoundedCornerShape(topStart = 6.dp, topEnd = 6.dp))
                             .background(if (last) Brand500 else Butter100),
                     )
                 }
             }
+        }
+        Spacer(Modifier.height(14.dp))
+        Text("3 aktivitas terakhir", style = sansStyle(10, 700, 1.2f, color = Ink.copy(alpha = 0.6f)))
+        Spacer(Modifier.height(8.dp))
+        RekapRow("Bertanya", "+4", Brand50, Brand600)
+        if (!compact) {
+            Spacer(Modifier.height(6.dp))
+            RekapRow("Aktif diskusi", "+2", Butter100, Butter700)
+            Spacer(Modifier.height(6.dp))
+            RekapRow("Presentasi", "+3", Leaf100, Leaf500)
+        }
+        Spacer(Modifier.weight(1f))
+    }
+}
+
+@Composable
+private fun RekapRow(category: String, points: String, chipBg: Color, chipText: Color) {
+    Row(
+        Modifier.fillMaxWidth().height(24.dp),
+        horizontalArrangement = Arrangement.SpaceBetween,
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Text(category, style = sansStyle(10, 600, 1.2f, color = Ink.copy(alpha = 0.8f)))
+        Box(Modifier.background(chipBg, CircleShape).padding(horizontal = 8.dp, vertical = 2.dp)) {
+            Text(points, style = sansStyle(9, 800, 1.2f, color = chipText))
         }
     }
 }
