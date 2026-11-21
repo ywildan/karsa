@@ -1,5 +1,6 @@
 package ac.id.untidar.karsa.screens
 
+import android.content.Context
 import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.CubicBezierEasing
@@ -62,10 +63,12 @@ import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.graphics.drawscope.rotate
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.platform.LocalConfiguration
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import kotlinx.coroutines.delay
+import kotlin.random.Random
 import ac.id.untidar.karsa.LocalApp
 import ac.id.untidar.karsa.icons.KarsaIcons
 import ac.id.untidar.karsa.icons.LucideIcon
@@ -95,23 +98,46 @@ private data class SplashSlide(
     val card: @Composable (Modifier) -> Unit,
 )
 
+private const val SPLASH_PREFS = "karsa_splash"
+private const val SPLASH_LAST_FIRST = "last_first"
+
+private fun baseSplashSlides(): List<SplashSlide> = listOf(
+    SplashSlide("Input poin", "Catat kontribusi mahasiswa") { InputPoinCard(it) },
+    SplashSlide("Partisipasi teratas", "Podium & peringkat kelas") { PodiumCard(it) },
+    SplashSlide("Materi kelas", "Unggah & sinkron materi") { MateriCard(it) },
+    SplashSlide("Diskusi kelas", "Tanya jawab real-time") { DiskusiCard(it) },
+    SplashSlide("Rekap poin", "Ringkasan nilai keaktifan") { RekapCard(it) },
+)
+
+private fun shuffledSplashSlides(context: Context): List<SplashSlide> {
+    val prefs = context.getSharedPreferences(SPLASH_PREFS, Context.MODE_PRIVATE)
+    val lastFirst = prefs.getString(SPLASH_LAST_FIRST, null)
+    val order = baseSplashSlides().shuffled().toMutableList()
+    if (order.size > 1 && order.first().title == lastFirst) {
+        val swap = 1 + Random.nextInt(order.size - 1)
+        val first = order[0]
+        order[0] = order[swap]
+        order[swap] = first
+    }
+    return order
+}
+
 @Composable
 fun SplashScreen() {
     val state = LocalApp.current
     val progress = rememberSplashProgress(onDone = { state.finishSplash() })
-    val slides = remember {
-        listOf(
-            SplashSlide("Input poin", "Catat kontribusi mahasiswa") { InputPoinCard(it) },
-            SplashSlide("Partisipasi teratas", "Podium & peringkat kelas") { PodiumCard(it) },
-            SplashSlide("Materi kelas", "Unggah & sinkron materi") { MateriCard(it) },
-            SplashSlide("Diskusi kelas", "Tanya jawab real-time") { DiskusiCard(it) },
-            SplashSlide("Rekap poin", "Ringkasan nilai keaktifan") { RekapCard(it) },
-        )
+    val context = LocalContext.current
+    val slides = remember(context) { shuffledSplashSlides(context) }
+    LaunchedEffect(Unit) {
+        context.getSharedPreferences(SPLASH_PREFS, Context.MODE_PRIVATE)
+            .edit()
+            .putString(SPLASH_LAST_FIRST, slides.first().title)
+            .apply()
     }
     var active by remember { mutableIntStateOf(0) }
     LaunchedEffect(slides.size) {
         while (true) {
-            delay(2800)
+            delay(1800)
             active = (active + 1) % slides.size
         }
     }
@@ -225,8 +251,9 @@ fun SplashScreen() {
                 }
             }
 
-            Spacer(Modifier.weight(1f))
+            Spacer(Modifier.weight(0.6f))
             ShimmerProgress(progress)
+            Spacer(Modifier.weight(0.4f))
         }
     }
 }
