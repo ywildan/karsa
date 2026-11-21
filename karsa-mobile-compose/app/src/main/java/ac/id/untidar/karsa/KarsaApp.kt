@@ -55,7 +55,7 @@ fun KarsaApp() {
             val activity = view.context.findActivity() ?: return@SideEffect
             val controller = WindowCompat.getInsetsController(activity.window, activity.window.decorView)
             controller.isAppearanceLightStatusBars = state.phase != Phase.Splash
-            controller.isAppearanceLightNavigationBars = state.phase != Phase.Splash
+            controller.isAppearanceLightNavigationBars = true
         }
 
         val canGoBack = state.phase == Phase.App && state.canGoBack()
