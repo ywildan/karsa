@@ -251,9 +251,9 @@ fun SplashScreen() {
                 }
             }
 
-            Spacer(Modifier.weight(0.6f))
+            Spacer(Modifier.weight(0.75f))
             ShimmerProgress(progress)
-            Spacer(Modifier.weight(0.4f))
+            Spacer(Modifier.weight(0.25f))
         }
     }
 }

@@ -45,7 +45,6 @@ import kotlinx.coroutines.launch
 import ac.id.untidar.karsa.LocalApp
 import ac.id.untidar.karsa.Route
 import ac.id.untidar.karsa.ToastTone
-import ac.id.untidar.karsa.data.POINT_LABELS
 import ac.id.untidar.karsa.icons.KarsaIcons
 import ac.id.untidar.karsa.icons.LucideIcon
 import ac.id.untidar.karsa.net.friendlyError
@@ -605,22 +604,12 @@ fun InputPoin() {
                                                                 .clip(RoundedCornerShape(16.dp))
                                                                 .then(if (selected) Modifier.background(Brand500) else Modifier.background(Paper2))
                                                                 .clickable { pointValue = value }
-                                                                .padding(vertical = 12.dp),
+                                                                .padding(vertical = 14.dp),
                                                             horizontalAlignment = Alignment.CenterHorizontally,
                                                         ) {
                                                             Text(
                                                                 "$value",
                                                                 style = displayStyle(26, 800, 1f, color = if (selected) Color.White else Ink),
-                                                            )
-                                                            Spacer(Modifier.height(6.dp))
-                                                            Text(
-                                                                POINT_LABELS.getValue(value),
-                                                                style = sansStyle(
-                                                                    11,
-                                                                    600,
-                                                                    1.2f,
-                                                                    color = if (selected) Color.White.copy(alpha = 0.85f) else Muted,
-                                                                ),
                                                             )
                                                         }
                                                     }
