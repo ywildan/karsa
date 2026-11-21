@@ -168,17 +168,12 @@ fun SplashScreen() {
                 .navigationBarsPadding()
                 .padding(horizontal = 24.dp, vertical = 20.dp),
         ) {
-            Text(
-                "DI DALAM SIKARSA",
-                style = sansStyle(9, 700, 1.4f, 0.24f, Brand500),
-            )
+            Spacer(Modifier.weight(0.25f))
 
-            Spacer(Modifier.weight(0.8f))
-
-            Box(Modifier.fillMaxWidth().height(208.dp).padding(top = 6.dp)) {
+            Box(Modifier.fillMaxWidth().height(234.dp).padding(top = 6.dp)) {
                 slides.forEachIndexed { index, slide ->
                     val rel = (index - active + slides.size) % slides.size
-                    val scale by animateFloatAsState(1.42f - rel * 0.09f, tween(500), label = "slideScale")
+                    val scale by animateFloatAsState(1.6f - rel * 0.09f, tween(500), label = "slideScale")
                     val dy by animateDpAsState((rel * 16).dp, tween(500), label = "slideDy")
                     val alpha by animateFloatAsState(if (rel < 3) 1f - rel * 0.28f else 0f, tween(500), label = "slideAlpha")
                     slide.card(
