@@ -31,7 +31,6 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.navigationBarsPadding
-import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBarsPadding
@@ -124,27 +123,30 @@ fun SplashScreen() {
             .fillMaxSize()
             .background(Brush.verticalGradient(listOf(Brand400, Brand500, Brand600))),
     ) {
-        Box(
-            Modifier
-                .size(176.dp)
-                .align(Alignment.TopEnd)
-                .offset(x = 44.dp, y = (-44).dp)
-                .border(18.dp, Color.White.copy(alpha = 0.10f), CircleShape),
-        )
-        Box(
-            Modifier
-                .size(160.dp)
-                .align(Alignment.TopStart)
-                .offset(x = (-56).dp, y = 96.dp)
-                .border(14.dp, Color.White.copy(alpha = 0.09f), CircleShape),
-        )
+        Canvas(Modifier.matchParentSize()) {
+            drawCircle(
+                color = Color.White.copy(alpha = 0.10f),
+                radius = 88.dp.toPx(),
+                center = Offset(size.width - 44.dp.toPx(), 44.dp.toPx()),
+                style = Stroke(width = 18.dp.toPx()),
+            )
+            drawCircle(
+                color = Color.White.copy(alpha = 0.09f),
+                radius = 80.dp.toPx(),
+                center = Offset(24.dp.toPx(), 176.dp.toPx()),
+                style = Stroke(width = 14.dp.toPx()),
+            )
+        }
 
         Column(
             modifier = Modifier
                 .align(Alignment.TopCenter)
+                .fillMaxWidth()
+                .fillMaxHeight(0.38f)
                 .statusBarsPadding()
-                .padding(top = 16.dp),
+                .padding(top = 12.dp),
             horizontalAlignment = Alignment.CenterHorizontally,
+            verticalArrangement = Arrangement.Center,
         ) {
             PulseLogo(66.dp, ringColor = Color.White, bg = Color.White, mark = Brand500)
             Spacer(Modifier.height(16.dp))
@@ -171,10 +173,12 @@ fun SplashScreen() {
                 style = sansStyle(9, 700, 1.4f, 0.24f, Brand500),
             )
 
-            Box(Modifier.fillMaxWidth().height(196.dp).padding(top = 10.dp)) {
+            Spacer(Modifier.weight(0.8f))
+
+            Box(Modifier.fillMaxWidth().height(208.dp).padding(top = 6.dp)) {
                 slides.forEachIndexed { index, slide ->
                     val rel = (index - active + slides.size) % slides.size
-                    val scale by animateFloatAsState(1.5f - rel * 0.09f, tween(500), label = "slideScale")
+                    val scale by animateFloatAsState(1.42f - rel * 0.09f, tween(500), label = "slideScale")
                     val dy by animateDpAsState((rel * 16).dp, tween(500), label = "slideDy")
                     val alpha by animateFloatAsState(if (rel < 3) 1f - rel * 0.28f else 0f, tween(500), label = "slideAlpha")
                     slide.card(
@@ -205,6 +209,25 @@ fun SplashScreen() {
                 ) {
                     Text(slides[index].title, style = displayStyle(14, 800, 1.2f))
                     Text(slides[index].desc, style = sansStyle(10, 400, 1.4f, color = Muted))
+                }
+            }
+
+            Row(
+                Modifier.fillMaxWidth().padding(top = 8.dp),
+                horizontalArrangement = Arrangement.Center,
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                slides.indices.forEach { index ->
+                    val selected = index == active
+                    val dotWidth by animateDpAsState(if (selected) 16.dp else 4.dp, tween(250), label = "dotWidth")
+                    Box(
+                        Modifier
+                            .padding(horizontal = 2.dp)
+                            .width(dotWidth)
+                            .height(4.dp)
+                            .clip(CircleShape)
+                            .background(if (selected) Brand500 else Ink.copy(alpha = 0.18f)),
+                    )
                 }
             }
 
