@@ -5,17 +5,19 @@ import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.CubicBezierEasing
 import androidx.compose.animation.core.LinearEasing
 import androidx.compose.animation.core.LinearOutSlowInEasing
+import androidx.compose.animation.core.RepeatMode
 import androidx.compose.animation.core.Spring
 import androidx.compose.animation.core.StartOffset
 import androidx.compose.animation.core.animateDpAsState
 import androidx.compose.animation.core.animateFloat
-import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.infiniteRepeatable
 import androidx.compose.animation.core.rememberInfiniteTransition
 import androidx.compose.animation.core.spring
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
+import androidx.compose.animation.slideInHorizontally
+import androidx.compose.animation.slideOutHorizontally
 import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
@@ -37,7 +39,6 @@ import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -49,30 +50,27 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.clipToBounds
 import androidx.compose.ui.draw.drawWithContent
+import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.StrokeCap
-import androidx.compose.ui.graphics.TransformOrigin
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.graphics.drawscope.rotate
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
-import androidx.compose.ui.zIndex
 import kotlinx.coroutines.delay
 import ac.id.untidar.karsa.LocalApp
 import ac.id.untidar.karsa.icons.KarsaIcons
 import ac.id.untidar.karsa.icons.LucideIcon
-import ac.id.untidar.karsa.theme.Brand100
 import ac.id.untidar.karsa.theme.Brand400
 import ac.id.untidar.karsa.theme.Brand500
 import ac.id.untidar.karsa.theme.Brand600
-import ac.id.untidar.karsa.theme.Brand700
 import ac.id.untidar.karsa.theme.Butter100
 import ac.id.untidar.karsa.theme.Butter400
 import ac.id.untidar.karsa.theme.Butter700
@@ -80,11 +78,9 @@ import ac.id.untidar.karsa.theme.Espresso
 import ac.id.untidar.karsa.theme.Ink
 import ac.id.untidar.karsa.theme.Leaf100
 import ac.id.untidar.karsa.theme.Leaf500
-import ac.id.untidar.karsa.theme.Line
 import ac.id.untidar.karsa.theme.Muted
 import ac.id.untidar.karsa.theme.Paper
 import ac.id.untidar.karsa.theme.Paper2
-import ac.id.untidar.karsa.theme.Paper3
 import ac.id.untidar.karsa.theme.Plum100
 import ac.id.untidar.karsa.theme.Plum600
 import ac.id.untidar.karsa.theme.displayStyle
@@ -105,104 +101,97 @@ fun SplashScreen() {
         listOf(
             SplashSlide("Input poin", "Catat kontribusi mahasiswa") { InputPoinCard(it) },
             SplashSlide("Partisipasi teratas", "Podium & peringkat kelas") { PodiumCard(it) },
-            SplashSlide("Grup kelas", "Percakapan kelas tetap dekat") { GrupCard(it) },
-            SplashSlide("Karsa Lib", "Ilmu tumbuh saat dibagikan") { KarsaLibCard(it) },
-            SplashSlide("Unduh & sinkron", "Materi siap dibaca offline") { SyncCard(it) },
+            SplashSlide("Materi kelas", "Unggah & sinkron materi") { MateriCard(it) },
+            SplashSlide("Diskusi kelas", "Tanya jawab real-time") { DiskusiCard(it) },
+            SplashSlide("Rekap poin", "Ringkasan nilai keaktifan") { RekapCard(it) },
         )
     }
     var active by remember { mutableIntStateOf(0) }
     LaunchedEffect(slides.size) {
         while (true) {
-            delay(1700)
+            delay(2800)
             active = (active + 1) % slides.size
         }
     }
 
-    Box(
-        Modifier
-            .fillMaxSize()
-            .background(Brush.verticalGradient(listOf(Brand400, Brand500, Brand600))),
-    ) {
-        Canvas(Modifier.matchParentSize()) {
-            drawCircle(
-                color = Color.White.copy(alpha = 0.10f),
-                radius = 88.dp.toPx(),
-                center = Offset(size.width - 44.dp.toPx(), 44.dp.toPx()),
-                style = Stroke(width = 18.dp.toPx()),
-            )
-            drawCircle(
-                color = Color.White.copy(alpha = 0.09f),
-                radius = 80.dp.toPx(),
-                center = Offset(24.dp.toPx(), 176.dp.toPx()),
-                style = Stroke(width = 14.dp.toPx()),
-            )
-        }
-
-        Column(
-            modifier = Modifier
-                .align(Alignment.TopCenter)
+    Box(Modifier.fillMaxSize().background(Paper)) {
+        Box(
+            Modifier
                 .fillMaxWidth()
-                .fillMaxHeight(0.38f)
-                .statusBarsPadding()
-                .padding(top = 12.dp),
-            horizontalAlignment = Alignment.CenterHorizontally,
-            verticalArrangement = Arrangement.Center,
+                .fillMaxHeight(0.46f)
+                .background(Brush.verticalGradient(listOf(Brand400, Brand500, Brand600))),
         ) {
-            PulseLogo(66.dp, ringColor = Color.White, bg = Color.White, mark = Brand500)
-            Spacer(Modifier.height(16.dp))
-            Text("SiKarsa", style = displayStyle(34, 800, 1f, -0.02f, Color.White))
-            Spacer(Modifier.height(4.dp))
-            Text(
-                "Poin keaktifan, materi, dan diskusi kelas.",
-                style = sansStyle(12, 400, 1.4f, color = Color.White.copy(alpha = 0.75f)),
-            )
+            DriftRings(Modifier.matchParentSize())
+
+            Column(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .statusBarsPadding()
+                    .padding(top = 28.dp),
+                horizontalAlignment = Alignment.CenterHorizontally,
+            ) {
+                Box(contentAlignment = Alignment.Center) {
+                    Box(Modifier.size(96.dp).border(3.dp, Color.White.copy(alpha = 0.35f), CircleShape))
+                    PulseLogo(80.dp, ringColor = Color.White.copy(alpha = 0.4f), bg = Color.White, mark = Brand500)
+                }
+                Spacer(Modifier.height(12.dp))
+                Text("SiKarsa", style = displayStyle(40, 800, 1f, -0.02f, Color.White))
+                Spacer(Modifier.height(6.dp))
+                Text(
+                    "Poin keaktifan, materi, dan diskusi kelas.",
+                    style = sansStyle(12, 400, 1.4f, color = Color.White.copy(alpha = 0.85f)),
+                )
+            }
         }
 
+        val sheetShape = RoundedCornerShape(topStart = 40.dp, topEnd = 40.dp)
         Column(
             modifier = Modifier
                 .align(Alignment.BottomCenter)
                 .fillMaxWidth()
-                .fillMaxHeight(0.62f)
-                .clip(RoundedCornerShape(topStart = 32.dp, topEnd = 32.dp))
+                .fillMaxHeight(0.595f)
+                .shadow(
+                    elevation = 18.dp,
+                    shape = sheetShape,
+                    clip = false,
+                    ambientColor = Espresso.copy(alpha = 0.18f),
+                    spotColor = Espresso.copy(alpha = 0.25f),
+                )
+                .clip(sheetShape)
                 .background(Paper)
                 .navigationBarsPadding()
-                .padding(horizontal = 24.dp, vertical = 20.dp),
+                .padding(horizontal = 20.dp, vertical = 20.dp),
         ) {
-            Spacer(Modifier.weight(0.25f))
-
-            Box(Modifier.fillMaxWidth().height(234.dp).padding(top = 6.dp)) {
-                slides.forEachIndexed { index, slide ->
-                    val rel = (index - active + slides.size) % slides.size
-                    val scale by animateFloatAsState(1.6f - rel * 0.09f, tween(500), label = "slideScale")
-                    val dy by animateDpAsState((rel * 16).dp, tween(500), label = "slideDy")
-                    val alpha by animateFloatAsState(if (rel < 3) 1f - rel * 0.28f else 0f, tween(500), label = "slideAlpha")
-                    slide.card(
-                        Modifier
-                            .align(Alignment.TopCenter)
-                            .width(150.dp)
-                            .height(130.dp)
-                            .zIndex((10 - rel).toFloat())
-                            .graphicsLayer {
-                                transformOrigin = TransformOrigin(0.5f, 0f)
-                                scaleX = scale
-                                scaleY = scale
-                                translationY = dy.toPx()
-                                this.alpha = alpha
-                            },
-                    )
+            Box(Modifier.fillMaxWidth().height(196.dp)) {
+                Box(
+                    Modifier
+                        .matchParentSize()
+                        .padding(start = 12.dp, end = 12.dp, top = 12.dp)
+                        .graphicsLayer { translationY = 8.dp.toPx() }
+                        .clip(RoundedCornerShape(28.dp))
+                        .background(Color.White.copy(alpha = 0.7f)),
+                )
+                AnimatedContent(
+                    targetState = active,
+                    transitionSpec = {
+                        (slideInHorizontally(tween(420, easing = CubicBezierEasing(0.2f, 0.8f, 0.2f, 1f))) { it / 5 } + fadeIn(tween(300))) togetherWith
+                            (slideOutHorizontally(tween(360, easing = CubicBezierEasing(0.4f, 0f, 0.6f, 1f))) { -it / 5 } + fadeOut(tween(240)))
+                    },
+                    contentAlignment = Alignment.Center,
+                    label = "splashCard",
+                ) { index ->
+                    slides[index].card(Modifier.fillMaxSize())
                 }
             }
 
+            Spacer(Modifier.height(14.dp))
             AnimatedContent(
                 targetState = active,
                 transitionSpec = { fadeIn(tween(220)) togetherWith fadeOut(tween(160)) },
-                label = "slideCaption",
+                label = "splashCaption",
             ) { index ->
-                Column(
-                    Modifier.fillMaxWidth(),
-                    horizontalAlignment = Alignment.CenterHorizontally,
-                ) {
-                    Text(slides[index].title, style = displayStyle(14, 800, 1.2f))
+                Column(Modifier.fillMaxWidth(), horizontalAlignment = Alignment.CenterHorizontally) {
+                    Text(slides[index].title, style = displayStyle(13, 800, 1.2f))
                     Text(slides[index].desc, style = sansStyle(10, 400, 1.4f, color = Muted))
                 }
             }
@@ -214,14 +203,14 @@ fun SplashScreen() {
             ) {
                 slides.indices.forEach { index ->
                     val selected = index == active
-                    val dotWidth by animateDpAsState(if (selected) 16.dp else 4.dp, tween(250), label = "dotWidth")
+                    val dotWidth by animateDpAsState(if (selected) 24.dp else 5.dp, tween(280), label = "dotWidth")
                     Box(
                         Modifier
-                            .padding(horizontal = 2.dp)
+                            .padding(horizontal = 3.dp)
                             .width(dotWidth)
-                            .height(4.dp)
+                            .height(5.dp)
                             .clip(CircleShape)
-                            .background(if (selected) Brand500 else Ink.copy(alpha = 0.18f)),
+                            .background(if (selected) Brand500 else Ink.copy(alpha = 0.15f)),
                     )
                 }
             }
@@ -229,6 +218,34 @@ fun SplashScreen() {
             Spacer(Modifier.weight(1f))
             ShimmerProgress(progress)
         }
+    }
+}
+
+@Composable
+private fun DriftRings(modifier: Modifier = Modifier) {
+    val drift by rememberInfiniteTransition(label = "ringDrift").animateFloat(
+        initialValue = 0f,
+        targetValue = 1f,
+        animationSpec = infiniteRepeatable(
+            animation = tween(7000, easing = LinearOutSlowInEasing),
+            repeatMode = RepeatMode.Reverse,
+        ),
+        label = "drift",
+    )
+    Canvas(modifier.clipToBounds()) {
+        val offset = Offset(drift * 6.dp.toPx(), drift * 10.dp.toPx())
+        drawCircle(
+            color = Color.White.copy(alpha = 0.15f),
+            radius = 104.dp.toPx(),
+            center = Offset(size.width + 20.dp.toPx(), -24.dp.toPx()) + offset,
+            style = Stroke(width = 14.dp.toPx()),
+        )
+        drawCircle(
+            color = Color.White.copy(alpha = 0.15f),
+            radius = 96.dp.toPx(),
+            center = Offset(-40.dp.toPx(), 184.dp.toPx()) + offset,
+            style = Stroke(width = 12.dp.toPx()),
+        )
     }
 }
 
@@ -267,12 +284,7 @@ private fun BloomLogo(logoSize: Dp, bg: Color, mark: Color) {
 }
 
 @Composable
-private fun PulseLogo(
-    logoSize: Dp,
-    ringColor: Color,
-    bg: Color,
-    mark: Color,
-) {
+private fun PulseLogo(logoSize: Dp, ringColor: Color, bg: Color, mark: Color) {
     val enter = remember { Animatable(0f) }
     LaunchedEffect(Unit) {
         enter.animateTo(
@@ -303,9 +315,9 @@ private fun PulseLogo(
                 Modifier
                     .size(logoSize)
                     .graphicsLayer {
-                        scaleX = 1f + p * 1.1f
-                        scaleY = 1f + p * 1.1f
-                        alpha = (1f - p) * 0.6f
+                        scaleX = 1f + p * 0.55f
+                        scaleY = 1f + p * 0.55f
+                        alpha = (1f - p) * 0.55f
                     }
                     .border(2.dp, ringColor, CircleShape),
             )
@@ -328,14 +340,14 @@ private fun ShimmerProgress(progress: Float) {
     val shift by rememberInfiniteTransition(label = "splashShimmer").animateFloat(
         initialValue = -0.4f,
         targetValue = 1.4f,
-        animationSpec = infiniteRepeatable(tween(1300, easing = LinearEasing)),
+        animationSpec = infiniteRepeatable(tween(1600, easing = LinearEasing)),
         label = "shimmer",
     )
     val label = when {
-        progress < 0.35f -> "MENYIAPKAN RUANG KELASMU"
-        progress < 0.70f -> "MENYINKRONKAN MATERI"
-        progress < 1f -> "MEMUAT POIN KEAKTIFAN"
-        else -> "SIAP DIGUNAKAN"
+        progress >= 1f -> "SIAP DIGUNAKAN"
+        progress < 0.30f -> "MENYIAPKAN KELAS"
+        progress < 0.60f -> "MENYINKRONKAN MATERI"
+        else -> "MEMUAT POIN KEAKTIFAN"
     }
     Column {
         Row(
@@ -343,11 +355,11 @@ private fun ShimmerProgress(progress: Float) {
             horizontalArrangement = Arrangement.SpaceBetween,
             verticalAlignment = Alignment.Bottom,
         ) {
-            Text(label, style = sansStyle(9, 600, 1.4f, 0.22f, Muted))
-            Text("${(progress * 100).toInt()}%", style = displayStyle(14, 800, 1f, 0f, Ink))
+            Text(label, style = sansStyle(9, 600, 1.4f, 0.22f, Ink.copy(alpha = 0.5f)))
+            Text("${(progress * 100).toInt()}%", style = displayStyle(15, 800, 1f, 0f, Ink))
         }
         Spacer(Modifier.height(6.dp))
-        Box(Modifier.fillMaxWidth().height(6.dp).clip(CircleShape).background(Paper3)) {
+        Box(Modifier.fillMaxWidth().height(7.dp).clip(CircleShape).background(Paper2)) {
             Box(
                 Modifier
                     .fillMaxHeight()
@@ -355,14 +367,16 @@ private fun ShimmerProgress(progress: Float) {
                     .clip(CircleShape)
                     .drawWithContent {
                         drawContent()
-                        val w = size.width
-                        drawRect(
-                            brush = Brush.horizontalGradient(
-                                colors = listOf(Color.Transparent, Color.White.copy(alpha = 0.85f), Color.Transparent),
-                                startX = w * shift - 60f,
-                                endX = w * shift + 60f,
-                            ),
-                        )
+                        if (progress < 1f) {
+                            val w = size.width
+                            drawRect(
+                                brush = Brush.horizontalGradient(
+                                    colors = listOf(Color.Transparent, Color.White.copy(alpha = 0.7f), Color.Transparent),
+                                    startX = w * shift - 60f,
+                                    endX = w * shift + 60f,
+                                ),
+                            )
+                        }
                     }
                     .background(Brand500),
             )
@@ -373,53 +387,54 @@ private fun ShimmerProgress(progress: Float) {
 /* ───────────── Kartu fitur di carousel ───────────── */
 
 @Composable
-private fun SplashCard(modifier: Modifier = Modifier, content: @Composable ColumnScope.() -> Unit) {
-    val shape = RoundedCornerShape(18.dp)
+private fun BigCard(modifier: Modifier = Modifier, content: @Composable ColumnScope.() -> Unit) {
+    val shape = RoundedCornerShape(28.dp)
     Column(
         modifier
             .cardShadow(shape)
             .clip(shape)
-            .background(Color.White)
-            .border(1.dp, Ink.copy(alpha = 0.04f), shape)
-            .padding(10.dp),
+            .background(Color.White),
         content = content,
     )
 }
 
 @Composable
-private fun InputPoinCard(modifier: Modifier = Modifier) = SplashCard(modifier) {
-    Row(Modifier.fillMaxWidth(), Arrangement.SpaceBetween, Alignment.CenterVertically) {
-        Text("Input poin", style = displayStyle(12, 800, 1.15f))
-        Row(
-            modifier = Modifier
-                .background(Espresso, CircleShape)
-                .padding(horizontal = 6.dp, vertical = 2.dp),
-            horizontalArrangement = Arrangement.spacedBy(3.dp),
-            verticalAlignment = Alignment.CenterVertically,
-        ) {
-            LucideIcon(KarsaIcons.ShieldCheck, Modifier.size(8.dp), tint = Color.White, strokeWidth = 2.4f)
-            Text("PJ KELAS", style = sansStyle(7, 700, 1.2f, color = Color.White))
-        }
-    }
-    Spacer(Modifier.height(6.dp))
-    StepRow("Mata kuliah", "Bahasa Indonesia · K1")
-    StepRow("Mahasiswa", "Rani Wulandari · NIM ••••1204")
-    Spacer(Modifier.height(6.dp))
-    Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
-        (1..4).forEach { n ->
-            val selected = n == 4
-            Box(
+private fun InputPoinCard(modifier: Modifier = Modifier) = BigCard(modifier) {
+    Column(Modifier.fillMaxSize().padding(16.dp)) {
+        Row(Modifier.fillMaxWidth(), Arrangement.SpaceBetween, Alignment.CenterVertically) {
+            Text("Input poin", style = displayStyle(17, 800, 1.1f))
+            Row(
                 modifier = Modifier
-                    .weight(1f)
-                    .clip(RoundedCornerShape(10.dp))
-                    .background(if (selected) Brand500 else Paper2)
-                    .padding(vertical = 5.dp),
-                contentAlignment = Alignment.Center,
+                    .background(Ink, CircleShape)
+                    .padding(horizontal = 10.dp, vertical = 4.dp),
+                horizontalArrangement = Arrangement.spacedBy(4.dp),
+                verticalAlignment = Alignment.CenterVertically,
             ) {
-                Text(
-                    n.toString(),
-                    style = displayStyle(11, 800, 1f, color = if (selected) Color.White else Ink),
-                )
+                LucideIcon(KarsaIcons.ShieldCheck, Modifier.size(13.dp), tint = Color.White, strokeWidth = 2.2f)
+                Text("PJ KELAS", style = sansStyle(9, 700, 1.2f, 0.04f, Color.White))
+            }
+        }
+        Spacer(Modifier.height(12.dp))
+        StepRow("Mata kuliah", "Bahasa Indonesia · K1")
+        Spacer(Modifier.height(10.dp))
+        StepRow("Mahasiswa", "Rani Wulandari · NIM ••••1204")
+        Spacer(Modifier.height(14.dp))
+        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            (1..4).forEach { n ->
+                val selected = n == 4
+                Box(
+                    modifier = Modifier
+                        .weight(1f)
+                        .height(36.dp)
+                        .clip(CircleShape)
+                        .background(if (selected) Brand500 else Paper2),
+                    contentAlignment = Alignment.Center,
+                ) {
+                    Text(
+                        n.toString(),
+                        style = displayStyle(13, 800, 1f, color = if (selected) Color.White else Ink),
+                    )
+                }
             }
         }
     }
@@ -427,29 +442,34 @@ private fun InputPoinCard(modifier: Modifier = Modifier) = SplashCard(modifier) 
 
 @Composable
 private fun StepRow(title: String, sub: String) {
-    Row(Modifier.padding(vertical = 2.dp), verticalAlignment = Alignment.CenterVertically) {
+    Row(verticalAlignment = Alignment.CenterVertically) {
         Box(
-            Modifier.size(16.dp).background(Leaf500, CircleShape),
+            Modifier.size(28.dp).background(Leaf500, CircleShape),
             contentAlignment = Alignment.Center,
         ) {
-            LucideIcon(KarsaIcons.Check, Modifier.size(9.dp), tint = Color.White, strokeWidth = 3f)
+            LucideIcon(KarsaIcons.Check, Modifier.size(14.dp), tint = Color.White, strokeWidth = 3f)
         }
-        Spacer(Modifier.width(6.dp))
+        Spacer(Modifier.width(10.dp))
         Column {
-            Text(title, style = sansStyle(9, 700, 1.2f))
-            Text(sub, style = sansStyle(8, 400, 1.2f, color = Muted), maxLines = 1)
+            Text(title, style = sansStyle(12, 700, 1.2f))
+            Text(sub, style = sansStyle(10, 400, 1.3f, color = Ink.copy(alpha = 0.55f)), maxLines = 1)
         }
     }
 }
 
 @Composable
-private fun PodiumCard(modifier: Modifier = Modifier) = SplashCard(modifier) {
-    Text("Partisipasi teratas", style = displayStyle(10, 800, 1.1f))
-    Spacer(Modifier.height(4.dp))
-    Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.Bottom) {
-        PodiumColumn("DA", "Dimas", 34.dp, Espresso, Color.White, Plum100, Plum600, "2", Modifier.weight(1f))
-        PodiumColumn("RW", "Rani", 46.dp, Brand500, Color.White, Butter100, Butter700, "1", Modifier.weight(1f), crown = true)
-        PodiumColumn("KM", "Kamu", 22.dp, Butter100, Butter700, Leaf100, Leaf500, "3", Modifier.weight(1f), ring = true)
+private fun PodiumCard(modifier: Modifier = Modifier) = BigCard(modifier) {
+    Box(Modifier.fillMaxSize().padding(16.dp)) {
+        Text("Partisipasi teratas", style = displayStyle(17, 800, 1.1f))
+        Row(
+            Modifier.align(Alignment.BottomCenter),
+            horizontalArrangement = Arrangement.spacedBy(8.dp),
+            verticalAlignment = Alignment.Bottom,
+        ) {
+            PodiumColumn("DA", "Dimas", 52.dp, Espresso, Color.White, Plum100, Plum600, "2", 64.dp, 36.dp, 20)
+            PodiumColumn("RW", "Rani", 76.dp, Brand500, Color.White, Butter100, Brand600, "1", 66.dp, 44.dp, 30, crown = true)
+            PodiumColumn("KM", "Kamu", 34.dp, Butter100, Butter700, Leaf100, Leaf500, "3", 64.dp, 36.dp, 20, ring = true)
+        }
     }
 }
 
@@ -463,147 +483,173 @@ private fun PodiumColumn(
     avatarBg: Color,
     avatarText: Color,
     rank: String,
-    modifier: Modifier,
+    columnWidth: Dp,
+    avatarSize: Dp,
+    rankSize: Int,
     crown: Boolean = false,
     ring: Boolean = false,
 ) {
-    Column(modifier, horizontalAlignment = Alignment.CenterHorizontally) {
-        Box(Modifier.height(11.dp), contentAlignment = Alignment.Center) {
+    Column(Modifier.width(columnWidth), horizontalAlignment = Alignment.CenterHorizontally) {
+        Box(Modifier.height(14.dp), contentAlignment = Alignment.Center) {
             if (crown) {
-                LucideIcon(KarsaIcons.Crown, Modifier.size(10.dp), tint = Butter400, strokeWidth = 2.2f)
+                LucideIcon(KarsaIcons.Crown, Modifier.size(16.dp), tint = Butter400, strokeWidth = 2.2f)
             }
         }
         Box(
             Modifier
-                .size(24.dp)
-                .then(if (ring) Modifier.border(2.dp, Brand500, CircleShape) else Modifier)
+                .size(avatarSize)
+                .then(if (ring) Modifier.border(3.dp, Brand500, CircleShape) else Modifier)
                 .background(avatarBg, CircleShape),
             contentAlignment = Alignment.Center,
         ) {
-            Text(initials, style = sansStyle(8, 800, 1f, color = avatarText))
+            Text(initials, style = sansStyle(11, 800, 1f, color = avatarText))
         }
-        Text(name, style = sansStyle(7, 700, 1.2f), maxLines = 1)
+        Spacer(Modifier.height(4.dp))
+        Text(name, style = sansStyle(10, 700, 1.2f), maxLines = 1)
+        Spacer(Modifier.height(6.dp))
         Box(
             Modifier
                 .fillMaxWidth()
                 .height(barHeight)
-                .clip(RoundedCornerShape(topStart = 10.dp, topEnd = 10.dp))
+                .clip(RoundedCornerShape(topStart = 16.dp, topEnd = 16.dp))
                 .background(barColor),
             contentAlignment = Alignment.Center,
         ) {
-            Text(rank, style = displayStyle(14, 800, 1f, color = barText))
+            Text(rank, style = displayStyle(rankSize, 800, 1f, color = barText))
         }
     }
 }
 
 @Composable
-private fun GrupCard(modifier: Modifier = Modifier) = SplashCard(modifier) {
-    Row(verticalAlignment = Alignment.CenterVertically) {
-        Box(
-            Modifier.size(36.dp).background(Brand100, RoundedCornerShape(12.dp)),
-            contentAlignment = Alignment.Center,
-        ) {
-            Text("BI", style = displayStyle(10, 800, 1f, color = Brand700))
+private fun MateriCard(modifier: Modifier = Modifier) = BigCard(modifier) {
+    Column(Modifier.fillMaxSize().padding(16.dp)) {
+        Row(Modifier.fillMaxWidth(), Arrangement.SpaceBetween, Alignment.CenterVertically) {
+            Text("Materi kelas", style = displayStyle(17, 800, 1.1f))
+            Box(
+                Modifier.background(Butter100, CircleShape).padding(horizontal = 10.dp, vertical = 4.dp),
+            ) {
+                Text("3 BARU", style = sansStyle(9, 700, 1.2f, 0.04f, Butter700))
+            }
         }
-        Spacer(Modifier.width(8.dp))
-        Column(Modifier.weight(1f)) {
-            Text("Bahasa Indonesia", style = displayStyle(10, 800, 1.2f), maxLines = 1)
-            Text("K1 · Kamu PJ · 3 anggota", style = sansStyle(8, 400, 1.3f, color = Muted), maxLines = 1)
+        Spacer(Modifier.height(14.dp))
+        MateriRow("Bab 3 · Teks Eksposisi", "PDF", 1f)
+        Spacer(Modifier.height(12.dp))
+        MateriRow("Bab 4 · Kalimat Efektif", "Slide", 0.7f)
+        Spacer(Modifier.height(12.dp))
+        MateriRow("Bab 5 · Ejaan & Tanda Baca", "Video", 0.35f)
+    }
+}
+
+@Composable
+private fun MateriRow(title: String, tag: String, progress: Float) {
+    Column {
+        Row(Modifier.fillMaxWidth(), Arrangement.SpaceBetween, Alignment.CenterVertically) {
             Text(
-                "Dimas A.: tugasnya sudah dikumpul?",
-                style = sansStyle(8, 400, 1.3f, color = Ink.copy(alpha = 0.8f)),
+                title,
+                modifier = Modifier.weight(1f),
+                style = sansStyle(11, 700, 1.2f),
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis,
+            )
+            Spacer(Modifier.width(8.dp))
+            Box(Modifier.background(Paper2, CircleShape).padding(horizontal = 8.dp, vertical = 2.dp)) {
+                Text(tag, style = sansStyle(9, 700, 1.2f, color = Ink.copy(alpha = 0.7f)))
+            }
+        }
+        Spacer(Modifier.height(6.dp))
+        Box(Modifier.fillMaxWidth().height(6.dp).clip(CircleShape).background(Paper2)) {
+            Box(
+                Modifier
+                    .fillMaxHeight()
+                    .fillMaxWidth(progress)
+                    .clip(CircleShape)
+                    .background(Brand500),
             )
         }
     }
 }
 
 @Composable
-private fun KarsaLibCard(modifier: Modifier = Modifier) = SplashCard(modifier) {
-    Row(verticalAlignment = Alignment.CenterVertically) {
-        Box(
-            Modifier.size(24.dp).background(Leaf100, CircleShape),
-            contentAlignment = Alignment.Center,
-        ) {
-            Text("SA", style = sansStyle(7, 800, 1f, color = Leaf500))
-        }
-        Spacer(Modifier.width(6.dp))
-        Column(Modifier.weight(1f)) {
-            Text("Salsa Anindya", style = sansStyle(9, 800, 1.2f), maxLines = 1)
-            Text("Akuntansi · 8 Okt", style = sansStyle(7, 400, 1.2f, color = Muted), maxLines = 1)
-        }
-    }
-    Spacer(Modifier.height(6.dp))
-    Text(
-        "Akun Aset, Liabilitas, dan Modal",
-        style = displayStyle(10, 800, 1.15f),
-        maxLines = 2,
-        overflow = TextOverflow.Ellipsis,
-    )
-    Text(
-        "Akun riil pada posisi keuangan terdiri dari tiga kelompok utama…",
-        style = sansStyle(8, 400, 1.3f, color = Muted),
-        maxLines = 2,
-        overflow = TextOverflow.Ellipsis,
-    )
-    HorizontalDivider(Modifier.padding(vertical = 6.dp), color = Paper2)
-    Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-        Row(verticalAlignment = Alignment.CenterVertically) {
-            LucideIcon(KarsaIcons.Eye, Modifier.size(9.dp), tint = Muted, strokeWidth = 2f)
-            Spacer(Modifier.width(2.dp))
-            Text("12 pembaca", style = sansStyle(8, 400, 1.2f, color = Muted))
-        }
-        Row(verticalAlignment = Alignment.CenterVertically) {
-            LucideIcon(KarsaIcons.MessageCircle, Modifier.size(9.dp), tint = Muted, strokeWidth = 2f)
-            Spacer(Modifier.width(2.dp))
-            Text("3 komentar", style = sansStyle(8, 400, 1.2f, color = Muted))
-        }
-    }
-}
-
-@Composable
-private fun SyncCard(modifier: Modifier = Modifier) = SplashCard(modifier) {
-    Row(Modifier.fillMaxWidth(), Arrangement.SpaceBetween, Alignment.CenterVertically) {
-        Text("Unduhan materi", style = displayStyle(10, 800, 1.1f))
-        LucideIcon(KarsaIcons.RefreshCw, Modifier.size(10.dp), tint = Brand500, strokeWidth = 2f)
-    }
-    Spacer(Modifier.height(4.dp))
-    SyncRow("Modul_Pajak_01.pdf", 1f)
-    SyncRow("Slide_Minggu_4.pdf", 0.64f)
-}
-
-@Composable
-private fun SyncRow(name: String, progress: Float) {
-    Row(
-        Modifier.fillMaxWidth().padding(top = 6.dp),
-        verticalAlignment = Alignment.CenterVertically,
-    ) {
-        Box(
-            Modifier.size(20.dp).background(Butter100, RoundedCornerShape(6.dp)),
-            contentAlignment = Alignment.Center,
-        ) {
-            LucideIcon(KarsaIcons.FileText, Modifier.size(10.dp), tint = Butter700, strokeWidth = 2f)
-        }
-        Spacer(Modifier.width(6.dp))
-        Column(Modifier.weight(1f)) {
-            Text(name, style = sansStyle(8, 700, 1.2f), maxLines = 1, overflow = TextOverflow.Ellipsis)
-            Spacer(Modifier.height(2.dp))
-            Box(Modifier.fillMaxWidth().height(3.dp).clip(CircleShape).background(Paper2)) {
-                Box(
-                    Modifier
-                        .fillMaxHeight()
-                        .fillMaxWidth(progress)
-                        .clip(CircleShape)
-                        .background(Brand500),
-                )
+private fun DiskusiCard(modifier: Modifier = Modifier) = BigCard(modifier) {
+    Column(Modifier.fillMaxSize().padding(16.dp)) {
+        Row(Modifier.fillMaxWidth(), Arrangement.SpaceBetween, Alignment.CenterVertically) {
+            Text("Diskusi kelas", style = displayStyle(17, 800, 1.1f))
+            Row(
+                Modifier.background(Leaf100, CircleShape).padding(horizontal = 10.dp, vertical = 4.dp),
+                horizontalArrangement = Arrangement.spacedBy(5.dp),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Box(Modifier.size(6.dp).background(Leaf500, CircleShape))
+                Text("LIVE", style = sansStyle(9, 700, 1.2f, color = Leaf500))
             }
         }
-        Spacer(Modifier.width(6.dp))
-        if (progress >= 1f) {
-            LucideIcon(KarsaIcons.Check, Modifier.size(10.dp), tint = Leaf500, strokeWidth = 3f)
-        } else {
-            LucideIcon(KarsaIcons.LoaderCircle, Modifier.size(10.dp), tint = Muted, strokeWidth = 2f)
+        Spacer(Modifier.height(14.dp))
+        Row(verticalAlignment = Alignment.Bottom) {
+            Box(
+                Modifier.size(28.dp).background(Plum100, CircleShape),
+                contentAlignment = Alignment.Center,
+            ) {
+                Text("DA", style = sansStyle(9, 800, 1f, color = Plum600))
+            }
+            Spacer(Modifier.width(8.dp))
+            Box(
+                Modifier
+                    .clip(RoundedCornerShape(16.dp))
+                    .background(Paper2)
+                    .padding(horizontal = 12.dp, vertical = 8.dp),
+            ) {
+                Text("Apa beda opini dan fakta, Bu?", style = sansStyle(11, 500, 1.35f))
+            }
+        }
+        Spacer(Modifier.height(8.dp))
+        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.End) {
+            Box(
+                Modifier
+                    .clip(RoundedCornerShape(16.dp))
+                    .background(Brand500)
+                    .padding(horizontal = 12.dp, vertical = 8.dp),
+            ) {
+                Text("Fakta bisa dibuktikan", style = sansStyle(11, 600, 1.35f, color = Color.White))
+            }
+        }
+        Spacer(Modifier.height(8.dp))
+        Box(Modifier.background(Butter100, CircleShape).padding(horizontal = 10.dp, vertical = 4.dp)) {
+            Text("+5 poin diskusi", style = sansStyle(10, 700, 1.2f, color = Butter700))
+        }
+    }
+}
+
+@Composable
+private fun RekapCard(modifier: Modifier = Modifier) = BigCard(modifier) {
+    Column(Modifier.fillMaxSize().padding(16.dp)) {
+        Row(Modifier.fillMaxWidth(), Arrangement.SpaceBetween, Alignment.CenterVertically) {
+            Text("Rekap poin", style = displayStyle(17, 800, 1.1f))
+            Box(Modifier.background(Ink, CircleShape).padding(horizontal = 10.dp, vertical = 4.dp)) {
+                Text("SEMESTER 4", style = sansStyle(9, 700, 1.2f, 0.04f, Color.White))
+            }
+        }
+        Spacer(Modifier.height(10.dp))
+        Row(Modifier.fillMaxWidth(), Arrangement.SpaceBetween, Alignment.Bottom) {
+            Column {
+                Text("1.240", style = displayStyle(34, 800, 1f, -0.01f, Brand600))
+                Text("total poin keaktifan", style = sansStyle(10, 400, 1.3f, color = Ink.copy(alpha = 0.55f)))
+            }
+            Row(
+                Modifier.height(70.dp),
+                horizontalArrangement = Arrangement.spacedBy(6.dp),
+                verticalAlignment = Alignment.Bottom,
+            ) {
+                listOf(38, 55, 44, 70, 62, 90).forEachIndexed { index, value ->
+                    val last = index == 5
+                    Box(
+                        Modifier
+                            .width(14.dp)
+                            .height((70f * value / 100f).dp)
+                            .clip(RoundedCornerShape(topStart = 6.dp, topEnd = 6.dp))
+                            .background(if (last) Brand500 else Butter100),
+                    )
+                }
+            }
         }
     }
 }
