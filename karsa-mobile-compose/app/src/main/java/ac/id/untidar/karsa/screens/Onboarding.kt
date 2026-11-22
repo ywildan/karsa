@@ -72,7 +72,7 @@ import ac.id.untidar.karsa.theme.sansStyle
 import ac.id.untidar.karsa.ui.Avatar
 import ac.id.untidar.karsa.ui.ButtonSize
 import ac.id.untidar.karsa.ui.KarsaButton
-import ac.id.untidar.karsa.ui.KawungPattern
+import ac.id.untidar.karsa.ui.BatikPattern
 import ac.id.untidar.karsa.ui.PointBadge
 import ac.id.untidar.karsa.ui.Rise
 
@@ -200,7 +200,7 @@ fun OnboardingScreen() {
 private fun OnboardingCard(page: OnboardingPage, index: Int) {
     val shape = RoundedCornerShape(40.dp)
     Box(Modifier.fillMaxSize().clip(shape).background(page.background)) {
-        KawungPattern(Modifier.fillMaxSize(), color = Color.White, alpha = 0.2f)
+        BatikPattern(Modifier.fillMaxSize(), color = Color.White, alpha = 0.2f)
         Box(
             Modifier
                 .align(Alignment.TopEnd)

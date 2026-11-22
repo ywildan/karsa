@@ -47,9 +47,12 @@ import androidx.compose.ui.geometry.CornerRadius
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.Shape
 import androidx.compose.ui.graphics.StrokeCap
+import androidx.compose.ui.graphics.StrokeJoin
 import androidx.compose.ui.graphics.drawscope.Stroke
+import androidx.compose.ui.graphics.drawscope.translate
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.foundation.LocalIndication
 import androidx.compose.ui.text.SpanStyle
@@ -61,6 +64,9 @@ import androidx.compose.ui.text.withStyle
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import kotlin.math.PI
+import kotlin.math.cos
+import kotlin.math.sin
 import ac.id.untidar.karsa.icons.KarsaIcons
 import ac.id.untidar.karsa.icons.LucideIcon
 import ac.id.untidar.karsa.theme.Brand100
@@ -764,8 +770,9 @@ fun ListSkeleton(count: Int = 3, lines: Int = 3) {
     }
 }
 
+/** Motif batik Truntum: bintang kecil selang-seling dalam ubin 44dp. */
 @Composable
-fun KawungPattern(
+fun BatikPattern(
     modifier: Modifier = Modifier,
     color: Color = Color.White,
     alpha: Float = 0.2f,
@@ -773,26 +780,63 @@ fun KawungPattern(
 ) {
     Canvas(modifier) {
         val tile = 44.dp.toPx()
-        val half = tile / 2f
-        val stroke = Stroke(width = 1.2.dp.toPx())
+        val unit = tile / 44f
+        val stroke = Stroke(width = 1.2f * unit, join = StrokeJoin.Round)
         val columns = (size.width / tile).toInt() + 2
         val rows = (size.height / tile).toInt() + 2
         val focus = Offset(size.width / 2f, size.height * 0.45f)
-        val maxDistance = Offset(size.width, size.height).minus(focus).getDistance()
+        val maxDistance = Offset(size.width, size.height).minus(focus).getDistance().coerceAtLeast(1f)
+        val star = Path().apply {
+            for (i in 0 until 16) {
+                val angle = (i * PI / 8.0 - PI / 2.0).toFloat()
+                val radius = when {
+                    i % 4 == 0 -> 10f
+                    i % 2 == 0 -> 6.4f
+                    else -> 2.6f
+                }
+                val x = radius * cos(angle)
+                val y = radius * sin(angle)
+                if (i == 0) moveTo(x, y) else lineTo(x, y)
+            }
+            close()
+        }
+        val dots = arrayOf(
+            11f to 11f, 33f to 11f, 11f to 33f, 33f to 33f,
+            22f to 5f, 22f to 39f, 5f to 22f, 39f to 22f,
+        )
+        fun factorAt(point: Offset): Float =
+            if (!fade) 1f else (1f - (point.minus(focus).getDistance() / maxDistance) * 1.3f).coerceIn(0f, 1f)
+
+        fun drawStar(center: Offset) {
+            val factor = factorAt(center)
+            if (factor <= 0.01f) return
+            translate(left = center.x, top = center.y) {
+                drawPath(star, color = color.copy(alpha = (alpha * factor).coerceIn(0f, 1f)), style = stroke)
+            }
+            drawCircle(
+                color = color.copy(alpha = (alpha * 1.4f * factor).coerceIn(0f, 1f)),
+                radius = 1.4f * unit,
+                center = center,
+            )
+        }
+
         for (row in 0 until rows) {
             for (column in 0 until columns) {
-                val cx = column * tile + half
-                val cy = row * tile + half
-                val factor = if (fade) {
-                    (1f - (Offset(cx, cy).minus(focus).getDistance() / maxDistance) * 1.3f).coerceIn(0f, 1f)
-                } else 1f
-                if (factor <= 0.01f) continue
-                val ink = color.copy(alpha = alpha * factor)
-                drawOval(ink, Offset(cx - 6.dp.toPx(), cy - 11.dp.toPx()), Size(12.dp.toPx(), 22.dp.toPx()), style = stroke)
-                drawOval(ink, Offset(cx - 6.dp.toPx(), cy), Size(12.dp.toPx(), 22.dp.toPx()), style = stroke)
-                drawOval(ink, Offset(cx - 11.dp.toPx(), cy - 6.dp.toPx()), Size(22.dp.toPx(), 12.dp.toPx()), style = stroke)
-                drawOval(ink, Offset(cx, cy - 6.dp.toPx()), Size(22.dp.toPx(), 12.dp.toPx()), style = stroke)
-                drawCircle(color.copy(alpha = alpha * 1.4f * factor), radius = 1.8.dp.toPx(), center = Offset(cx, cy))
+                val left = column * tile
+                val top = row * tile
+                drawStar(Offset(left + 22f * unit, top + 22f * unit))
+                drawStar(Offset(left, top))
+                dots.forEach { (dx, dy) ->
+                    val center = Offset(left + dx * unit, top + dy * unit)
+                    val factor = factorAt(center)
+                    if (factor > 0.01f) {
+                        drawCircle(
+                            color = color.copy(alpha = (alpha * 1.2f * factor).coerceIn(0f, 1f)),
+                            radius = 1.1f * unit,
+                            center = center,
+                        )
+                    }
+                }
             }
         }
     }
@@ -820,7 +864,7 @@ fun EmptyState(
                     .background(Brand100),
                 contentAlignment = Alignment.Center,
             ) {
-                KawungPattern(Modifier.matchParentSize(), color = Ink, alpha = 0.07f)
+                BatikPattern(Modifier.matchParentSize(), color = Ink, alpha = 0.07f)
                 CompositionLocalProvider(LocalContentColor provides Brand600) {
                     icon?.invoke() ?: LucideIcon(KarsaIcons.Inbox, modifier = Modifier.size(36.dp), tint = Brand600)
                 }

@@ -97,7 +97,7 @@ import ac.id.untidar.karsa.ui.KarsaCard
 import ac.id.untidar.karsa.ui.KarsaDialog
 import ac.id.untidar.karsa.ui.KarsaIconButton
 import ac.id.untidar.karsa.ui.KarsaSheet
-import ac.id.untidar.karsa.ui.KawungPattern
+import ac.id.untidar.karsa.ui.BatikPattern
 import ac.id.untidar.karsa.ui.IconButtonVariant
 import ac.id.untidar.karsa.ui.ListSkeleton
 import ac.id.untidar.karsa.ui.LoadStatus
@@ -173,7 +173,7 @@ fun ActivityHub() {
                             .padding(20.dp),
                     ) {
                         Box(Modifier.fillMaxWidth()) {
-                            KawungPattern(Modifier.matchParentSize(), color = Color.White, alpha = 0.14f)
+                            BatikPattern(Modifier.matchParentSize(), color = Color.White, alpha = 0.14f)
                             Column {
                                 Text(
                                     "7 HARI TERAKHIR",
@@ -332,7 +332,7 @@ private fun ReportShortcutCard(total: Int) {
             .padding(20.dp),
     ) {
         Box(Modifier.fillMaxSize()) {
-            KawungPattern(Modifier.matchParentSize(), color = Color.White, alpha = 0.16f)
+            BatikPattern(Modifier.matchParentSize(), color = Color.White, alpha = 0.16f)
             Column(Modifier.fillMaxSize(), verticalArrangement = Arrangement.SpaceBetween) {
                 Box(
                     modifier = Modifier
@@ -697,7 +697,7 @@ private fun ReportView() {
                             .padding(24.dp),
                     ) {
                         Box(Modifier.fillMaxWidth()) {
-                            KawungPattern(Modifier.matchParentSize(), color = Color.White, alpha = 0.16f)
+                            BatikPattern(Modifier.matchParentSize(), color = Color.White, alpha = 0.16f)
                             Box(
                                 Modifier
                                     .align(Alignment.TopEnd)
@@ -941,7 +941,7 @@ fun RankingView(dock: Boolean = false) {
                                 .padding(start = 16.dp, end = 16.dp, top = 32.dp),
                         ) {
                             Box(Modifier.fillMaxWidth()) {
-                                KawungPattern(Modifier.matchParentSize(), color = Ink, alpha = 0.07f)
+                                BatikPattern(Modifier.matchParentSize(), color = Ink, alpha = 0.07f)
                                 Row(Modifier.fillMaxWidth().height(230.dp), verticalAlignment = Alignment.Bottom) {
                                     PodiumCell(row = top3.getOrNull(1), rank = 2, height = 96.dp, barColor = Espresso, barText = Color.White, avatarSize = 52.dp, flash = flash)
                                     PodiumCell(row = top3.getOrNull(0), rank = 1, height = 128.dp, barColor = Brand500, barText = Color.White, avatarSize = 62.dp, flash = flash)
