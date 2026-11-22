@@ -6,6 +6,7 @@ import android.content.ContextWrapper
 import androidx.activity.compose.BackHandler
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.core.CubicBezierEasing
+import androidx.compose.animation.core.animateDpAsState
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
@@ -21,9 +22,12 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.SideEffect
+import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.BlurredEdgeTreatment
+import androidx.compose.ui.draw.blur
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.unit.dp
@@ -38,19 +42,22 @@ import ac.id.untidar.karsa.screens.SplashScreen
 import ac.id.untidar.karsa.screens.StackHost
 import ac.id.untidar.karsa.screens.TabsHost
 import ac.id.untidar.karsa.theme.Paper
+import ac.id.untidar.karsa.ui.LocalOverlayBlur
+import ac.id.untidar.karsa.ui.OverlayBlurState
 
 @Composable
 fun KarsaApp() {
     val context = LocalContext.current
     val auth = remember { KarsaAuth.get(context) }
     val state = remember { KarsaState(auth) }
+    val overlayBlur = remember { OverlayBlurState() }
     val view = LocalView.current
 
     LaunchedEffect(Unit) { auth.initialize() }
     LaunchedEffect(auth.state) { state.syncAuth() }
     LaunchedEffect(auth.user) { state.ensureTab() }
 
-    CompositionLocalProvider(LocalApp provides state) {
+    CompositionLocalProvider(LocalApp provides state, LocalOverlayBlur provides overlayBlur) {
         SideEffect {
             val activity = view.context.findActivity() ?: return@SideEffect
             val controller = WindowCompat.getInsetsController(activity.window, activity.window.decorView)
@@ -61,7 +68,18 @@ fun KarsaApp() {
         val canGoBack = state.phase == Phase.App && state.canGoBack()
         BackHandler(enabled = canGoBack) { state.back() }
 
-        Box(Modifier.fillMaxSize().background(Paper)) {
+        val blurRadius by animateDpAsState(
+            targetValue = if (overlayBlur.openCount > 0 && overlayBlur.supported) 16.dp else 0.dp,
+            animationSpec = tween(240, easing = CubicBezierEasing(0.2f, 0.9f, 0.2f, 1f)),
+            label = "overlayBlur",
+        )
+
+        Box(
+            Modifier
+                .fillMaxSize()
+                .background(Paper)
+                .blur(blurRadius, edgeTreatment = BlurredEdgeTreatment.Unbounded),
+        ) {
             when (state.phase) {
                 Phase.Splash -> SplashScreen()
                 Phase.Onboarding -> OnboardingScreen()
