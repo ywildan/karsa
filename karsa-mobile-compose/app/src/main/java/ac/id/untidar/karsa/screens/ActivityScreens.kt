@@ -42,6 +42,7 @@ import androidx.compose.ui.unit.dp
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import ac.id.untidar.karsa.LocalApp
+import ac.id.untidar.karsa.Route
 import ac.id.untidar.karsa.Tab
 import ac.id.untidar.karsa.ToastTone
 import ac.id.untidar.karsa.data.RankRow
@@ -192,6 +193,15 @@ fun ActivityHub() {
                                     size = ButtonSize.Lg,
                                     full = true,
                                     leading = { LucideIcon(KarsaIcons.NotebookPen, modifier = Modifier.size(20.dp), tint = Color.White) },
+                                )
+                                Spacer(Modifier.height(10.dp))
+                                KarsaButton(
+                                    text = "Catat absensi kelas",
+                                    onClick = { state.go(Route.Attendance()) },
+                                    size = ButtonSize.Lg,
+                                    full = true,
+                                    variant = ButtonVariant.Soft,
+                                    leading = { LucideIcon(KarsaIcons.CheckCircle2, modifier = Modifier.size(20.dp), tint = Brand700) },
                                 )
                             }
                         }
@@ -1122,36 +1132,54 @@ fun RankingScreen() {
     }
 }
 
-private enum class PoinkuTab { Laporan, Peringkat }
+private enum class PoinkuTab { Laporan, Peringkat, Kehadiran }
 
 @Composable
 fun PoinkuScreen() {
     val state = LocalApp.current
     val showReport = state.capabilities.viewReport
     val showLeaderboard = state.capabilities.viewLeaderboard
-    var seg by remember { mutableStateOf(if (showReport) PoinkuTab.Laporan else PoinkuTab.Peringkat) }
-    LaunchedEffect(showReport, showLeaderboard) {
-        if (seg == PoinkuTab.Laporan && !showReport) seg = PoinkuTab.Peringkat
-        if (seg == PoinkuTab.Peringkat && !showLeaderboard) seg = PoinkuTab.Laporan
+    val showAttendance = showReport
+    val tabs = buildList {
+        if (showReport) add(PoinkuTab.Laporan)
+        if (showLeaderboard) add(PoinkuTab.Peringkat)
+        if (showAttendance) add(PoinkuTab.Kehadiran)
     }
+    var seg by remember { mutableStateOf(tabs.firstOrNull() ?: PoinkuTab.Laporan) }
+    val selected = if (seg in tabs) seg else tabs.firstOrNull() ?: PoinkuTab.Laporan
     Column(Modifier.fillMaxSize().background(Paper)) {
         PageHeader(
-            title = if (seg == PoinkuTab.Laporan) "Poinku" else "Partisipasi teratas",
-            eyebrow = { EyebrowText("Poin keaktifan") },
-            subtitle = if (seg == PoinkuTab.Laporan) "Rekap kontribusimu di kelas." else state.academicLine.takeIf { it.isNotBlank() },
+            title = when (selected) {
+                PoinkuTab.Laporan -> "Poinku"
+                PoinkuTab.Peringkat -> "Partisipasi teratas"
+                PoinkuTab.Kehadiran -> "Kehadiran"
+            },
+            eyebrow = {
+                EyebrowText(if (selected == PoinkuTab.Kehadiran) "Absensi" else "Poin keaktifan")
+            },
+            subtitle = when (selected) {
+                PoinkuTab.Laporan -> "Rekap kontribusimu di kelas."
+                PoinkuTab.Peringkat -> state.academicLine.takeIf { it.isNotBlank() }
+                PoinkuTab.Kehadiran -> "Jatah tanpa keterangan per mata kuliah."
+            },
         )
-        if (showReport && showLeaderboard) {
+        if (tabs.size > 1) {
             Column(Modifier.padding(horizontal = 20.dp).padding(bottom = 16.dp)) {
                 Segmented(
-                    options = listOf(
-                        SegmentedOption(PoinkuTab.Laporan, "Laporan saya") {
-                            LucideIcon(KarsaIcons.FileBarChart, modifier = Modifier.size(16.dp), tint = Ink2)
-                        },
-                        SegmentedOption(PoinkuTab.Peringkat, "Peringkat") {
-                            LucideIcon(KarsaIcons.Trophy, modifier = Modifier.size(16.dp), tint = Ink2)
-                        },
-                    ),
-                    value = seg,
+                    options = tabs.map { tab ->
+                        when (tab) {
+                            PoinkuTab.Laporan -> SegmentedOption(tab, "Laporan") {
+                                LucideIcon(KarsaIcons.FileBarChart, modifier = Modifier.size(16.dp), tint = Ink2)
+                            }
+                            PoinkuTab.Peringkat -> SegmentedOption(tab, "Peringkat") {
+                                LucideIcon(KarsaIcons.Trophy, modifier = Modifier.size(16.dp), tint = Ink2)
+                            }
+                            PoinkuTab.Kehadiran -> SegmentedOption(tab, "Hadir") {
+                                LucideIcon(KarsaIcons.CheckCircle2, modifier = Modifier.size(16.dp), tint = Ink2)
+                            }
+                        }
+                    },
+                    value = selected,
                     onChange = { seg = it },
                 )
             }
@@ -1163,11 +1191,10 @@ fun PoinkuScreen() {
                 .padding(horizontal = 20.dp)
                 .padding(bottom = 140.dp),
         ) {
-            when {
-                seg == PoinkuTab.Laporan && showReport -> ReportView()
-                seg == PoinkuTab.Peringkat && showLeaderboard -> RankingView(dock = true)
-                showReport -> ReportView()
-                else -> RankingView(dock = true)
+            when (selected) {
+                PoinkuTab.Laporan -> ReportView()
+                PoinkuTab.Peringkat -> RankingView(dock = true)
+                PoinkuTab.Kehadiran -> StudentAttendanceView()
             }
         }
     }

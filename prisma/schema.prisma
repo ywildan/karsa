@@ -67,6 +67,8 @@ model User {
   kelasMatkulAsPj      KelasMatkul[]       @relation("KelasMatkulPj")
   poinLogsAsMahasiswa  PoinLog[]           @relation("PoinLogMahasiswa")
   poinLogsAsPj         PoinLog[]           @relation("PoinLogPj")
+  absensiLogsAsMahasiswa AbsensiLog[]      @relation("AbsensiLogMahasiswa")
+  absensiLogsAsPj        AbsensiLog[]      @relation("AbsensiLogPj")
   mobileAuthRequests   MobileAuthRequest[]
   mobileSessions       MobileSession[]
   groupMessages        GroupMessage[]      @relation("GroupMessageAuthor")
@@ -348,6 +350,7 @@ model KelasMatkul {
   pj            User           @relation("KelasMatkulPj", fields: [pj_id], references: [id], onDelete: Restrict, onUpdate: Cascade)
   groupLockedBy User?          @relation("KelasMatkulGroupLocker", fields: [group_locked_by_id], references: [id], onDelete: SetNull, onUpdate: Cascade)
   poinLogs      PoinLog[]
+  absensiLogs   AbsensiLog[]
   groupMessages GroupMessage[]
 
   @@unique([kelas_id, matkul_id])
@@ -392,6 +395,34 @@ model PoinLog {
   @@index([kategori_id])
   @@index([created_at])
   @@index([kelas_matkul_id, mahasiswa_id])
+}
+
+/// AbsensiLog — satu baris = satu mahasiswa tidak hadir pada satu tanggal.
+///
+/// Bukan absensi harian seluruh kelas: PJ hanya mencatat mahasiswa yang tidak
+/// hadir. Kuota kampus (maksimal 2 TANPA_KETERANGAN per matkul per semester)
+/// dihitung dari baris berstatus TANPA_KETERANGAN; status SAKIT/IZIN tidak
+/// memakai kuota. Lingkup semester diturunkan dari KelasMatkul → Kelas.
+model AbsensiLog {
+  id              String   @id @default(cuid())
+  kelas_matkul_id String
+  mahasiswa_id    String
+  pj_id           String
+  /// "TANPA_KETERANGAN" | "SAKIT" | "IZIN" — dijaga CHECK di SQL.
+  status          String
+  tanggal         DateTime @db.Date
+  catatan         String?
+  created_at      DateTime @default(now())
+  updated_at      DateTime @default(now()) @updatedAt
+
+  kelasMatkul KelasMatkul @relation(fields: [kelas_matkul_id], references: [id], onDelete: Cascade, onUpdate: Cascade)
+  mahasiswa   User        @relation("AbsensiLogMahasiswa", fields: [mahasiswa_id], references: [id], onDelete: Restrict, onUpdate: Cascade)
+  pj          User        @relation("AbsensiLogPj", fields: [pj_id], references: [id], onDelete: Restrict, onUpdate: Cascade)
+
+  @@unique([kelas_matkul_id, mahasiswa_id, tanggal])
+  @@index([kelas_matkul_id, status])
+  @@index([mahasiswa_id, kelas_matkul_id])
+  @@index([tanggal])
 }
 
 // ---------------------------------------------------------------------------

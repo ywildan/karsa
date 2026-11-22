@@ -89,25 +89,8 @@ fun RouteScreen(route: Route) {
         Route.History -> HistoryScreen()
         Route.Report -> ReportScreen()
         Route.Ranking -> RankingScreen()
+        is Route.Attendance -> AttendanceScreen(route.assignmentId)
         is Route.Legal -> LegalScreen(route.doc)
-    }
-}
-
-@Composable
-private fun RoutePlaceholder(title: String, subtitle: String) {
-    val state = LocalApp.current
-    Column(Modifier.fillMaxSize().background(Paper)) {
-        ac.id.untidar.karsa.ui.TopBar(
-            onBack = { state.back() },
-            title = title,
-            subtitle = subtitle,
-        )
-        EmptyState(
-            title = "Layar ini menyusul",
-            desc = "Halaman $title diporting pada slice berikutnya.",
-            icon = { LucideIcon(KarsaIcons.Inbox, modifier = Modifier.size(36.dp), tint = Brand600) },
-            modifier = Modifier.weight(1f),
-        )
     }
 }
 
