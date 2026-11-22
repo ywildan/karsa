@@ -292,9 +292,13 @@ private fun PjAttendanceDetailScreen(assignmentId: String) {
                 PopMenu(
                     entries = buildList {
                         add(
-                            MenuEntry("Muat ulang", KarsaIcons.RefreshCw) {
-                                attendance.loadDetail(assignmentId, force = true)
-                            },
+                            MenuEntry(
+                                label = "Muat ulang",
+                                icon = KarsaIcons.RefreshCw,
+                                onClick = {
+                                    attendance.loadDetail(assignmentId, force = true)
+                                },
+                            ),
                         )
                         if (detail?.students?.any { it.history.isNotEmpty() } == true) {
                             add(
