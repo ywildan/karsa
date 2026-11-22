@@ -1,5 +1,6 @@
 package ac.id.untidar.karsa.ui
 
+import android.os.Build
 import android.view.WindowManager
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.fadeIn
@@ -40,9 +41,12 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.SideEffect
+import androidx.compose.runtime.compositionLocalOf
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
@@ -80,6 +84,23 @@ import ac.id.untidar.karsa.theme.displayStyle
 import ac.id.untidar.karsa.theme.sansStyle
 import kotlin.math.roundToInt
 
+/** Berapa overlay (sheet/dialog) yang sedang terbuka, dipakai untuk blur latar. */
+class OverlayBlurState {
+    var openCount by mutableIntStateOf(0)
+        private set
+    val supported: Boolean = Build.VERSION.SDK_INT >= Build.VERSION_CODES.S
+
+    fun acquire() {
+        openCount += 1
+    }
+
+    fun release() {
+        openCount = (openCount - 1).coerceAtLeast(0)
+    }
+}
+
+val LocalOverlayBlur = compositionLocalOf { OverlayBlurState() }
+
 /* ───────────── Bottom sheet ───────────── */
 
 @Composable
@@ -98,12 +119,18 @@ fun KarsaSheet(
         onDismissRequest = onClose,
         properties = DialogProperties(usePlatformDefaultWidth = false, decorFitsSystemWindows = false),
     ) {
+        val overlay = LocalOverlayBlur.current
+        DisposableEffect(Unit) {
+            overlay.acquire()
+            onDispose { overlay.release() }
+        }
         val view = LocalView.current
         LaunchedEffect(Unit) {
-            // Jangan biarkan jendela dialog ikut pan/resize; imePadding yang mengatur posisi.
-            (view.parent as? DialogWindowProvider)?.window?.setSoftInputMode(
-                WindowManager.LayoutParams.SOFT_INPUT_ADJUST_NOTHING,
-            )
+            (view.parent as? DialogWindowProvider)?.window?.apply {
+                // Jangan biarkan jendela dialog ikut pan/resize; imePadding yang mengatur posisi.
+                setSoftInputMode(WindowManager.LayoutParams.SOFT_INPUT_ADJUST_NOTHING)
+                setDimAmount(0f)
+            }
         }
         val progress = remember { Animatable(0f) }
         LaunchedEffect(Unit) {
@@ -116,7 +143,7 @@ fun KarsaSheet(
             Box(
                 Modifier
                     .fillMaxSize()
-                    .background(Espresso.copy(alpha = 0.5f * progress.value))
+                    .background(if (overlay.supported) Color.Transparent else Espresso.copy(alpha = 0.18f * progress.value))
                     .clickable(
                         interactionSource = remember { MutableInteractionSource() },
                         indication = null,
@@ -204,6 +231,15 @@ fun KarsaDialog(
         onDismissRequest = onClose,
         properties = DialogProperties(usePlatformDefaultWidth = false, decorFitsSystemWindows = false),
     ) {
+        val overlay = LocalOverlayBlur.current
+        DisposableEffect(Unit) {
+            overlay.acquire()
+            onDispose { overlay.release() }
+        }
+        val view = LocalView.current
+        LaunchedEffect(Unit) {
+            (view.parent as? DialogWindowProvider)?.window?.setDimAmount(0f)
+        }
         val progress = remember { Animatable(0f) }
         LaunchedEffect(Unit) {
             progress.animateTo(
@@ -214,7 +250,7 @@ fun KarsaDialog(
         Box(
             modifier = Modifier
                 .fillMaxSize()
-                .background(Espresso.copy(alpha = 0.55f * progress.value))
+                .background(if (overlay.supported) Color.Transparent else Espresso.copy(alpha = 0.2f * progress.value))
                 .clickable(
                     interactionSource = remember { MutableInteractionSource() },
                     indication = null,
