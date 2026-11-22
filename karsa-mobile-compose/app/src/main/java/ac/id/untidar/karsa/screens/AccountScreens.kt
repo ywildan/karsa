@@ -81,7 +81,7 @@ import ac.id.untidar.karsa.ui.KarsaButton
 import ac.id.untidar.karsa.ui.KarsaCard
 import ac.id.untidar.karsa.ui.KarsaDialog
 import ac.id.untidar.karsa.ui.KarsaIconButton
-import ac.id.untidar.karsa.ui.KawungPattern
+import ac.id.untidar.karsa.ui.BatikPattern
 import ac.id.untidar.karsa.ui.ListSkeleton
 import ac.id.untidar.karsa.ui.LoadStatus
 import ac.id.untidar.karsa.ui.PageHeader
@@ -170,7 +170,7 @@ fun AccountScreen() {
                             .padding(24.dp),
                     ) {
                         Box(Modifier.fillMaxWidth()) {
-                            KawungPattern(Modifier.matchParentSize(), color = Color.White, alpha = 0.12f)
+                            BatikPattern(Modifier.matchParentSize(), color = Color.White, alpha = 0.12f)
                             Column {
                                 Row(horizontalArrangement = Arrangement.spacedBy(16.dp), verticalAlignment = Alignment.CenterVertically) {
                                     Avatar(

@@ -71,7 +71,7 @@ import ac.id.untidar.karsa.theme.sansStyle
 import ac.id.untidar.karsa.ui.ButtonSize
 import ac.id.untidar.karsa.ui.ButtonVariant
 import ac.id.untidar.karsa.ui.KarsaButton
-import ac.id.untidar.karsa.ui.KawungPattern
+import ac.id.untidar.karsa.ui.BatikPattern
 import ac.id.untidar.karsa.ui.Rise
 import ac.id.untidar.karsa.ui.Spinner
 import ac.id.untidar.karsa.ui.cardShadow
@@ -97,7 +97,7 @@ fun LoginScreen() {
                     .clip(RoundedCornerShape(bottomStart = 48.dp, bottomEnd = 48.dp))
                     .background(Brand500),
             ) {
-                KawungPattern(Modifier.fillMaxSize(), color = Color.White, alpha = 0.2f)
+                BatikPattern(Modifier.fillMaxSize(), color = Color.White, alpha = 0.2f)
                 Box(
                     Modifier
                         .align(Alignment.TopStart)
@@ -224,7 +224,7 @@ fun SessionErrorScreen() {
     val state = LocalApp.current
     val auth = state.auth
     Box(Modifier.fillMaxSize().background(Paper)) {
-        KawungPattern(Modifier.fillMaxSize(), color = Brand500, alpha = 0.06f, fade = true)
+        BatikPattern(Modifier.fillMaxSize(), color = Brand500, alpha = 0.06f, fade = true)
         Column(
             modifier = Modifier
                 .align(Alignment.Center)
