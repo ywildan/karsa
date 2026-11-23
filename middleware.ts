@@ -173,6 +173,7 @@ export const config = {
     "/admin/:path*",
     "/dashboard/:path*",
     "/kehadiran/:path*",
+    "/karsa-lib/:path*",
     "/catat-poin/:path*",
     "/absensi/:path*",
     "/riwayat-poin/:path*",

@@ -9,7 +9,7 @@
 import * as React from "react";
 import Link from "next/link";
 import { animate, motion, useMotionValue } from "framer-motion";
-import { ChevronRight, ClipboardCheck, Trophy } from "lucide-react";
+import { BookOpenText, ChevronRight, ClipboardCheck, Trophy } from "lucide-react";
 
 import { Button } from "@/components/button";
 import { PoinDetailPopup } from "@/components/rapor/poin-detail-popup";
@@ -81,6 +81,12 @@ export function RaporView({
           </div>
 
           <div className="flex flex-wrap gap-2">
+            <Button asChild variant="outline" className="w-fit">
+              <Link href="/karsa-lib">
+                <BookOpenText aria-hidden />
+                Karsa Lib
+              </Link>
+            </Button>
             <Button asChild variant="outline" className="w-fit">
               <Link href="/kehadiran">
                 <ClipboardCheck aria-hidden />
