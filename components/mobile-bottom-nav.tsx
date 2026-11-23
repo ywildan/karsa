@@ -3,10 +3,10 @@
 /**
  * Karsa — components/mobile-bottom-nav.tsx
  * ----------------------------------------------------------------------------
- * Bottom nav 3 tab channel mobile (PRD §7.2, §10.1). Tap target ≥ 44px.
+ * Bottom nav 4 tab channel mobile (PRD §7.2, §10.1). Tap target ≥ 44px.
  */
 
-import { ClipboardList, Plus, User } from "lucide-react";
+import { ClipboardCheck, ClipboardList, Plus, User } from "lucide-react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 
@@ -14,6 +14,7 @@ import { cn } from "@/lib/utils";
 
 const TABS = [
   { href: "/catat-poin", label: "Input", icon: Plus },
+  { href: "/absensi", label: "Absensi", icon: ClipboardCheck },
   { href: "/riwayat-poin", label: "Riwayat", icon: ClipboardList },
   { href: "/poin-saya", label: "Poin Saya", icon: User },
 ] as const;
