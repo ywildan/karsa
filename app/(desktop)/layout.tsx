@@ -9,7 +9,7 @@ import { cookies } from "next/headers";
 import Image from "next/image";
 import Link from "next/link";
 import { redirect } from "next/navigation";
-import { BookOpenText } from "lucide-react";
+import { BookOpenText, MessagesSquare } from "lucide-react";
 
 import { signOutAction } from "@/actions/auth";
 import { Button } from "@/components/button";
@@ -66,6 +66,15 @@ export default async function DesktopLayout({
               <BookOpenText className="h-4 w-4" aria-hidden />
               Karsa Lib
             </Link>
+            {session?.user?.kelas_id && !session.user.is_admin ? (
+              <Link
+                href="/grup"
+                className="inline-flex items-center gap-1.5 rounded-full px-3.5 py-2 text-sm text-muted-foreground transition-colors hover:bg-accent hover:text-accent-foreground"
+              >
+                <MessagesSquare className="h-4 w-4" aria-hidden />
+                Grup
+              </Link>
+            ) : null}
           </nav>
 
           <div className="flex items-center gap-2">
