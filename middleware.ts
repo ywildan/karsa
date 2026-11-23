@@ -175,6 +175,7 @@ export const config = {
     "/kehadiran/:path*",
     "/karsa-lib/:path*",
     "/grup/:path*",
+    "/akun/:path*",
     "/catat-poin/:path*",
     "/absensi/:path*",
     "/riwayat-poin/:path*",
