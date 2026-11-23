@@ -6,7 +6,7 @@
  * Bottom nav 4 tab channel mobile (PRD §7.2, §10.1). Tap target ≥ 44px.
  */
 
-import { ClipboardCheck, ClipboardList, Plus, User } from "lucide-react";
+import { Activity, ClipboardCheck, ClipboardList, Plus } from "lucide-react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 
@@ -16,7 +16,7 @@ const TABS = [
   { href: "/catat-poin", label: "Input", icon: Plus },
   { href: "/absensi", label: "Absensi", icon: ClipboardCheck },
   { href: "/riwayat-poin", label: "Riwayat", icon: ClipboardList },
-  { href: "/poin-saya", label: "Poin Saya", icon: User },
+  { href: "/aktivitas", label: "Aktivitas", icon: Activity },
 ] as const;
 
 export function MobileBottomNav() {

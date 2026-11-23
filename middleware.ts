@@ -178,6 +178,7 @@ export const config = {
     "/akun/:path*",
     "/catat-poin/:path*",
     "/absensi/:path*",
+    "/aktivitas/:path*",
     "/riwayat-poin/:path*",
     "/poin-saya/:path*",
   ],
