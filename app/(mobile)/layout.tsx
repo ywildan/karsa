@@ -14,6 +14,7 @@ import { redirect } from "next/navigation";
 import { signOutAction } from "@/actions/auth";
 import { Button } from "@/components/button";
 import { MobileBottomNav } from "@/components/mobile-bottom-nav";
+import { MobileMoreMenu } from "@/components/mobile-more-menu";
 import { ThemeToggle } from "@/components/theme-toggle";
 import { requirePj } from "@/lib/auth-helpers";
 import { detectChannelFromUserAgent, MOBILE_HOME } from "@/lib/channel";
@@ -57,6 +58,7 @@ export default async function MobileLayout({
           </Link>
           <div className="flex items-center gap-2">
             <ThemeToggle initialDark={isDark} className="h-8 w-8" />
+            <MobileMoreMenu hasClass={Boolean(user.kelas_id)} />
             <span className="hidden max-w-[8rem] truncate text-xs text-muted-foreground sm:inline">
               {displayName}
             </span>
