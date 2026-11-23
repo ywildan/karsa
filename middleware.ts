@@ -144,9 +144,14 @@ export default auth((req) => {
     return nextWithChannel(channel, existing);
   }
 
-  // /dashboard: PJ non-admin dikunci ke shell mobile. Admin — termasuk admin
-  // yang merangkap PJ — tetap boleh membuka dashboard-nya sendiri (Fase 3A).
-  if (pathname === "/dashboard" || pathname.startsWith("/dashboard/")) {
+  // /dashboard dan /kehadiran: PJ non-admin dikunci ke shell mobile. Admin —
+  // termasuk admin yang merangkap PJ — tetap boleh membuka halaman mahasiswa.
+  if (
+    pathname === "/dashboard" ||
+    pathname.startsWith("/dashboard/") ||
+    pathname === "/kehadiran" ||
+    pathname.startsWith("/kehadiran/")
+  ) {
     if (user?.is_pj && !user?.is_admin) {
       return redirectTo(req, MOBILE_HOME, channel, existing);
     }
@@ -167,8 +172,10 @@ export const config = {
     "/lengkapi-nim",
     "/admin/:path*",
     "/dashboard/:path*",
+    "/kehadiran/:path*",
     "/karsa-lib/:path*",
     "/catat-poin/:path*",
+    "/absensi/:path*",
     "/riwayat-poin/:path*",
     "/poin-saya/:path*",
   ],
