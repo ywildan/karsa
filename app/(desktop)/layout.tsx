@@ -9,7 +9,7 @@ import { cookies } from "next/headers";
 import Image from "next/image";
 import Link from "next/link";
 import { redirect } from "next/navigation";
-import { BookOpenText, MessagesSquare } from "lucide-react";
+import { BookOpenText, MessagesSquare, UserRound } from "lucide-react";
 
 import { signOutAction } from "@/actions/auth";
 import { Button } from "@/components/button";
@@ -79,9 +79,20 @@ export default async function DesktopLayout({
 
           <div className="flex items-center gap-2">
             <ThemeToggle initialDark={isDark} />
-            <span className="hidden max-w-[12rem] truncate text-sm text-muted-foreground sm:inline">
-              {displayName}
-            </span>
+            <Link
+              href="/akun"
+              aria-label="Buka halaman akun"
+              className="inline-flex h-9 w-9 items-center justify-center rounded-full text-muted-foreground transition-colors hover:bg-accent hover:text-accent-foreground sm:hidden"
+            >
+              <UserRound className="h-4 w-4" aria-hidden />
+            </Link>
+            <Link
+              href="/akun"
+              className="hidden max-w-[12rem] items-center gap-1.5 truncate text-sm text-muted-foreground transition-colors hover:text-foreground sm:inline-flex"
+            >
+              <UserRound className="h-4 w-4 shrink-0" aria-hidden />
+              <span className="truncate">{displayName}</span>
+            </Link>
             {session?.user?.id ? (
               <form action={signOutAction}>
                 <Button type="submit" variant="outline" size="sm">
