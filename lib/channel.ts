@@ -35,6 +35,7 @@ export const MOBILE_ROUTE_PREFIXES = [
   "/absensi",
   "/riwayat-poin",
   "/poin-saya",
+  "/aktivitas",
 ] as const;
 
 /** True bila path termasuk rute channel mobile (juga sub-route seperti `/catat-poin/[id]`). */
