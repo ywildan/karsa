@@ -9,6 +9,7 @@ import { cookies } from "next/headers";
 import Image from "next/image";
 import Link from "next/link";
 import { redirect } from "next/navigation";
+import { BookOpenText } from "lucide-react";
 
 import { signOutAction } from "@/actions/auth";
 import { Button } from "@/components/button";
@@ -56,6 +57,16 @@ export default async function DesktopLayout({
             />
             <span>Karsa</span>
           </Link>
+
+          <nav aria-label="Navigasi utama" className="hidden sm:flex">
+            <Link
+              href="/karsa-lib"
+              className="inline-flex items-center gap-1.5 rounded-full px-3.5 py-2 text-sm text-muted-foreground transition-colors hover:bg-accent hover:text-accent-foreground"
+            >
+              <BookOpenText className="h-4 w-4" aria-hidden />
+              Karsa Lib
+            </Link>
+          </nav>
 
           <div className="flex items-center gap-2">
             <ThemeToggle initialDark={isDark} />

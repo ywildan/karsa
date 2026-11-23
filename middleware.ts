@@ -167,6 +167,7 @@ export const config = {
     "/lengkapi-nim",
     "/admin/:path*",
     "/dashboard/:path*",
+    "/karsa-lib/:path*",
     "/catat-poin/:path*",
     "/riwayat-poin/:path*",
     "/poin-saya/:path*",
