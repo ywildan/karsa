@@ -192,6 +192,28 @@ CREATE TABLE IF NOT EXISTS "PoinLog" (
 -- Tambahkan kolom saat init.sql dijalankan pada database Karsa yang sudah ada.
 ALTER TABLE "PoinLog" ADD COLUMN IF NOT EXISTS "idempotency_key" TEXT;
 
+-- AbsensiLog — satu baris = satu mahasiswa tidak hadir pada satu tanggal.
+-- Kuota tanpa keterangan (maksimal 2 per matkul per semester) dihitung dari
+-- baris berstatus TANPA_KETERANGAN; SAKIT/IZIN tidak memakai kuota.
+CREATE TABLE IF NOT EXISTS "AbsensiLog" (
+    "id"              TEXT         NOT NULL,
+    "kelas_matkul_id" TEXT         NOT NULL,
+    "mahasiswa_id"    TEXT         NOT NULL,
+    "pj_id"           TEXT         NOT NULL,
+    "status"          TEXT         NOT NULL,
+    "tanggal"         DATE         NOT NULL,
+    "catatan"         TEXT,
+    "created_at"      TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "updated_at"      TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    CONSTRAINT "AbsensiLog_pkey" PRIMARY KEY ("id"),
+    CONSTRAINT "AbsensiLog_status_check" CHECK (
+        "status" IN ('TANPA_KETERANGAN', 'SAKIT', 'IZIN')
+    ),
+    CONSTRAINT "AbsensiLog_catatan_check" CHECK (
+        "catatan" IS NULL OR char_length("catatan") <= 500
+    )
+);
+
 -- MobileAuthRequest — jembatan OAuth browser ke aplikasi native (PKCE).
 CREATE TABLE IF NOT EXISTS "MobileAuthRequest" (
     "id"             TEXT         NOT NULL,
@@ -297,6 +319,33 @@ CREATE TABLE IF NOT EXISTS "AuditLog" (
 ALTER TABLE "AuditLog" ENABLE ROW LEVEL SECURITY;
 REVOKE ALL ON "AuditLog" FROM PUBLIC, anon, authenticated;
 
+-- AbsensiLog — pola RLS sama dengan "CohortSemester": anon/authenticated tidak
+-- butuh akses langsung, runtime memakai grant + policy penuh.
+ALTER TABLE "AbsensiLog" ENABLE ROW LEVEL SECURITY;
+REVOKE ALL ON "AbsensiLog" FROM PUBLIC;
+DO $$
+DECLARE role_name TEXT;
+BEGIN
+    FOREACH role_name IN ARRAY ARRAY['anon', 'authenticated'] LOOP
+        IF EXISTS (SELECT 1 FROM pg_roles WHERE rolname = role_name) THEN
+            EXECUTE format('REVOKE ALL ON "AbsensiLog" FROM %I', role_name);
+        END IF;
+    END LOOP;
+
+    IF EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'karsa_runtime') THEN
+        GRANT SELECT, INSERT, UPDATE, DELETE ON "AbsensiLog" TO karsa_runtime;
+        IF NOT EXISTS (
+            SELECT 1 FROM pg_policies
+            WHERE schemaname = 'public'
+              AND tablename = 'AbsensiLog'
+              AND policyname = 'karsa_runtime_ai'
+        ) THEN
+            CREATE POLICY karsa_runtime_ai ON "AbsensiLog"
+                FOR ALL TO karsa_runtime USING (true) WITH CHECK (true);
+        END IF;
+    END IF;
+END $$;
+
 -- ---------------------------------------------------------------------------
 -- 2. UNIQUE CONSTRAINT
 -- ---------------------------------------------------------------------------
@@ -345,6 +394,11 @@ BEGIN
     END IF;
     IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'PoinLog_idempotency_key_key') THEN
         ALTER TABLE "PoinLog" ADD CONSTRAINT "PoinLog_idempotency_key_key" UNIQUE ("idempotency_key");
+    END IF;
+    IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'AbsensiLog_kelas_matkul_id_mahasiswa_id_tanggal_key') THEN
+        ALTER TABLE "AbsensiLog"
+            ADD CONSTRAINT "AbsensiLog_kelas_matkul_id_mahasiswa_id_tanggal_key"
+            UNIQUE ("kelas_matkul_id", "mahasiswa_id", "tanggal");
     END IF;
     IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'MobileAuthRequest_code_hash_key') THEN
         ALTER TABLE "MobileAuthRequest" ADD CONSTRAINT "MobileAuthRequest_code_hash_key" UNIQUE ("code_hash");
@@ -504,6 +558,30 @@ BEGIN
         ALTER TABLE "PoinLog"
             ADD CONSTRAINT "PoinLog_kategori_id_fkey"
             FOREIGN KEY ("kategori_id") REFERENCES "KategoriPoin" ("id")
+            ON DELETE RESTRICT ON UPDATE CASCADE;
+    END IF;
+
+    -- AbsensiLog → KelasMatkul
+    IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'AbsensiLog_kelas_matkul_id_fkey') THEN
+        ALTER TABLE "AbsensiLog"
+            ADD CONSTRAINT "AbsensiLog_kelas_matkul_id_fkey"
+            FOREIGN KEY ("kelas_matkul_id") REFERENCES "KelasMatkul" ("id")
+            ON DELETE CASCADE ON UPDATE CASCADE;
+    END IF;
+
+    -- AbsensiLog → User (mahasiswa yang tidak hadir)
+    IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'AbsensiLog_mahasiswa_id_fkey') THEN
+        ALTER TABLE "AbsensiLog"
+            ADD CONSTRAINT "AbsensiLog_mahasiswa_id_fkey"
+            FOREIGN KEY ("mahasiswa_id") REFERENCES "User" ("id")
+            ON DELETE RESTRICT ON UPDATE CASCADE;
+    END IF;
+
+    -- AbsensiLog → User (PJ pembuat)
+    IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'AbsensiLog_pj_id_fkey') THEN
+        ALTER TABLE "AbsensiLog"
+            ADD CONSTRAINT "AbsensiLog_pj_id_fkey"
+            FOREIGN KEY ("pj_id") REFERENCES "User" ("id")
             ON DELETE RESTRICT ON UPDATE CASCADE;
     END IF;
 
@@ -672,6 +750,11 @@ CREATE INDEX IF NOT EXISTS "PoinLog_pj_id_idx" ON "PoinLog" ("pj_id");
 CREATE INDEX IF NOT EXISTS "PoinLog_kategori_id_idx" ON "PoinLog" ("kategori_id");
 CREATE INDEX IF NOT EXISTS "PoinLog_created_at_idx" ON "PoinLog" ("created_at");
 CREATE INDEX IF NOT EXISTS "PoinLog_kelas_matkul_id_mahasiswa_id_idx" ON "PoinLog" ("kelas_matkul_id", "mahasiswa_id");
+
+-- AbsensiLog
+CREATE INDEX IF NOT EXISTS "AbsensiLog_kelas_matkul_id_status_idx" ON "AbsensiLog" ("kelas_matkul_id", "status");
+CREATE INDEX IF NOT EXISTS "AbsensiLog_mahasiswa_id_kelas_matkul_id_idx" ON "AbsensiLog" ("mahasiswa_id", "kelas_matkul_id");
+CREATE INDEX IF NOT EXISTS "AbsensiLog_tanggal_idx" ON "AbsensiLog" ("tanggal");
 
 -- Mobile auth/session
 CREATE INDEX IF NOT EXISTS "MobileAuthRequest_expires_at_idx" ON "MobileAuthRequest" ("expires_at");

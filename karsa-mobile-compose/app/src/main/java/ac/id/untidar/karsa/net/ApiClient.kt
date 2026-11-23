@@ -10,6 +10,10 @@ import ac.id.untidar.karsa.lib.LibBootstrapDto
 import ac.id.untidar.karsa.lib.LibCommentDto
 import ac.id.untidar.karsa.lib.LibDocxResult
 import ac.id.untidar.karsa.lib.LibProfileDto
+import ac.id.untidar.karsa.attendance.AttendanceMutationDto
+import ac.id.untidar.karsa.attendance.PjAttendanceAssignmentDto
+import ac.id.untidar.karsa.attendance.PjAttendanceDetailDto
+import ac.id.untidar.karsa.attendance.StudentAttendanceDto
 import ac.id.untidar.karsa.groups.GroupMessageDto
 import ac.id.untidar.karsa.groups.GroupMessagePageDto
 import ac.id.untidar.karsa.groups.GroupReportDto
@@ -33,6 +37,7 @@ import kotlinx.serialization.json.JsonElement
 import kotlinx.serialization.json.JsonNull
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.JsonPrimitive
+import kotlinx.serialization.json.add
 import kotlinx.serialization.json.booleanOrNull
 import kotlinx.serialization.json.buildJsonObject
 import kotlinx.serialization.json.contentOrNull
@@ -40,6 +45,7 @@ import kotlinx.serialization.json.intOrNull
 import kotlinx.serialization.json.jsonObject
 import kotlinx.serialization.json.jsonPrimitive
 import kotlinx.serialization.json.put
+import kotlinx.serialization.json.putJsonArray
 import okhttp3.HttpUrl
 import okhttp3.HttpUrl.Companion.toHttpUrl
 import okhttp3.MediaType.Companion.toMediaType
@@ -333,6 +339,62 @@ class ApiClient(private val store: SessionStore) {
             "/groups/$groupId/reports/$reportId/resolve",
             body = buildJsonObject { put("action", action) },
         )
+    }
+
+    /* ───────────── Absensi ───────────── */
+
+    suspend fun studentAttendance(): StudentAttendanceDto {
+        val data = request("GET", "/attendance")
+        return json.decodeFromJsonElement(StudentAttendanceDto.serializer(), data)
+    }
+
+    suspend fun pjAttendanceAssignments(): List<PjAttendanceAssignmentDto> {
+        val data = request("GET", "/attendance/assignments")
+        return json.decodeFromJsonElement(
+            ListSerializer(PjAttendanceAssignmentDto.serializer()),
+            data,
+        )
+    }
+
+    suspend fun pjAttendanceAssignment(assignmentId: String): PjAttendanceDetailDto {
+        val data = request("GET", "/attendance/assignments/$assignmentId")
+        return json.decodeFromJsonElement(PjAttendanceDetailDto.serializer(), data)
+    }
+
+    suspend fun createAttendance(
+        assignmentId: String,
+        tanggal: String,
+        status: String,
+        studentIds: List<String>,
+        catatan: String?,
+    ): AttendanceMutationDto {
+        val data = request(
+            "POST",
+            "/attendance",
+            body = buildJsonObject {
+                put("kelas_matkul_id", assignmentId)
+                put("tanggal", tanggal)
+                put("status", status)
+                putJsonArray("student_ids") { studentIds.forEach { add(it) } }
+                if (!catatan.isNullOrBlank()) put("catatan", catatan.trim())
+            },
+        ) as? JsonObject ?: throw ApiException("Respons absensi tidak dapat dibaca.")
+        return json.decodeFromJsonElement(AttendanceMutationDto.serializer(), data)
+    }
+
+    suspend fun deleteAttendance(attendanceId: String): String {
+        val data = request("DELETE", "/attendance/$attendanceId") as? JsonObject
+        return data?.get("message")?.jsonPrimitive?.contentOrNull
+            ?: "Catatan absensi dihapus."
+    }
+
+    suspend fun resetAttendance(assignmentId: String): String {
+        val data = request(
+            "POST",
+            "/attendance/assignments/$assignmentId/reset",
+        ) as? JsonObject
+        return data?.get("message")?.jsonPrimitive?.contentOrNull
+            ?: "Catatan absensi direset."
     }
 
     /* ───────────── Poin & aktivitas ───────────── */

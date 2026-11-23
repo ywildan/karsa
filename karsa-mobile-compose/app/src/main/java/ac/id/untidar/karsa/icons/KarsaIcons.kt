@@ -125,6 +125,10 @@ object KarsaIcons {
         "m9 18 6-6-6-6",
     )
 
+    val ChevronLeft: List<String> = listOf(
+        "m15 18-6-6 6-6",
+    )
+
     val EllipsisVertical: List<String> = listOf(
         "M 11 12 a 1 1 0 1 0 2 0 a 1 1 0 1 0 -2 0",
         "M 11 5 a 1 1 0 1 0 2 0 a 1 1 0 1 0 -2 0",
@@ -143,6 +147,13 @@ object KarsaIcons {
     val CheckCircle2: List<String> = listOf(
         "M 2 12 a 10 10 0 1 0 20 0 a 10 10 0 1 0 -20 0",
         "m16 9-5.5 5.5L8 12",
+    )
+
+    val CalendarDays: List<String> = listOf(
+        "M8 2v4",
+        "M16 2v4",
+        "M3 10h18",
+        "M5 4h14a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2",
     )
 
     val Info: List<String> = listOf(

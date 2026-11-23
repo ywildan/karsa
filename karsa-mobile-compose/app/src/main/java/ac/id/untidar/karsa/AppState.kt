@@ -4,6 +4,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import androidx.compose.runtime.staticCompositionLocalOf
+import ac.id.untidar.karsa.attendance.AttendanceController
 import ac.id.untidar.karsa.auth.AuthController
 import ac.id.untidar.karsa.auth.SessionState
 import ac.id.untidar.karsa.groups.GroupController
@@ -70,6 +71,7 @@ sealed interface Route {
     data object History : Route
     data object Report : Route
     data object Ranking : Route
+    data class Attendance(val assignmentId: String? = null) : Route
     data class Legal(val doc: LegalDoc) : Route
 }
 
@@ -77,6 +79,7 @@ class KarsaState(val auth: AuthController) {
     val lib = LibController(auth)
     val groups = GroupController(auth)
     val points = PointsController(auth)
+    val attendance = AttendanceController(auth)
 
     var phase by mutableStateOf(Phase.Splash)
         private set
@@ -175,6 +178,7 @@ class KarsaState(val auth: AuthController) {
         lib.reset()
         groups.reset()
         points.reset()
+        attendance.reset()
     }
 
     fun openTab(next: Tab) {
@@ -202,6 +206,7 @@ class KarsaState(val auth: AuthController) {
         Route.History -> capabilities.recordPoints
         Route.Report -> capabilities.viewReport || capabilities.recordPoints
         Route.Ranking -> capabilities.viewLeaderboard || capabilities.recordPoints
+        is Route.Attendance -> capabilities.recordPoints
         is Route.Legal -> true
     }
 
