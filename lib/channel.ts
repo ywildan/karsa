@@ -32,6 +32,7 @@ export const DESKTOP_HOME = "/dashboard";
 /** Prefiks rute milik `(mobile)`. Route group tidak menambah segmen URL. */
 export const MOBILE_ROUTE_PREFIXES = [
   "/catat-poin",
+  "/absensi",
   "/riwayat-poin",
   "/poin-saya",
 ] as const;
