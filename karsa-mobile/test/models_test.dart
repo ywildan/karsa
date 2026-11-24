@@ -59,7 +59,7 @@ void main() {
 
   test('pencarian mahasiswa aktif mulai tiga huruf dan tidak peka kapital', () {
     const students = [
-      Student(id: '1', name: 'YUSUF WILDAN AFFANDI', nim: '22001'),
+      Student(id: '1', name: 'WILLY PRATAMA', nim: '22001'),
       Student(id: '2', name: 'DEWILSON', nim: '22002'),
       Student(id: '3', name: 'BUDI SANTOSO', nim: '22003'),
     ];
@@ -67,11 +67,11 @@ void main() {
     expect(searchStudents(students, 'wi'), isEmpty);
     expect(
       searchStudents(students, 'wil').map((student) => student.name),
-      ['YUSUF WILDAN AFFANDI', 'DEWILSON'],
+      ['WILLY PRATAMA', 'DEWILSON'],
     );
     expect(
       searchStudents(students, 'WIL').map((student) => student.name),
-      ['YUSUF WILDAN AFFANDI', 'DEWILSON'],
+      ['WILLY PRATAMA', 'DEWILSON'],
     );
   });
 
@@ -155,7 +155,7 @@ void main() {
   test('Karsa Lib membaca profil, artikel, dan balasan dari respons API', () {
     final bootstrap = LibBootstrap.fromJson({
       'profile': {
-        'display_name': 'Yusuf',
+        'display_name': 'Admin Karsa',
         'faculty': 'Ekonomi',
         'prodi_id': 'prodi-1',
         'kelas_id': null,
@@ -179,7 +179,7 @@ void main() {
       'body': 'Isi lengkap',
       'author': {
         'id': 'author-1',
-        'name': 'Yusuf',
+        'name': 'Admin Karsa',
         'prodi_name': 'Akuntansi',
       },
       'views': 2,
@@ -194,7 +194,7 @@ void main() {
 
     final comment = LibComment.fromJson({
       'id': 'comment-1',
-      'author': 'Yusuf',
+      'author': 'Admin Karsa',
       'body': null,
       'is_deleted': true,
       'is_own': false,
