@@ -18,8 +18,8 @@ import { UnduhInstallButton } from "./_components/unduh-install-button";
  * angka itu belum ada buktinya.
  *
  * Versi, tanggal, dan isi "Yang baru" diambil dari rilis GitHub terbaru
- * repo ywildan/karsa (lihat lib/unduh.ts): begitu workflow
- * karsa-mobile-build.yml menerbitkan APK baru, halaman ini menampilkan
+ * repo ywildan/karsa (lihat lib/unduh.ts): begitu workflow rilis mobile
+ * (Compose atau Flutter) menerbitkan APK baru, halaman ini menampilkan
  * fitur-fiturnya tanpa perlu deploy. Bila API GitHub gagal dijangkau,
  * halaman tetap tampil dengan keadaan fallback dan tombol instal
  * mencoba mengambil info rilis dari sisi klien.
@@ -28,7 +28,7 @@ import { UnduhInstallButton } from "./_components/unduh-install-button";
 export const metadata: Metadata = {
   title: "Unduh Aplikasi: SiKarsa",
   description:
-    "Unduh SiKarsa versi terbaru untuk Android (arm64-v8a, Android 7+): pencatatan poin keaktifan mahasiswa Universitas Tidar, langsung dari HP. File APK resmi dari GitHub Releases ywildan/karsa.",
+    "Unduh SiKarsa versi terbaru untuk Android (universal, Android 8+): pencatatan poin keaktifan mahasiswa Universitas Tidar, langsung dari HP. File APK resmi dari GitHub Releases ywildan/karsa.",
   alternates: { canonical: "/unduh" },
   robots: { index: true, follow: true },
   openGraph: {
@@ -97,7 +97,7 @@ export default async function UnduhPage() {
             <dt className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
               Arsitektur
             </dt>
-            <dd className="mt-1 text-sm font-semibold">arm64-v8a</dd>
+            <dd className="mt-1 text-sm font-semibold">Universal</dd>
           </div>
           <div>
             <dt className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
@@ -215,11 +215,11 @@ export default async function UnduhPage() {
             </div>
             <div className="flex justify-between gap-6 py-3">
               <dt className="text-muted-foreground">Arsitektur</dt>
-              <dd className="font-medium">arm64-v8a (Android 64-bit)</dd>
+              <dd className="font-medium">Universal (ARM &amp; x86)</dd>
             </div>
             <div className="flex justify-between gap-6 py-3">
               <dt className="text-muted-foreground">Android minimum</dt>
-              <dd className="font-medium">Android 7</dd>
+              <dd className="font-medium">Android 8</dd>
             </div>
             <div className="flex justify-between gap-6 py-3">
               <dt className="text-muted-foreground">Bahasa</dt>
